@@ -1,26 +1,28 @@
 
 import "regenerator-runtime/runtime";
-
-
 import { useCallback, useEffect, useState } from 'react'
 import SpeechRecognition, { ListeningOptions, useSpeechRecognition } from 'react-speech-recognition'
 import { Command } from "./types/speechRecognition";
+import VoicesDropdownSelect from "./voicesDropdownSelector";
+
+const fromLangInit = 'English' //'Hebrew'
+const toLangInit = 'English' //'Russian'
+
+const cachedVoices: any = {}
+let availableVoices: SpeechSynthesisVoice[] = []
+
+//load available voices
+setAvailableVoices()
 
 
-const fromLangInit = 'Hebrew'
-const toLangInit = 'Russian'
 export default function LanguageDashboard() {
 
-    // const [message, setMessage] = useState('')
     const [fromLang, setFromLang] = useState(mapLanguageToCode(fromLangInit))
     const [toLang, setToLang] = useState(mapLanguageToCode(toLangInit))
-    //translation
     const [translation, setTranslation] = useState('')
-
     const [transcriptHistory, setTranscriptHistory] = useState<{ finalTranscript: string, translation: string, fromLang: string, toLang: string }[]>([])
-    //set isSpeaking
-    // const [isSpeaking, setIsSpeaking] = useState(false)
-
+    const [isSpeaking, setIsSpeaking] = useState(false)
+    const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
 
     const commands: Command[] = [
         {
@@ -40,12 +42,11 @@ export default function LanguageDashboard() {
                 setToLang(langCode)
             }
         },
-
     ]
 
-
     const { finalTranscript,
-        // interimTranscript,transcript,
+        interimTranscript,
+        transcript,
         listening,
         resetTranscript,
         browserSupportsSpeechRecognition } = useSpeechRecognition({ commands })
@@ -54,74 +55,58 @@ export default function LanguageDashboard() {
         return { language: fromLang, interimResults: false, continuous: false }
     }, [fromLang])
 
-    const freeSpeech = useCallback(
-        (text: string) => {
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = toLang;
-            utterance.voice = getVoice(toLang)
-            speechSynthesis.speak(utterance)
-            utterance.onend = function (ev) {
-                console.log('finished speaking and start listening again')
-                SpeechRecognition.startListening({ language: fromLang, interimResults: false, continuous: false })
-            }
-        },
-        [fromLang,
-            toLang
-
-        ]
-    )
-
-
-    // (fromLang: string, toLang: string, text: string) => {
-    //     const utterance = new SpeechSynthesisUtterance(text);
-    //     utterance.lang = toLang;
-    //     utterance.voice = getVoice(toLang)
-    //     speechSynthesis.speak(utterance)
-    //     utterance.onend = function (ev) {
-    //         console.log('finished speaking')
-    //         SpeechRecognition.startListening({ language: fromLang, interimResults: false, continuous: false })
-    //     }
-    // }
     useEffect(() => {
-        async function func() {
-            if (finalTranscript) {
-                //        console.log( {finalTranscript, interimTranscript,transcript})
+        const freeSpeech =
+            (text: string) => {
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = toLang;
+                if (availableVoices) {
+                    const voice = getVoice(toLang)
+                    // const voice = voices.find(v => v.lang === toLang)
+                    // Object.setPrototypeOf(voice, voiceProtoRef.current || null)
+                    // utterance.voice = voice || null
+                    // console.log({ voice, selectedVoice })
+                }
+                setIsSpeaking(true)
+                speechSynthesis.speak(utterance)
 
+                utterance.onend = function (ev) {
+                    console.log('finished speaking and start listening again')
+                    setIsSpeaking(false)
+                    SpeechRecognition.startListening({ language: fromLang, interimResults: false, continuous: false })
+                }
+            }
+        async function func() {
+            if (finalTranscript && finalTranscript !== (transcriptHistory.length ? transcriptHistory[transcriptHistory.length - 1].finalTranscript : '')) {
                 if (fromLang !== toLang) {
                     const translationResult = await translate({ finalTranscript, fromLang, toLang })
                     console.log('setTranslation', translationResult)
 
-                    //when new transcription arrives - speak it out using speech syntesys.
+                    //when new transcription arrives - speak it 
                     setTranslation(translationResult)
-                    setTranscriptHistory([...transcriptHistory, { finalTranscript: finalTranscript, translation: translation, fromLang: fromLang, toLang: toLang }])
+                    setTranscriptHistory(prev => [...prev, { finalTranscript: finalTranscript, translation: translationResult, fromLang: fromLang, toLang: toLang }])
                     SpeechRecognition.abortListening().then(() => {
                         freeSpeech(translationResult);
-                    
-
-                    }).catch(e=>{
-                        console.log(e.message)
+                    }).catch(e => {
+                        console.error(e.message)
                     })
 
                 } else {
                     setTranscriptHistory([...transcriptHistory, { finalTranscript: finalTranscript, translation: '', fromLang: fromLang, toLang: toLang }])
-
                     SpeechRecognition.abortListening().then(() => {
                         freeSpeech(finalTranscript)
-                    }).catch(e=>{
-                        console.log(e.message)
+                    }).catch(e => {
+                        console.error(e.message)
                     })
                 }
             }
         }
         func()
 
-    }, [finalTranscript, fromLang, toLang, freeSpeech, translation])
+    }, [finalTranscript, fromLang, toLang, translation])
 
 
     useEffect(() => {
-        // Make sure speech recognition is not running
-
-
         async function startListening() {
             try {
                 await SpeechRecognition.startListening(getListeningOptions());
@@ -131,16 +116,8 @@ export default function LanguageDashboard() {
             }
         }
 
-        startListening();
-
-        // Return a cleanup function to stop listening when the component unmounts or when the `listening` prop changes
-        return () => {
-            if (listening) {
-                SpeechRecognition.abortListening();
-                console.log('Abort listening');
-            }
-        };
-    }, [listening, getListeningOptions]);
+        if (!isSpeaking && !listening) { startListening(); }
+    }, [listening, getListeningOptions, isSpeaking]);
 
 
 
@@ -149,36 +126,42 @@ export default function LanguageDashboard() {
         return null
     }
 
-    // function getListeningOptions(): ListeningOptions {
-    //     return { language: fromLang, interimResults: false, continuous: false }
-    // }
-
     return (
         <div>
             <p>Microphone: {listening ? 'on' : 'off'}</p>
             <button onClick={SpeechRecognition.stopListening}>Stop</button>
-            <button onClick={() => SpeechRecognition.startListening(getListeningOptions())}>Start</button>
+            <button disabled={listening} onClick={() => SpeechRecognition.startListening(getListeningOptions())}>Start</button>
             <button onClick={resetTranscript}>Reset Transcript</button>
 
+            <VoicesDropdownSelect voices={availableVoices} toLang={toLang} setToLang={setToLang} selectedVoice={selectedVoice}
+                setSelectedVoice={setSelectedVoice} />
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                     <label style={{ marginRight: '10px' }}>finalTranscript:</label>
-                    <input type="text" value={finalTranscript} style={{ marginLeft: 'auto' }} />
+                    <input type="text" value={finalTranscript} style={{ marginLeft: 'auto' }} readOnly />
                 </div>
-
+                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                    <label style={{ marginRight: '10px' }}>transcript:</label>
+                    <input type="text" value={transcript} style={{ marginLeft: 'auto' }} readOnly />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                    <label style={{ marginRight: '10px' }}>interimTranscript:</label>
+                    <input type="text" value={interimTranscript} style={{ marginLeft: 'auto' }} readOnly />
+                </div>
                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                     <label style={{ marginRight: '10px' }}>translation:</label>
-                    <input type="text" value={translation} style={{ marginLeft: 'auto' }} />
+                    <input type="text" value={translation} style={{ marginLeft: 'auto' }} readOnly />
                 </div>
+
 
                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                     <label style={{ marginRight: '10px' }}>fromLang:</label>
-                    <input type="text" value={fromLang} style={{ marginLeft: 'auto' }} />
+                    <input type="text" value={fromLang} style={{ marginLeft: 'auto' }} readOnly />
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                     <label style={{ marginRight: '10px' }}>toLang:</label>
-                    <input type="text" value={toLang} style={{ marginLeft: 'auto' }} />
+                    <input type="text" value={toLang} style={{ marginLeft: 'auto' }} readOnly />
                 </div>
             </div>
             {/* iterate the list: transcriptHistory, use rtl direction depand on the language , show a table with header:fromLang,toLang*/}
@@ -208,24 +191,21 @@ export default function LanguageDashboard() {
             </table>
         </div>
     );
-
-
-
 }
-function getVoice(language: string) {
-    const cachedVoices: any = {}
 
+
+
+function getVoice(language: string): SpeechSynthesisVoice {
     if (cachedVoices.hasOwnProperty(language)) { return cachedVoices[language] }
-
     const lowercasedLanguage = language.replace('_', '-')
-    const voices = speechSynthesis.getVoices();
-    const filteredVoices = voices.filter(r => r.lang === lowercasedLanguage)
+    const filteredVoices = availableVoices.filter((r: SpeechSynthesisVoice) => r.lang === lowercasedLanguage)
     const length = filteredVoices.length
     const voice = filteredVoices[Math.floor(Math.random() * length)]
     //cache voice
     cachedVoices[language] = voice
     return voice
 }
+
 
 const mapLanguageToCode = (language: string): string => {
     //pick language code
@@ -269,4 +249,29 @@ const translate = ({ finalTranscript, fromLang, toLang }: { finalTranscript: str
         .catch(err => {
             console.error(err.message); return `error, ${err.message}`
         })
+}
+
+function setAvailableVoices() {
+    const populateVoiceList = () => {
+        if (typeof speechSynthesis === 'undefined') {
+            return;
+        }
+
+        availableVoices = speechSynthesis.getVoices();
+
+        console.log(availableVoices.map(voice => ({
+            name: voice.name,
+            lang: voice.lang,
+            default: voice.default,
+            localService: voice.localService,
+            voiceURI: voice.voiceURI
+        })));
+    };
+
+    if (
+        typeof speechSynthesis !== 'undefined' &&
+        speechSynthesis.onvoiceschanged !== undefined
+    ) {
+        speechSynthesis.onvoiceschanged = populateVoiceList;
+    }
 }
