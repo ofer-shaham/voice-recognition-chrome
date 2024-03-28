@@ -17,10 +17,7 @@ jobs:
         uses: actions/checkout@master
         with:
           persist-credentials: false
-          submodules: true  # TODO remove this if not using submodules in Hexo
-
-      - name: Install 🔧
-        run: yarn install
+          # submodules: true  # TODO remove this if not using submodules in Hexo
 
       - name: Build 🏗️
         run: |
