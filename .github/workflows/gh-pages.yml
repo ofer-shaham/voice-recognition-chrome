@@ -36,10 +36,10 @@ jobs:
 
       - run: npm ci
       - run: npm run build
-      - name: Build 🏗️
-        run: |
-          npm clean
-          npm build
+      # - name: Build 🏗️
+      #   run: |
+      #     npm clean
+      #     npm build
 
       - name: Deploy to GH Pages 🚀
         uses: peaceiris/actions-gh-pages@v3
