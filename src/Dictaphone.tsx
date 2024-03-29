@@ -64,7 +64,7 @@ export default function LanguageDashboard() {
                     const voice = getVoice(toLang)
                     // const voice = voices.find(v => v.lang === toLang)
                     // Object.setPrototypeOf(voice, voiceProtoRef.current || null)
-                    // utterance.voice = voice || null
+                    utterance.voice = voice || null
                     // console.log({ voice, selectedVoice })
                 }
                 setIsSpeaking(true)
