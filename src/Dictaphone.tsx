@@ -1,5 +1,3 @@
-
-// import "regenerator-runtime/runtime";
 import { useCallback, useEffect, useState } from 'react'
 import SpeechRecognition, { ListeningOptions, useSpeechRecognition } from 'react-speech-recognition'
 import { Command } from "./types/speechRecognition";
