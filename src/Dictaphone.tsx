@@ -5,6 +5,7 @@ import SpeechRecognition, { ListeningOptions, useSpeechRecognition } from 'react
 import { Command } from "./types/speechRecognition";
 import VoicesDropdownSelect from "./voicesDropdownSelector";
 import { availableVoices } from './services/AvailableVoices';
+import { Transcriptions } from 'openai/resources/audio/transcriptions';
 
 const fromLangInit = 'English' //'Hebrew'
 const toLangInit = 'English' //'Russian'
@@ -86,7 +87,7 @@ export default function LanguageDashboard() {
                     setTranslation(translationResult)
                     setTranscriptHistory(prev => [...prev, { finalTranscript: finalTranscript, translation: translationResult, fromLang: fromLang, toLang: toLang }])
                     SpeechRecognition.abortListening().then(() => {
-                        if (!ignore) { freeSpeech(translationResult); } 
+                        if (!ignore) { freeSpeech(translationResult); }
                     }).catch(e => {
                         console.error(e.message)
                     })
@@ -105,7 +106,7 @@ export default function LanguageDashboard() {
         return () => {
             ignore = true;
         }
-    }, [finalTranscript, fromLang, toLang, setTranscriptHistory])
+    }, [finalTranscript, fromLang, toLang, transcriptHistory, setTranscriptHistory])
 
 
     useEffect(() => {
