@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 
 // export interface  SpeechSynthesisVoice as   Voice;
 // {
@@ -19,14 +19,15 @@ const VoicesDropdownSelect = ({ voices, selectedVoice, setSelectedVoice, toLang,
         console.info('change language to ', toLang)
         if (!voices?.length) return;
         const voice = voices.find(r => r.lang === toLang)
-        setSelectedVoice(voice || null)
+        voice && setSelectedVoice(voice)
 
-    }, [voices, toLang])
+
+    }, [voices, toLang, setSelectedVoice])
 
     const handleVoiceSelect = (event: React.ChangeEvent<HTMLSelectElement>) => {
         const selectedLang = event.target.value;
-        const selectedVoice = voices.find((voice) => voice.lang === selectedLang) || null;
-        setSelectedVoice(selectedVoice);
+        const selectedVoice = voices.find((voice) => voice.lang === selectedLang);
+        selectedVoice && setSelectedVoice(selectedVoice);
     };
     return (
         <div>

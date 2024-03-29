@@ -1,18 +1,17 @@
 
-import "regenerator-runtime/runtime";
+// import "regenerator-runtime/runtime";
 import { useCallback, useEffect, useState } from 'react'
 import SpeechRecognition, { ListeningOptions, useSpeechRecognition } from 'react-speech-recognition'
 import { Command } from "./types/speechRecognition";
 import VoicesDropdownSelect from "./voicesDropdownSelector";
+import { availableVoices } from './services/AvailableVoices';
 
 const fromLangInit = 'English' //'Hebrew'
 const toLangInit = 'English' //'Russian'
 
 const cachedVoices: any = {}
-let availableVoices: SpeechSynthesisVoice[] = []
 
 //load available voices
-setAvailableVoices()
 
 
 export default function LanguageDashboard() {
@@ -56,6 +55,7 @@ export default function LanguageDashboard() {
     }, [fromLang])
 
     useEffect(() => {
+        let ignore = false;
         const freeSpeech =
             (text: string) => {
                 const utterance = new SpeechSynthesisUtterance(text);
@@ -64,7 +64,7 @@ export default function LanguageDashboard() {
                     const voice = getVoice(toLang)
                     // const voice = voices.find(v => v.lang === toLang)
                     // Object.setPrototypeOf(voice, voiceProtoRef.current || null)
-                    // utterance.voice = voice || null
+                    utterance.voice = voice || null
                     // console.log({ voice, selectedVoice })
                 }
                 setIsSpeaking(true)
@@ -77,7 +77,7 @@ export default function LanguageDashboard() {
                 }
             }
         async function func() {
-            if (finalTranscript && finalTranscript !== (transcriptHistory.length ? transcriptHistory[transcriptHistory.length - 1].finalTranscript : '')) {
+            if (finalTranscript && (transcriptHistory.length ? finalTranscript !== transcriptHistory[transcriptHistory.length - 1].finalTranscript : true)) {
                 if (fromLang !== toLang) {
                     const translationResult = await translate({ finalTranscript, fromLang, toLang })
                     console.log('setTranslation', translationResult)
@@ -86,13 +86,13 @@ export default function LanguageDashboard() {
                     setTranslation(translationResult)
                     setTranscriptHistory(prev => [...prev, { finalTranscript: finalTranscript, translation: translationResult, fromLang: fromLang, toLang: toLang }])
                     SpeechRecognition.abortListening().then(() => {
-                        freeSpeech(translationResult);
+                        if (!ignore) { freeSpeech(translationResult); } 
                     }).catch(e => {
                         console.error(e.message)
                     })
 
                 } else {
-                    setTranscriptHistory([...transcriptHistory, { finalTranscript: finalTranscript, translation: '', fromLang: fromLang, toLang: toLang }])
+                    setTranscriptHistory(prev => [...prev, { finalTranscript: finalTranscript, translation: '', fromLang: fromLang, toLang: toLang }])
                     SpeechRecognition.abortListening().then(() => {
                         freeSpeech(finalTranscript)
                     }).catch(e => {
@@ -102,8 +102,10 @@ export default function LanguageDashboard() {
             }
         }
         func()
-
-    }, [finalTranscript, fromLang, toLang, translation])
+        return () => {
+            ignore = true;
+        }
+    }, [finalTranscript, fromLang, toLang, setTranscriptHistory])
 
 
     useEffect(() => {
@@ -135,6 +137,7 @@ export default function LanguageDashboard() {
 
             <VoicesDropdownSelect voices={availableVoices} toLang={toLang} setToLang={setToLang} selectedVoice={selectedVoice}
                 setSelectedVoice={setSelectedVoice} />
+
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                     <label style={{ marginRight: '10px' }}>finalTranscript:</label>
@@ -245,33 +248,11 @@ const translate = ({ finalTranscript, fromLang, toLang }: { finalTranscript: str
     //fetch result using free google api:
     return fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${fromLang}&tl=${toLang}&dt=t&q=${encodeURIComponent(finalTranscript)}`)
         .then(res => res.json())
-        .then(data => data[0][0][0]) // data[0].map((t: any[]) => t[0]).join('')
+        .then(data => {
+            const y = data[0][0][0]
+            return y
+        }) // data[0].map((t: any[]) => t[0]).join('')
         .catch(err => {
             console.error(err.message); return `error, ${err.message}`
         })
-}
-
-function setAvailableVoices() {
-    const populateVoiceList = () => {
-        if (typeof speechSynthesis === 'undefined') {
-            return;
-        }
-
-        availableVoices = speechSynthesis.getVoices();
-
-        console.log(availableVoices.map(voice => ({
-            name: voice.name,
-            lang: voice.lang,
-            default: voice.default,
-            localService: voice.localService,
-            voiceURI: voice.voiceURI
-        })));
-    };
-
-    if (
-        typeof speechSynthesis !== 'undefined' &&
-        speechSynthesis.onvoiceschanged !== undefined
-    ) {
-        speechSynthesis.onvoiceschanged = populateVoiceList;
-    }
 }
