@@ -5,7 +5,7 @@ import SpeechRecognition, { ListeningOptions, useSpeechRecognition } from 'react
 import { Command } from "./types/speechRecognition";
 import VoicesDropdownSelect from "./voicesDropdownSelector";
 import { availableVoices } from './services/AvailableVoices';
-import { Transcriptions } from 'openai/resources/audio/transcriptions';
+
 
 const fromLangInit = 'English' //'Hebrew'
 const toLangInit = 'English' //'Russian'
