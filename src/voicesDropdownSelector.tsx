@@ -7,22 +7,24 @@ import React, { useEffect } from 'react';
 //   default: boolean;
 // }
 
-const VoicesDropdownSelect = ({ voices, selectedVoice, setSelectedVoice, toLang, setToLang }: {
+const VoicesDropdownSelect = ({ voices, selectedVoice, setSelectedVoice, toLang, setToLang, isMobile }: {
     voices: SpeechSynthesisVoice[],
     toLang: string, setToLang: React.Dispatch<React.SetStateAction<string>>
     , selectedVoice: SpeechSynthesisVoice | null, setSelectedVoice: React.Dispatch<React.SetStateAction<SpeechSynthesisVoice | null>>
+    , isMobile: boolean
 
+    
 }) => {
 
 
     useEffect(() => {
         console.info('change language to ', toLang)
         if (!voices?.length) return;
-        const voice = voices.find(r => r.lang === toLang)
+        const voice = voices.find(r => r.lang === (isMobile ? toLang.replace('-', '_') : toLang))
         voice && setSelectedVoice(voice)
 
 
-    }, [voices, toLang, setSelectedVoice])
+    }, [voices, toLang, setSelectedVoice, isMobile])
 
     const handleVoiceSelect = (event: React.ChangeEvent<HTMLSelectElement>) => {
         const selectedLang = event.target.value;

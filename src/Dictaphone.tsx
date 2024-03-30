@@ -20,7 +20,10 @@ export default function LanguageDashboard() {
     const [transcriptHistory, setTranscriptHistory] = useState<{ uuid: number, finalTranscript1: string, translation: string, fromLang: string, toLang: string }[]>([])
     const [isSpeaking, setIsSpeaking] = useState(false)
     const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
-    const isModeFinalTranscript = !isMobile;
+    const [isInterimResults, setIsInterimResults] = useState(false)
+    const [isContinuous, setIsContinuous] = useState(false)
+    const isModeFinalTranscript = true; //!isMobile;
+
 
     const commands: Command[] = [
         {
@@ -51,20 +54,20 @@ export default function LanguageDashboard() {
     let finalTranscript1 = isModeFinalTranscript ? finalTranscript : transcript
 
     const getListeningOptions = useCallback((): ListeningOptions => {
-        return { language: fromLang, interimResults: false, continuous: false }
-    }, [fromLang])
+        return { language: fromLang, interimResults: isInterimResults, continuous: isContinuous }
+    }, [fromLang, isContinuous, isInterimResults])
 
     useEffect(() => {
         let ignore = false;
         const freeSpeech =
             (text: string) => {
                 const utterance = new SpeechSynthesisUtterance(text);
-                utterance.lang = toLang;
+                // utterance.lang = toLang;
                 if (availableVoices) {
-                    const voice = getVoice(toLang)
+                    const voice = getVoice(toLang, isMobile)
                     utterance.voice = voice || null
                 } else {
-                    console.warn('no voices available')
+                    console.error('no voices available')
                 }
 
                 speechSynthesis.speak(utterance)
@@ -72,7 +75,7 @@ export default function LanguageDashboard() {
                 utterance.onend = function (ev) {
                     console.log('finished speaking and start listening again')
                     setIsSpeaking(false)
-                    SpeechRecognition.startListening({ language: fromLang, interimResults: false, continuous: false })
+                    SpeechRecognition.startListening(getListeningOptions())
                 }
             }
         async function func() {
@@ -103,7 +106,7 @@ export default function LanguageDashboard() {
         return () => {
             ignore = true;
         }
-    }, [finalTranscript1, fromLang, toLang, transcriptHistory, setTranscriptHistory])
+    }, [finalTranscript1, fromLang, toLang, transcriptHistory, setTranscriptHistory, getListeningOptions])
 
 
     useEffect(() => {
@@ -131,9 +134,31 @@ export default function LanguageDashboard() {
             <p>Microphone: {listening ? 'on' : 'off'}</p>
             <button onClick={SpeechRecognition.stopListening}>Stop</button>
             <button disabled={listening} onClick={() => SpeechRecognition.startListening(getListeningOptions())}>Start</button>
+            <button disabled={listening} onClick={() => SpeechRecognition.startListening(getListeningOptions())}>toggle mode</button>
+            <div>
+                <label>
+                    Interim Results:
+                    <input
+                        type="checkbox"
+                        checked={isInterimResults}
+                        onChange={() => setIsInterimResults(!isInterimResults)}
+                    />
+                </label>
+                <br />
+                <label>
+                    Continuous:
+                    <input
+                        type="checkbox"
+                        checked={isContinuous}
+                        onChange={() => setIsContinuous(!isContinuous)}
+                    />
+                </label>
+            </div>
+
+
             <button onClick={resetTranscript}>Reset Transcript</button>
 
-            <VoicesDropdownSelect voices={availableVoices} toLang={toLang} setToLang={setToLang} selectedVoice={selectedVoice}
+            <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setToLang={setToLang} selectedVoice={selectedVoice}
                 setSelectedVoice={setSelectedVoice} />
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -176,8 +201,8 @@ export default function LanguageDashboard() {
                     </tr>
                 </thead>
                 <tbody>
-                    {transcriptHistory.reverse().map((r, i) => <tr key={r.uuid}>
-                        <td>{i}</td>
+                    {[...transcriptHistory].reverse().map((r, i) => <tr key={r.uuid}>
+                        <td>{r.uuid}</td>
                         <td>{r.fromLang}</td>
                         <td>{r.toLang}</td>
                         <td>{r.finalTranscript1}</td>
@@ -191,11 +216,11 @@ export default function LanguageDashboard() {
 
 
 
-function getVoice(language: string): SpeechSynthesisVoice {
+function getVoice(language: string, isMobile: boolean): SpeechSynthesisVoice {
     if (cachedVoices.hasOwnProperty(language)) {
         console.log('return voice', { cached_voice: cachedVoices[language] }); return cachedVoices[language]
     }
-    const lowercasedLanguage = language.replace('_', '-')
+    const lowercasedLanguage = isMobile ? language.replace('-', '_') : language
     const filteredVoices = availableVoices.filter((r: SpeechSynthesisVoice) => r.lang === lowercasedLanguage)
     const length = filteredVoices.length
     const voice = filteredVoices[Math.floor(Math.random() * length)]
