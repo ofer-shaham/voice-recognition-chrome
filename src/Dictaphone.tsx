@@ -30,6 +30,7 @@ export default function LanguageDashboard() {
     const [isContinuous, setIsContinuous] = useState(false)
     const [isTranslatingFromTranscript, setIstranslatingFromTranscript] = useState(false)
     const [finalTranscript1, setFinalTranscript1] = useState('');
+    // const [prevTranscript, setPrevTranscript] = useState('');
 
 
     const commands: Command[] = [
@@ -75,7 +76,7 @@ export default function LanguageDashboard() {
                 const utterance = new SpeechSynthesisUtterance(text);
                 if (availableVoices) {
                     const voice = getVoice(toLang, isMobile)
-                    utterance.lang = voice.lang; //TODO: may need to replace between _ ,-
+                    utterance.lang = voice.lang.replace('_','-'); //TODO: may need to replace between _ ,-
                     utterance.voice = voice || null
                 } else {
                     console.error('no voices available')
