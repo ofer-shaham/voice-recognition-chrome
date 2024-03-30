@@ -10,20 +10,17 @@ interface LanguageMap {
     [key: string]: string;
 }
 
-const fromLangInit = 'English'
-const toLangInit = 'English'
-
 const cachedVoices: any = {}
 
 export default function LanguageDashboard() {
 
-    const [fromLang, setFromLang] = useState(mapLanguageToCode(fromLangInit))
-    const [toLang, setToLang] = useState(mapLanguageToCode(toLangInit))
+    const [fromLang, setFromLang] = useState('en-US')
+    const [toLang, setToLang] = useState('en-US')
     const [translation, setTranslation] = useState('')
-    const [isModeFinalTranscript, setIsModeFinalTranscript] = useState<boolean>(!isMobile)
     const [transcriptHistory, setTranscriptHistory] = useState<{ uuid: number, finalTranscript1: string, translation: string, fromLang: string, toLang: string }[]>([])
     const [isSpeaking, setIsSpeaking] = useState(false)
     const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
+    const isModeFinalTranscript = !isMobile;
 
     const commands: Command[] = [
         {
