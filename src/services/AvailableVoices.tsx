@@ -18,6 +18,7 @@ function setAvailableVoices() {
             voiceURI: voice.voiceURI
         })));
     };
+    populateVoiceList();
 
     if (
         typeof speechSynthesis !== 'undefined' &&
