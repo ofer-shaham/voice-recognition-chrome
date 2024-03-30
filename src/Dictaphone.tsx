@@ -3,7 +3,11 @@ import SpeechRecognition, { ListeningOptions, useSpeechRecognition } from 'react
 import { Command } from "./types/speechRecognition";
 import VoicesDropdownSelect from "./voicesDropdownSelector";
 import { availableVoices } from './services/AvailableVoices';
+import languageMap from './consts/languageMap.json';
 
+interface LanguageMap {
+    [key: string]: string;
+}
 
 const fromLangInit = 'English' //'Hebrew'
 const toLangInit = 'English' //'Russian'
@@ -18,7 +22,7 @@ export default function LanguageDashboard() {
     const [fromLang, setFromLang] = useState(mapLanguageToCode(fromLangInit))
     const [toLang, setToLang] = useState(mapLanguageToCode(toLangInit))
     const [translation, setTranslation] = useState('')
-    const [transcriptHistory, setTranscriptHistory] = useState<{ finalTranscript: string, translation: string, fromLang: string, toLang: string }[]>([])
+    const [transcriptHistory, setTranscriptHistory] = useState<{ uuid: number, finalTranscript: string, translation: string, fromLang: string, toLang: string }[]>([])
     const [isSpeaking, setIsSpeaking] = useState(false)
     const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
 
@@ -65,10 +69,12 @@ export default function LanguageDashboard() {
                     // Object.setPrototypeOf(voice, voiceProtoRef.current || null)
                     utterance.voice = voice || null
                     // console.log({ voice, selectedVoice })
+                } else {
+                    console.warn('no voices available')
                 }
-                setIsSpeaking(true)
-                speechSynthesis.speak(utterance)
 
+                speechSynthesis.speak(utterance)
+                utterance.onstart = function (ev) { setIsSpeaking(true) }
                 utterance.onend = function (ev) {
                     console.log('finished speaking and start listening again')
                     setIsSpeaking(false)
@@ -79,19 +85,20 @@ export default function LanguageDashboard() {
             if (finalTranscript && (transcriptHistory.length ? finalTranscript !== transcriptHistory[transcriptHistory.length - 1].finalTranscript : true)) {
                 if (fromLang !== toLang) {
                     const translationResult = await translate({ finalTranscript, fromLang, toLang })
+                    if (ignore) return
                     console.log('setTranslation', translationResult)
 
                     //when new transcription arrives - speak it 
                     setTranslation(translationResult)
-                    setTranscriptHistory(prev => [...prev, { finalTranscript: finalTranscript, translation: translationResult, fromLang: fromLang, toLang: toLang }])
+                    setTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscript: finalTranscript, translation: translationResult, fromLang: fromLang, toLang: toLang }])
                     SpeechRecognition.abortListening().then(() => {
-                        if (!ignore) { freeSpeech(translationResult); }
+                        freeSpeech(translationResult);
                     }).catch(e => {
                         console.error(e.message)
                     })
 
                 } else {
-                    setTranscriptHistory(prev => [...prev, { finalTranscript: finalTranscript, translation: '', fromLang: fromLang, toLang: toLang }])
+                    setTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscript: finalTranscript, translation: '', fromLang: fromLang, toLang: toLang }])
                     SpeechRecognition.abortListening().then(() => {
                         freeSpeech(finalTranscript)
                     }).catch(e => {
@@ -140,7 +147,7 @@ export default function LanguageDashboard() {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                     <label style={{ marginRight: '10px' }}>finalTranscript:</label>
-                    <input type="text" value={finalTranscript} style={{ marginLeft: 'auto' }} readOnly />
+                    <input type="text" value={transcriptHistory.length ? transcriptHistory[transcriptHistory.length - 1].finalTranscript : ''} style={{ marginLeft: 'auto' }} readOnly />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                     <label style={{ marginRight: '10px' }}>transcript:</label>
@@ -175,19 +182,15 @@ export default function LanguageDashboard() {
                         <th>toLang</th>
                         <th>finalTranscript</th>
                         <th>translation</th>
-
-
                     </tr>
                 </thead>
                 <tbody>
-                    {transcriptHistory.map((r, i) => <tr key={i}>
+                    {transcriptHistory.reverse().map((r, i) => <tr key={r.uuid}>
                         <td>{i}</td>
                         <td>{r.fromLang}</td>
                         <td>{r.toLang}</td>
                         <td>{r.finalTranscript}</td>
                         <td>{r.translation}</td>
-
-
                     </tr>)}
                 </tbody>
             </table>
@@ -198,50 +201,38 @@ export default function LanguageDashboard() {
 
 
 function getVoice(language: string): SpeechSynthesisVoice {
-    if (cachedVoices.hasOwnProperty(language)) { return cachedVoices[language] }
+    if (cachedVoices.hasOwnProperty(language)) {
+        console.log('return voice', { cached_voice: cachedVoices[language] }); return cachedVoices[language]
+    }
     const lowercasedLanguage = language.replace('_', '-')
     const filteredVoices = availableVoices.filter((r: SpeechSynthesisVoice) => r.lang === lowercasedLanguage)
     const length = filteredVoices.length
     const voice = filteredVoices[Math.floor(Math.random() * length)]
     //cache voice
     cachedVoices[language] = voice
+    console.log('return voice', { voice })
     return voice
 }
 
 
 const mapLanguageToCode = (language: string): string => {
-    //pick language code
-    switch (language.toLowerCase()) {
-        case 'hebrew':
-            return 'he-IL'
-        //add polland
-        case 'polish':
-            return 'pl-PL'
-        // return 'iw-IL'
-        case 'english':
-            return 'en-US'
-        case 'french':
-            return 'fr-FR'
-        case 'spanish':
-            return 'es-ES'
-        case 'german':
-            return 'de-DE'
-        case 'portuguese':
-            return 'pt-PT'
-        case 'russian':
-            return 'ru-RU'
-        case 'chinese':
-            return 'zh-CN'
-        case 'japanese':
-            return 'ja-JP'
-        case 'korean':
-            return 'ko-KR'
-        case 'arabic':
-            return 'ar-SA'
-        default:
-            return 'en-US'
+    const map: LanguageMap = languageMap;
+    console.log({ language })
+    if (!map) {
+        console.error('Invalid languageMap');
+        return 'en-US';
     }
-}
+
+    const normalizedLanguage = language.toLowerCase();
+    for (const key in map) {
+        if (key.toLowerCase().includes(normalizedLanguage)) {
+            return map[key];
+        }
+    }
+
+    return 'en-US';
+};
+
 
 const translate = ({ finalTranscript, fromLang, toLang }: { finalTranscript: string, fromLang: string, toLang: string }): Promise<string> => {
     //fetch result using free google api:

@@ -27,7 +27,11 @@ const VoicesDropdownSelect = ({ voices, selectedVoice, setSelectedVoice, toLang,
     const handleVoiceSelect = (event: React.ChangeEvent<HTMLSelectElement>) => {
         const selectedLang = event.target.value;
         const selectedVoice = voices.find((voice) => voice.lang === selectedLang);
-        selectedVoice && setSelectedVoice(selectedVoice);
+        if (selectedVoice) {
+
+            setSelectedVoice(selectedVoice);
+            setToLang(selectedLang);
+        }
     };
     return (
         <div>
