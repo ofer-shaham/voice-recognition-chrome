@@ -12,7 +12,7 @@ function setAvailableVoices() {
 
         console.log(availableVoices.map(voice => ({
             name: voice.name,
-            lang: voice.lang,
+            lang: voice.lang.replace('_', '-'),
             default: voice.default,
             localService: voice.localService,
             voiceURI: voice.voiceURI
