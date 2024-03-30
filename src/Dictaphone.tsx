@@ -12,8 +12,17 @@ finalTranscript1 - is the source for a tts/translation operation. it replace the
 current solution: update its content based on changes to the transcription. when its not updated for 2 seconds - we force a content recycle.
 */
 
+const LIMIT_ARR_CUT = 5
+const LIMIT_ARR_CUT_FINAL = 2
+
 interface LanguageMap {
     [key: string]: string;
+}
+interface TranscriptHistory {
+    finalTranscript1: string; uuid: number; fromLang: string; toLang: string;
+}
+interface FinalTranscriptHistory {
+    finalTranscript1: string; uuid: number; translation: string; fromLang: string; toLang: string;
 }
 
 const cachedVoices: any = {}
@@ -23,14 +32,21 @@ export default function LanguageDashboard() {
     const [fromLang, setFromLang] = useState('en-US')
     const [toLang, setToLang] = useState('en-US')
     const [translation, setTranslation] = useState('')
-    const [transcriptHistory, setTranscriptHistory] = useState<{ uuid: number, finalTranscript1: string, translation: string, fromLang: string, toLang: string }[]>([])
+    const [transcriptHistory, setTranscriptHistory1] = useState<TranscriptHistory[]>([])
+
+    const [finalTranscriptHistory, setFinalTranscriptHistory] = useState<FinalTranscriptHistory[]>([])
     const [isSpeaking, setIsSpeaking] = useState(false)
     const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
     const [isInterimResults, setIsInterimResults] = useState(false)
     const [isContinuous, setIsContinuous] = useState(false)
     const [isTranslatingFromTranscript, setIstranslatingFromTranscript] = useState(false)
     const [finalTranscript1, setFinalTranscript1] = useState('');
-    // const [prevTranscript, setPrevTranscript] = useState('');
+    const [prevTranscript, setPrevTranscript] = useState('');
+    const [danger, setDanger] = useState(false);
+
+
+
+
 
 
     const commands: Command[] = [
@@ -70,13 +86,56 @@ export default function LanguageDashboard() {
     }, [fromLang, isContinuous, isInterimResults])
 
     useEffect(() => {
+        let timeoutId: NodeJS.Timeout | null = null;
+
+        const resetDanger = () => {
+            setDanger(true);
+            timeoutId = setTimeout(() => {
+                setDanger(false);
+            }, 2000);
+        };
+
+        if (!listening && !isSpeaking) {
+            resetDanger();
+        } else {
+            setDanger(false);
+            timeoutId && clearTimeout(timeoutId);
+        }
+
+        return () => {
+            timeoutId && clearTimeout(timeoutId);
+        };
+    }, [listening, isSpeaking]);
+
+    useEffect(() => {
+
+        // if (!transcript){
+        //     //recycle prevTranscript
+
+        // }
+        if (transcript.includes(prevTranscript))//.length<prevTranscript.length){
+        {
+            setPrevTranscript(transcript)
+        } else {
+            //keep last survivor
+            if (finalTranscript1 !== prevTranscript) {
+                setTranscriptHistory1(prev => [...prev, { uuid: Date.now(), fromLang, toLang, finalTranscript1: prevTranscript }]);
+            }
+            setPrevTranscript(transcript)
+        }
+        // return {
+        //     setPrevTranscript(transcript)
+        // }
+    }, [prevTranscript, transcript, setFinalTranscript1, setTranscriptHistory1, finalTranscript1, fromLang, toLang])
+
+    useEffect(() => {
         let ignore = false;
         const freeSpeech =
             (text: string) => {
                 const utterance = new SpeechSynthesisUtterance(text);
                 if (availableVoices) {
                     const voice = getVoice(toLang, isMobile)
-                    utterance.lang = voice.lang.replace('_','-'); //TODO: may need to replace between _ ,-
+                    utterance.lang = voice.lang.replace('_', '-'); //TODO: may need to replace between _ ,-
                     utterance.voice = voice || null
                 } else {
                     console.error('no voices available')
@@ -91,21 +150,21 @@ export default function LanguageDashboard() {
                 }
             }
         async function func() {
-            if (finalTranscript1 && (transcriptHistory.length ? finalTranscript1 !== transcriptHistory[transcriptHistory.length - 1].finalTranscript1 : true)) {
+            if (finalTranscript1 && (finalTranscriptHistory.length ? finalTranscript1 !== finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscript1 : true)) {
                 if (fromLang !== toLang) {
                     const translationResult = await translate({ finalTranscript1, fromLang, toLang })
                     if (ignore) return
                     console.log('setTranslation', translationResult)
 
                     setTranslation(translationResult)
-                    setTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscript1: finalTranscript1, translation: translationResult, fromLang: fromLang, toLang: toLang }])
+                    setFinalTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscript1: finalTranscript1, translation: translationResult, fromLang: fromLang, toLang: toLang }])
                     SpeechRecognition.stopListening().then(() => {
                         freeSpeech(translationResult);
                     }).catch(e => {
                         console.error(e.message)
                     })
                 } else {
-                    setTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscript1: finalTranscript1, translation: '', fromLang: fromLang, toLang: toLang }])
+                    setFinalTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscript1: finalTranscript1, translation: '', fromLang: fromLang, toLang: toLang }])
                     SpeechRecognition.stopListening().then(() => {
                         freeSpeech(finalTranscript1)
                     }).catch(e => {
@@ -118,7 +177,7 @@ export default function LanguageDashboard() {
         return () => {
             ignore = true;
         }
-    }, [finalTranscript1, fromLang, toLang, transcriptHistory, setTranscriptHistory, getListeningOptions])
+    }, [finalTranscript1, fromLang, toLang, finalTranscriptHistory, setFinalTranscriptHistory, getListeningOptions])
 
 
     useEffect(() => {
@@ -148,7 +207,7 @@ export default function LanguageDashboard() {
                 resetTranscript();
             }, 2000);
         }
-        // else if (finalTranscript && transcriptHistory[transcriptHistory.length - 1].finalTranscript1 !== finalTranscript) {
+        // else if (finalTranscript && finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscript1 !== finalTranscript) {
         //     setFinalTranscript1(finalTranscript);
 
         // }
@@ -171,8 +230,10 @@ export default function LanguageDashboard() {
     }
 
     return (
-        <div>
+        <div style={{ background: danger ? 'green' : 'grey' }}>
+
             <p>Microphone: {listening ? 'on' : 'off'}</p>
+
             <button onClick={SpeechRecognition.stopListening}>Stop</button>
             <button disabled={listening} onClick={() => SpeechRecognition.startListening(getListeningOptions())}>Start</button>
             <button disabled={listening} onClick={() => SpeechRecognition.startListening(getListeningOptions())}>toggle mode</button>
@@ -213,7 +274,7 @@ export default function LanguageDashboard() {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                     <label style={{ marginRight: '10px' }}>finalTranscript1:</label>
-                    <input type="text" value={transcriptHistory.length ? transcriptHistory[transcriptHistory.length - 1].finalTranscript1 : ''} style={{ marginLeft: 'auto' }} readOnly />
+                    <input type="text" value={finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscript1 : ''} style={{ marginLeft: 'auto' }} readOnly />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                     <label style={{ marginRight: '10px' }}>finalTranscript:</label>
@@ -247,6 +308,7 @@ export default function LanguageDashboard() {
                     <input type="text" value={toLang} style={{ marginLeft: 'auto' }} readOnly />
                 </div>
             </div>
+
             <table>
                 <thead>
                     <tr>
@@ -258,12 +320,30 @@ export default function LanguageDashboard() {
                     </tr>
                 </thead>
                 <tbody>
-                    {[...transcriptHistory].reverse().map((r, i) => <tr key={r.uuid}>
+                    {finalTranscriptHistory.slice(-LIMIT_ARR_CUT_FINAL).reverse().map((r, i) => <tr key={r.uuid}>
                         <td>{r.uuid}</td>
                         <td>{r.fromLang}</td>
                         <td>{r.toLang}</td>
                         <td>{r.finalTranscript1}</td>
                         <td>{r.translation}</td>
+                    </tr>)}
+                </tbody>
+            </table>
+            <table>
+                <thead>
+                    <tr>
+                        <th>id</th>
+                        <th>fromLang</th>
+                        <th>toLang</th>
+                        <th>finalTranscript</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {transcriptHistory.slice(-LIMIT_ARR_CUT).reverse().map((r, i) => <tr key={r.uuid}>
+                        <td>{r.uuid}</td>
+                        <td>{r.fromLang}</td>
+                        <td>{r.toLang}</td>
+                        <td>{r.finalTranscript1}</td>
                     </tr>)}
                 </tbody>
             </table>
