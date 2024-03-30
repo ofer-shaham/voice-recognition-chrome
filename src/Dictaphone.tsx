@@ -107,25 +107,25 @@ export default function LanguageDashboard() {
         };
     }, [listening, isSpeaking]);
 
+
+    /**
+     * keep transcript that haven't reach the final stage
+     * on mobile - advance it to final stage
+     */
     useEffect(() => {
+        const completlyNewTranscript = !transcript.includes(prevTranscript)
+        const alreadyStagedTranscript = finalTranscript1 === prevTranscript
+        const keepSurvivorBeforeLost = completlyNewTranscript && !alreadyStagedTranscript
 
-        // if (!transcript){
-        //     //recycle prevTranscript
-
-        // }
-        if (transcript.includes(prevTranscript))//.length<prevTranscript.length){
-        {
-            setPrevTranscript(transcript)
-        } else {
-            //keep last survivor
-            if (finalTranscript1 !== prevTranscript) {
-                setTranscriptHistory1(prev => [...prev, { uuid: Date.now(), fromLang, toLang, finalTranscript1: prevTranscript }]);
+        //keep transcription that missed the final stage
+        if (keepSurvivorBeforeLost) {
+            setTranscriptHistory1(prev => [...prev, { uuid: Date.now(), fromLang, toLang, finalTranscript1: prevTranscript }]);
+            //on mobile we need to compansate for depected update to finalTranscript
+            if (isMobile) {
+                setFinalTranscript1(prevTranscript);
             }
-            setPrevTranscript(transcript)
         }
-        // return {
-        //     setPrevTranscript(transcript)
-        // }
+        setPrevTranscript(transcript)
     }, [prevTranscript, transcript, setFinalTranscript1, setTranscriptHistory1, finalTranscript1, fromLang, toLang])
 
     useEffect(() => {
@@ -143,14 +143,19 @@ export default function LanguageDashboard() {
 
                 speechSynthesis.speak(utterance)
                 utterance.onstart = function (ev) { setIsSpeaking(true) }
+                utterance.onerror = function (ev) { console.error({ ev }) }
+                utterance.onboundary = function (ev) { console.info('onboundary', { ev }) }
+                utterance.onmark = function (ev) { console.info('onmark', { ev }) }
+
                 utterance.onend = function (ev) {
                     console.log('finished speaking and start listening again')
                     setIsSpeaking(false)
                     SpeechRecognition.startListening(getListeningOptions())
                 }
             }
-        async function func() {
-            if (finalTranscript1 && (finalTranscriptHistory.length ? finalTranscript1 !== finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscript1 : true)) {
+        async function translate_and_speek() {
+            const newFinalArrived = finalTranscript1 && (finalTranscriptHistory.length ? finalTranscript1 !== finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscript1 : true)
+            if (newFinalArrived) {
                 if (fromLang !== toLang) {
                     const translationResult = await translate({ finalTranscript1, fromLang, toLang })
                     if (ignore) return
@@ -173,7 +178,7 @@ export default function LanguageDashboard() {
                 }
             }
         }
-        func()
+        translate_and_speek()
         return () => {
             ignore = true;
         }
@@ -193,33 +198,35 @@ export default function LanguageDashboard() {
         if (!isSpeaking && !listening) { resetTranscript(); startListening(); }
     }, [listening, getListeningOptions, isSpeaking, resetTranscript]);
 
+    /*
+        issue: on mobile when language is hebrew - the transcript gets accumulated without getting cleaned up.
+        solution: recycle it(mv its content to finalTranscript1) if the next update is delayed. 
+    */
+    // useEffect(() => {
+    //     if (!isMobile) return;
 
-    //issue: on mobile when language is hebrew - the transcript gets accumulated without getting cleaned up.
-    //solution: recycle it(mv its content to finalTranscript1) if the next update is delayed. 
+    //     let timeoutId: NodeJS.Timeout;
+
+    //     if (transcript) {
+    //         timeoutId = setTimeout(() => {
+    //             // recycle existing transcript content: mv its content to finalTranscript
+    //             setFinalTranscript1(transcript);
+    //             resetTranscript();
+    //         }, 2000);
+    //     }
+    //     // else if (finalTranscript && finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscript1 !== finalTranscript) {
+    //     //     setFinalTranscript1(finalTranscript);
+
+    //     // }
+
+    //     return () => {
+    //         clearTimeout(timeoutId);
+    //     };
+    // }, [transcript, setFinalTranscript1, resetTranscript]);
+
+
     useEffect(() => {
-        if (!isMobile) return;
-        let timeoutId: NodeJS.Timeout;
-
-        if (transcript) {
-            timeoutId = setTimeout(() => {
-                // recycle existing transcript content: mv its content to finalTranscript
-                setFinalTranscript1(transcript);
-                resetTranscript();
-            }, 2000);
-        }
-        // else if (finalTranscript && finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscript1 !== finalTranscript) {
-        //     setFinalTranscript1(finalTranscript);
-
-        // }
-
-        return () => {
-            clearTimeout(timeoutId);
-        };
-    }, [transcript, setFinalTranscript1, resetTranscript]);
-
-
-    useEffect(() => {
-        if (isMobile) return;
+        if (isMobile) { console.info('finally arrive', { finalTranscript }) };
         setFinalTranscript1(finalTranscript);
     }, [finalTranscript, setFinalTranscript1])
 
@@ -230,7 +237,7 @@ export default function LanguageDashboard() {
     }
 
     return (
-        <div style={{ background: danger ? 'green' : 'grey' }}>
+        <div style={{ background: danger ? 'grey' : 'green' }}>
 
             <p>Microphone: {listening ? 'on' : 'off'}</p>
 
@@ -239,7 +246,7 @@ export default function LanguageDashboard() {
             <button disabled={listening} onClick={() => SpeechRecognition.startListening(getListeningOptions())}>toggle mode</button>
             <div>
                 <label>
-                    Interim Results:
+                    Interim Results:{isInterimResults ? 'yes' : 'no'}
                     <input
                         type="checkbox"
                         checked={isInterimResults}
@@ -248,7 +255,7 @@ export default function LanguageDashboard() {
                 </label>
                 <br />
                 <label>
-                    Continuous:
+                    Continuous:{isContinuous ? 'yes' : 'no'}
                     <input
                         type="checkbox"
                         checked={isContinuous}
@@ -273,17 +280,17 @@ export default function LanguageDashboard() {
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                    <label style={{ marginRight: '10px' }}>finalTranscript1:</label>
+                    <label style={{ marginRight: '10px' }}>history:</label>
                     <input type="text" value={finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscript1 : ''} style={{ marginLeft: 'auto' }} readOnly />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                     <label style={{ marginRight: '10px' }}>finalTranscript:</label>
                     <input type="text" value={finalTranscript} style={{ marginLeft: 'auto' }} readOnly />
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                {/* <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                     <label style={{ marginRight: '10px' }}>finalTranscript1:</label>
                     <input type="text" value={finalTranscript1} style={{ marginLeft: 'auto' }} readOnly />
-                </div>
+                </div> */}
                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                     <label style={{ marginRight: '10px' }}>transcript:</label>
                     <input type="text" value={transcript} style={{ marginLeft: 'auto' }} readOnly />
@@ -297,18 +304,20 @@ export default function LanguageDashboard() {
                     <input type="text" value={translation} style={{ marginLeft: 'auto' }} readOnly />
                 </div>
 
+                <div style={{ display: 'flex', flexDirection: 'row' }}>
 
-                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                    <label style={{ marginRight: '10px' }}>fromLang:</label>
-                    <input type="text" value={fromLang} style={{ marginLeft: 'auto' }} readOnly />
-                </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <label style={{ marginRight: '10px' }}>fromLang:</label>
+                        <input type="text" value={fromLang} style={{ marginLeft: 'auto' }} readOnly />
+                    </div>
 
-                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                    <label style={{ marginRight: '10px' }}>toLang:</label>
-                    <input type="text" value={toLang} style={{ marginLeft: 'auto' }} readOnly />
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                        <label style={{ marginRight: '10px' }}>toLang:</label>
+                        <input type="text" value={toLang} style={{ marginLeft: 'auto' }} readOnly />
+                    </div>
                 </div>
             </div>
-
+            <p>finalTranscriptHistory</p>
             <table>
                 <thead>
                     <tr>
@@ -329,6 +338,7 @@ export default function LanguageDashboard() {
                     </tr>)}
                 </tbody>
             </table>
+            <p>transcriptHistory</p>
             <table>
                 <thead>
                     <tr>
