@@ -6,6 +6,12 @@ import { availableVoices } from './services/AvailableVoices';
 import languageMap from './consts/languageMap.json';
 import { isMobile } from './services/isMobile';
 
+
+/*
+finalTranscript1 - is the source for a tts/translation operation. it replace the finalTranslcript functionality when the client is Mobile.
+current solution: update its content based on changes to the transcription. when its not updated for 2 seconds - we force a content recycle.
+*/
+
 interface LanguageMap {
     [key: string]: string;
 }
@@ -22,7 +28,8 @@ export default function LanguageDashboard() {
     const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
     const [isInterimResults, setIsInterimResults] = useState(false)
     const [isContinuous, setIsContinuous] = useState(false)
-    const isModeFinalTranscript = true; //!isMobile;
+    const [isTranslatingFromTranscript, setIstranslatingFromTranscript] = useState(false)
+    const [finalTranscript1, setFinalTranscript1] = useState('');
 
 
     const commands: Command[] = [
@@ -51,7 +58,11 @@ export default function LanguageDashboard() {
         listening,
         resetTranscript,
         browserSupportsSpeechRecognition } = useSpeechRecognition({ commands })
-    let finalTranscript1 = isModeFinalTranscript ? finalTranscript : transcript
+
+    // if (!isMobile) {
+    //     //act as stupid proxy
+    //     setFinalTranscript1(finalTranscript)
+    // }
 
     const getListeningOptions = useCallback((): ListeningOptions => {
         return { language: fromLang, interimResults: isInterimResults, continuous: isContinuous }
@@ -62,9 +73,9 @@ export default function LanguageDashboard() {
         const freeSpeech =
             (text: string) => {
                 const utterance = new SpeechSynthesisUtterance(text);
-                // utterance.lang = toLang;
                 if (availableVoices) {
                     const voice = getVoice(toLang, isMobile)
+                    utterance.lang = voice.lang; //TODO: may need to replace between _ ,-
                     utterance.voice = voice || null
                 } else {
                     console.error('no voices available')
@@ -123,6 +134,35 @@ export default function LanguageDashboard() {
     }, [listening, getListeningOptions, isSpeaking, resetTranscript]);
 
 
+    //issue: on mobile when language is hebrew - the transcript gets accumulated without getting cleaned up.
+    //solution: recycle it(mv its content to finalTranscript1) if the next update is delayed. 
+    useEffect(() => {
+        if (!isMobile) return;
+        let timeoutId: NodeJS.Timeout;
+
+        if (transcript) {
+            timeoutId = setTimeout(() => {
+                // recycle existing transcript content: mv its content to finalTranscript
+                setFinalTranscript1(transcript);
+                resetTranscript();
+            }, 2000);
+        }
+        // else if (finalTranscript && transcriptHistory[transcriptHistory.length - 1].finalTranscript1 !== finalTranscript) {
+        //     setFinalTranscript1(finalTranscript);
+
+        // }
+
+        return () => {
+            clearTimeout(timeoutId);
+        };
+    }, [transcript, setFinalTranscript1, resetTranscript]);
+
+
+    useEffect(() => {
+        if (isMobile) return;
+        setFinalTranscript1(finalTranscript);
+    }, [finalTranscript, setFinalTranscript1])
+
 
     if (!browserSupportsSpeechRecognition) {
         console.error('Your browser does not support speech recognition!')
@@ -152,6 +192,14 @@ export default function LanguageDashboard() {
                         checked={isContinuous}
                         onChange={() => setIsContinuous(!isContinuous)}
                     />
+                </label>                <br />
+                <label>
+                    traslate from transcript:
+                    <input
+                        type="checkbox"
+                        checked={isTranslatingFromTranscript}
+                        onChange={() => setIstranslatingFromTranscript(!isTranslatingFromTranscript)}
+                    />
                 </label>
             </div>
 
@@ -165,6 +213,14 @@ export default function LanguageDashboard() {
                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                     <label style={{ marginRight: '10px' }}>finalTranscript1:</label>
                     <input type="text" value={transcriptHistory.length ? transcriptHistory[transcriptHistory.length - 1].finalTranscript1 : ''} style={{ marginLeft: 'auto' }} readOnly />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                    <label style={{ marginRight: '10px' }}>finalTranscript:</label>
+                    <input type="text" value={finalTranscript} style={{ marginLeft: 'auto' }} readOnly />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                    <label style={{ marginRight: '10px' }}>finalTranscript1:</label>
+                    <input type="text" value={finalTranscript1} style={{ marginLeft: 'auto' }} readOnly />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                     <label style={{ marginRight: '10px' }}>transcript:</label>
