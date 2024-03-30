@@ -120,7 +120,7 @@ export default function LanguageDashboard() {
         }
 
         if (!isSpeaking && !listening) { resetTranscript(); startListening(); }
-    }, [listening, getListeningOptions, isSpeaking]);
+    }, [listening, getListeningOptions, isSpeaking, resetTranscript]);
 
 
 
