@@ -129,7 +129,8 @@ export default function LanguageDashboard() {
     }, [prevTranscript, transcript, setFinalTranscript1, setTranscriptHistory1, finalTranscript1, fromLang, toLang])
 
     useEffect(() => {
-        let ignore = false;
+        if (!finalTranscript1) return
+        //let ignore = false;
         const freeSpeech =
             (text: string) => {
                 const utterance = new SpeechSynthesisUtterance(text);
@@ -154,11 +155,11 @@ export default function LanguageDashboard() {
                 }
             }
         async function translate_and_speek() {
-            const newFinalArrived = finalTranscript1 && (finalTranscriptHistory.length ? finalTranscript1 !== finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscript1 : true)
+            const newFinalArrived = (finalTranscriptHistory.length ? finalTranscript1 !== finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscript1 : true)
             if (newFinalArrived) {
                 if (fromLang !== toLang) {
                     const translationResult = await translate({ finalTranscript1, fromLang, toLang })
-                    if (ignore) return
+                    //if (ignore) return
                     console.log('setTranslation', translationResult)
 
                     setTranslation(translationResult)
@@ -179,9 +180,9 @@ export default function LanguageDashboard() {
             }
         }
         translate_and_speek()
-        return () => {
-            ignore = true;
-        }
+        // return () => {
+        //     ignore = true;
+        // }
     }, [finalTranscript1, fromLang, toLang, finalTranscriptHistory, setFinalTranscriptHistory, getListeningOptions])
 
 
