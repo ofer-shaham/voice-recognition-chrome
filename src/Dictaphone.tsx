@@ -14,6 +14,7 @@ current solution: update its content based on changes to the transcription. when
 
 const LIMIT_ARR_CUT = 5
 const LIMIT_ARR_CUT_FINAL = 2
+const DELAY_LISTENING_RESTART = 1000
 
 interface LanguageMap {
     [key: string]: string;
@@ -43,11 +44,7 @@ export default function LanguageDashboard() {
     const [finalTranscript1, setFinalTranscript1] = useState('');
     const [prevTranscript, setPrevTranscript] = useState('');
     const [danger, setDanger] = useState(false);
-
-
-
-
-
+    const [isLoading, setIsLoading] = useState(false);
 
     const commands: Command[] = [
         {
@@ -68,18 +65,15 @@ export default function LanguageDashboard() {
             }
         },
     ]
-
     const { finalTranscript,
         interimTranscript,
         transcript,
         listening,
         resetTranscript,
         browserSupportsSpeechRecognition } = useSpeechRecognition({ commands })
+    const onVacation = !listening && !isSpeaking && !isLoading
 
-    // if (!isMobile) {
-    //     //act as stupid proxy
-    //     setFinalTranscript1(finalTranscript)
-    // }
+
 
     const getListeningOptions = useCallback((): ListeningOptions => {
         return { language: fromLang, interimResults: isInterimResults, continuous: isContinuous }
@@ -95,7 +89,7 @@ export default function LanguageDashboard() {
             }, 2000);
         };
 
-        if (!listening && !isSpeaking) {
+        if (onVacation) {
             resetDanger();
         } else {
             setDanger(false);
@@ -105,7 +99,7 @@ export default function LanguageDashboard() {
         return () => {
             timeoutId && clearTimeout(timeoutId);
         };
-    }, [listening, isSpeaking]);
+    }, [onVacation]);
 
 
     /**
@@ -130,6 +124,7 @@ export default function LanguageDashboard() {
 
     useEffect(() => {
         if (!finalTranscript1) return
+        setIsLoading(true)
         //let ignore = false;
         const freeSpeech =
             (text: string) => {
@@ -151,7 +146,8 @@ export default function LanguageDashboard() {
                 utterance.onend = function (ev) {
                     console.log('finished speaking and start listening again')
                     setIsSpeaking(false)
-                    SpeechRecognition.startListening(getListeningOptions())
+                    setIsLoading(false)
+
                 }
             }
         async function translate_and_speek() {
@@ -180,13 +176,13 @@ export default function LanguageDashboard() {
             }
         }
         translate_and_speek()
-        // return () => {
-        //     ignore = true;
-        // }
-    }, [finalTranscript1, fromLang, toLang, finalTranscriptHistory, setFinalTranscriptHistory, getListeningOptions])
+
+    }, [finalTranscript1, fromLang, toLang, finalTranscriptHistory, setFinalTranscriptHistory])
 
 
     useEffect(() => {
+
+        let timeoutId: NodeJS.Timeout | null = null
         async function startListening() {
             try {
                 await SpeechRecognition.startListening(getListeningOptions());
@@ -196,34 +192,13 @@ export default function LanguageDashboard() {
             }
         }
 
-        if (!isSpeaking && !listening) { resetTranscript(); startListening(); }
-    }, [listening, getListeningOptions, isSpeaking, resetTranscript]);
+        if (onVacation) { timeoutId = setTimeout(startListening, isMobile ? DELAY_LISTENING_RESTART : 0) }
 
-    /*
-        issue: on mobile when language is hebrew - the transcript gets accumulated without getting cleaned up.
-        solution: recycle it(mv its content to finalTranscript1) if the next update is delayed. 
-    */
-    // useEffect(() => {
-    //     if (!isMobile) return;
+        return () => { timeoutId && clearTimeout(timeoutId) }
 
-    //     let timeoutId: NodeJS.Timeout;
+    }, [getListeningOptions, onVacation]);
 
-    //     if (transcript) {
-    //         timeoutId = setTimeout(() => {
-    //             // recycle existing transcript content: mv its content to finalTranscript
-    //             setFinalTranscript1(transcript);
-    //             resetTranscript();
-    //         }, 2000);
-    //     }
-    //     // else if (finalTranscript && finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscript1 !== finalTranscript) {
-    //     //     setFinalTranscript1(finalTranscript);
 
-    //     // }
-
-    //     return () => {
-    //         clearTimeout(timeoutId);
-    //     };
-    // }, [transcript, setFinalTranscript1, resetTranscript]);
 
 
     useEffect(() => {
@@ -241,6 +216,7 @@ export default function LanguageDashboard() {
         <div style={{ background: danger ? 'grey' : 'green' }}>
 
             <p>Microphone: {listening ? 'on' : 'off'}</p>
+            <p>proccess: {isLoading ? 'on' : 'off'}</p>
 
             <button onClick={SpeechRecognition.stopListening}>Stop</button>
             <button disabled={listening} onClick={() => SpeechRecognition.startListening(getListeningOptions())}>Start</button>
@@ -281,7 +257,7 @@ export default function LanguageDashboard() {
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                    <label style={{ marginRight: '10px' }}>history:</label>
+                    <label style={{ marginRight: '10px' }}>finalTranscript1 history:</label>
                     <input type="text" value={finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscript1 : ''} style={{ marginLeft: 'auto' }} readOnly />
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
