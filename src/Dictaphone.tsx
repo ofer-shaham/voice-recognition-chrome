@@ -87,14 +87,14 @@ export default function LanguageDashboard() {
 
                     setTranslation(translationResult)
                     setTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscript1: finalTranscript1, translation: translationResult, fromLang: fromLang, toLang: toLang }])
-                    SpeechRecognition.abortListening().then(() => {
+                    SpeechRecognition.stopListening().then(() => {
                         freeSpeech(translationResult);
                     }).catch(e => {
                         console.error(e.message)
                     })
                 } else {
                     setTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscript1: finalTranscript1, translation: '', fromLang: fromLang, toLang: toLang }])
-                    SpeechRecognition.abortListening().then(() => {
+                    SpeechRecognition.stopListening().then(() => {
                         freeSpeech(finalTranscript1)
                     }).catch(e => {
                         console.error(e.message)
@@ -119,7 +119,7 @@ export default function LanguageDashboard() {
             }
         }
 
-        if (!isSpeaking && !listening) { startListening(); }
+        if (!isSpeaking && !listening) { resetTranscript(); startListening(); }
     }, [listening, getListeningOptions, isSpeaking]);
 
 
