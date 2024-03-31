@@ -45,6 +45,8 @@ export default function LanguageDashboard() {
     const [danger, setDanger] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
+    const speechUtteranceRef = useRef(null);
+
     const commands: Command[] = [
         {
             command: 'translate (from) * to *',
@@ -160,10 +162,9 @@ export default function LanguageDashboard() {
                         console.log('finished speaking and start listening again')
                         setIsSpeaking(false)
                         setIsLoading(false)
-
                     }
-                    speechSynthesis.speak(utterance)
-
+                    speechUtteranceRef.current = utterance;
+                    speechSynthesis.speak(speechUtteranceRef.current);
                 } catch (e) {
                     console.error(e)
                 }
