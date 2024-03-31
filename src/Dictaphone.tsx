@@ -16,6 +16,11 @@ const LIMIT_ARR_CUT = 5
 const LIMIT_ARR_CUT_FINAL = 2
 const DELAY_LISTENING_RESTART = 1000
 
+const instructions = {
+    "speak_english": 'say "speak english" - for making the application repeat what you say in english',
+    "translate_from_to": "say 'translate from hebrew to russian' - for making the application recognize speech in hebrew and speak out the russian translation"
+}
+
 interface LanguageMap {
     [key: string]: string;
 }
@@ -42,12 +47,12 @@ export default function LanguageDashboard() {
     const [isContinuous, setIsContinuous] = useState(false)
     const [finalTranscript1, setFinalTranscript1] = useState('');
     const [prevTranscript, setPrevTranscript] = useState('');
-    const [danger, setDanger] = useState(false);
+    // const [danger, setDanger] = useState(false);
 
 
     const commands: Command[] = [
         {
-            command: '(please) translate (from) * to *',
+            command: 'translate (from) * to *',
             callback: (fromLang: string, toLang: string) => {
                 const fromCode = mapLanguageToCode(fromLang)
                 const toCode = mapLanguageToCode(toLang)
@@ -70,35 +75,14 @@ export default function LanguageDashboard() {
         listening,
         resetTranscript,
         browserSupportsSpeechRecognition } = useSpeechRecognition({ commands })
-    const onVacation = !listening && !isSpeaking
-
-
 
     const getListeningOptions = useCallback((): ListeningOptions => {
         return { language: fromLang, interimResults: isInterimResults, continuous: isContinuous }
     }, [fromLang, isContinuous, isInterimResults])
 
-    useEffect(() => {
-        let timeoutId: NodeJS.Timeout | null = null;
-
-        const resetDanger = () => {
-            setDanger(true);
-            timeoutId = setTimeout(() => {
-                setDanger(false);
-            }, 2000);
-        };
-
-        if (onVacation) {
-            resetDanger();
-        } else {
-            setDanger(false);
-            timeoutId && clearTimeout(timeoutId);
-        }
-
-        return () => {
-            timeoutId && clearTimeout(timeoutId);
-        };
-    }, [onVacation]);
+    const startListening = useCallback((): Promise<void> | never => {
+        return SpeechRecognition.startListening(getListeningOptions()).catch(e => { throw new Error(e.message) });
+    }, [getListeningOptions])
 
 
     useEffect(() => {
@@ -142,56 +126,45 @@ export default function LanguageDashboard() {
     useEffect(() => {
         if (!finalTranscript1) return;
         setIsSpeaking(true)
-        //let ignore = false;
+        let ignore = false;
 
         async function translate_and_speek() {
             const newFinalArrived = (finalTranscriptHistory.length ? finalTranscript1 !== finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscript1 : true)
             if (newFinalArrived) {
                 if (fromLang !== toLang) {
                     const translationResult = await translate({ finalTranscript1, fromLang, toLang })
-                    //if (ignore) return
+                    if (ignore) return
                     console.log('setTranslation', translationResult)
 
                     setTranslation(translationResult)
                     setFinalTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscript1: finalTranscript1, translation: translationResult, fromLang: fromLang, toLang: toLang }])
                     await SpeechRecognition.abortListening().catch(e => {
                         console.error(e)
-                        // throw new Error(e.message)
                     })
-
                 } else {
                     setFinalTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscript1: finalTranscript1, translation: '', fromLang: fromLang, toLang: toLang }])
                     await SpeechRecognition.abortListening().catch(e => {
                         console.error(e)
-                        // throw new Error(e.message)
                     })
-
                 }
             }
         }
         translate_and_speek()
-
+        return () => { ignore = true }
     }, [finalTranscript1, fromLang, toLang, finalTranscriptHistory, setFinalTranscriptHistory])
 
 
     useEffect(() => {
+        console.log('init app');
 
+    }, [])
+
+    useEffect(() => {
         let timeoutId: NodeJS.Timeout | null = null
-        async function startListening() {
-            try {
-                resetTranscript()
-                await SpeechRecognition.startListening(getListeningOptions());
-                console.log('Started listening');
-            } catch (error) {
-                console.error(error);
-            }
-        }
 
-        if (onVacation) { timeoutId = setTimeout(startListening, isMobile ? DELAY_LISTENING_RESTART : 0) }
-
+        if (!isSpeaking) { timeoutId = setTimeout(startListening, isMobile ? DELAY_LISTENING_RESTART : DELAY_LISTENING_RESTART) }
         return () => { timeoutId && clearTimeout(timeoutId) }
-
-    }, [getListeningOptions, resetTranscript, onVacation]);
+    }, [isSpeaking, startListening]);
 
 
 
@@ -208,11 +181,12 @@ export default function LanguageDashboard() {
     }
 
     return (
-        <div style={{ background: isSpeaking ? 'blue' : (danger ? 'grey' : 'green') }}>
-            <div>
+        <div style={{ background: isSpeaking ? 'blue' : (listening ? 'green' : 'grey') }}>
+            <div id="instructions" style={{ background: 'black' }} >
                 <h1>How to use:</h1>
-                <p>"speak english" - to reset source and destination language</p>
-                <p>"translate from hebrew to russian" -   recognized hebrew and speak out the russian translation</p>
+                <h2>SAY:</h2>
+                <p onClick={() => { freeSpeech(instructions.speak_english) }}>{instructions.speak_english}</p>
+                <p onClick={() => { freeSpeech(instructions.translate_from_to) }}>{instructions.translate_from_to}</p>
                 <a href="https://github.com/ofer-shaham/voice-recognition-chrome">source code</a>
             </div>
 
@@ -381,7 +355,7 @@ const translate = ({ finalTranscript1, fromLang, toLang }: { finalTranscript1: s
 }
 
 
-const freeSpeech = (text: string, toLang: string): Promise<void> => {
+const freeSpeech = (text: string, toLang: string = 'en-US'): Promise<void> => {
     console.log('freeSpeech', { text, toLang })
     return new Promise((resolve: any, reject: any) => {
         const utterance = new SpeechSynthesisUtterance(text);
