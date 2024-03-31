@@ -145,20 +145,25 @@ export default function LanguageDashboard() {
                     alert(event.error)
                 });
                 try {
-                    speechSynthesis.speak(utterance)
                     utterance.onstart = function (ev) { setIsSpeaking(true) }
-                    utterance.onerror = function (ev) { console.error({ ev }) }
+                    utterance.onerror = function (event) {
+                        console.log(
+                            `An error has occurred with the speech synthesis: ${event.error}`,
+                        );
+                        alert(event.error)
+                    }
                     utterance.onboundary = function (ev) { console.info('onboundary', { ev }) }
                     utterance.onmark = function (ev) { console.info('onmark', { ev }) }
                     utterance.onpause = function (ev) { console.info('onpause', { ev }) }
                     utterance.onresume = function (ev) { console.info('onresume', { ev }) }
-                    
                     utterance.onend = function (ev) {
                         console.log('finished speaking and start listening again')
                         setIsSpeaking(false)
                         setIsLoading(false)
 
                     }
+                    speechSynthesis.speak(utterance)
+
                 } catch (e) {
                     console.error(e)
                 }
@@ -208,7 +213,7 @@ export default function LanguageDashboard() {
 
         return () => { timeoutId && clearTimeout(timeoutId) }
 
-    }, [getListeningOptions,resetTranscript, onVacation]);
+    }, [getListeningOptions, resetTranscript, onVacation]);
 
 
 
