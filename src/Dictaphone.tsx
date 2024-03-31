@@ -230,7 +230,7 @@ export default function LanguageDashboard() {
     }
 
     return (
-        <div style={{ background: danger ? 'grey' : 'green' }}>
+        <div style={{ background: isLoading ? 'blue' : (danger ? 'grey' : 'green') }}>
             <div>
                 <h1>How to use:</h1>
                 <p>"speak english" - to reset source and destination language</p>
