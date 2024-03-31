@@ -40,7 +40,6 @@ export default function LanguageDashboard() {
     const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
     const [isInterimResults, setIsInterimResults] = useState(false)
     const [isContinuous, setIsContinuous] = useState(false)
-    const [isTranslatingFromTranscript, setIstranslatingFromTranscript] = useState(false)
     const [finalTranscript1, setFinalTranscript1] = useState('');
     const [prevTranscript, setPrevTranscript] = useState('');
     const [danger, setDanger] = useState(false);
@@ -214,13 +213,17 @@ export default function LanguageDashboard() {
 
     return (
         <div style={{ background: danger ? 'grey' : 'green' }}>
-
+            <div>
+                <h1>How to use:</h1>
+                <p>"speak english" - to reset source and destination language</p>
+                <p>"translate from hebrew to russian" -   recognized hebrew and speak out the russian translation</p>
+                <a href="https://github.com/ofer-shaham/voice-recognition-chrome">source code</a>
+            </div>
             <p>Microphone: {listening ? 'on' : 'off'}</p>
-            <p>proccess: {isLoading ? 'on' : 'off'}</p>
+            <p>currently proccess: {isLoading ? 'yes' : 'no'}</p>
 
             <button onClick={SpeechRecognition.stopListening}>Stop</button>
             <button disabled={listening} onClick={() => SpeechRecognition.startListening(getListeningOptions())}>Start</button>
-            <button disabled={listening} onClick={() => SpeechRecognition.startListening(getListeningOptions())}>toggle mode</button>
             <div>
                 <label>
                     Interim Results:{isInterimResults ? 'yes' : 'no'}
@@ -239,14 +242,7 @@ export default function LanguageDashboard() {
                         onChange={() => setIsContinuous(!isContinuous)}
                     />
                 </label>                <br />
-                <label>
-                    traslate from transcript:
-                    <input
-                        type="checkbox"
-                        checked={isTranslatingFromTranscript}
-                        onChange={() => setIstranslatingFromTranscript(!isTranslatingFromTranscript)}
-                    />
-                </label>
+
             </div>
 
 
