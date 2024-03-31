@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import SpeechRecognition, { ListeningOptions, useSpeechRecognition } from 'react-speech-recognition'
 import { Command } from "./types/speechRecognition";
 import VoicesDropdownSelect from "./voicesDropdownSelector";
@@ -43,9 +43,7 @@ export default function LanguageDashboard() {
     const [finalTranscript1, setFinalTranscript1] = useState('');
     const [prevTranscript, setPrevTranscript] = useState('');
     const [danger, setDanger] = useState(false);
-    const [isLoading, setIsLoading] = useState(false);
 
-    const speechUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
     const commands: Command[] = [
         {
@@ -72,7 +70,7 @@ export default function LanguageDashboard() {
         listening,
         resetTranscript,
         browserSupportsSpeechRecognition } = useSpeechRecognition({ commands })
-    const onVacation = !listening && !isSpeaking && !isLoading
+    const onVacation = !listening && !isSpeaking 
 
 
 
@@ -124,50 +122,10 @@ export default function LanguageDashboard() {
     }, [prevTranscript, transcript, setFinalTranscript1, setTranscriptHistory1, finalTranscript1, fromLang, toLang])
 
     useEffect(() => {
-        if (!finalTranscript1) return
-        setIsLoading(true)
+        if (!finalTranscript1) return;
+        setIsSpeaking(true)
         //let ignore = false;
-        const freeSpeech =
-            (text: string) => {
-                const utterance = new SpeechSynthesisUtterance(text);
-                if (availableVoices) {
-                    const voice = getVoice(toLang, isMobile)
-                    if (!voice) {
-                        console.warn('error - no voice found for language:', toLang)
-                    } else { utterance.voice = voice; }
-                    utterance.lang = toLang; //.replace('_', '-'); //TODO: may need to replace between _ ,-
-                } else {
-                    console.error('no voices available')
-                }
-                utterance.addEventListener("error", (event: SpeechSynthesisErrorEvent) => {
-                    console.log(
-                        `An error has occurred with the speech synthesis: ${event.error}`,
-                    );
-                    alert(event.error)
-                });
-                try {
-                    utterance.onstart = function (ev) { setIsSpeaking(true) }
-                    utterance.onerror = function (event) {
-                        console.log(
-                            `An error has occurred with the speech synthesis: ${event.error}`,
-                        );
-                        alert(event.error)
-                    }
-                    utterance.onboundary = function (ev) { console.info('onboundary', { ev }) }
-                    utterance.onmark = function (ev) { console.info('onmark', { ev }) }
-                    utterance.onpause = function (ev) { console.info('onpause', { ev }) }
-                    utterance.onresume = function (ev) { console.info('onresume', { ev }) }
-                    utterance.onend = function (ev) {
-                        console.log('finished speaking and start listening again')
-                        setIsSpeaking(false)
-                        setIsLoading(false)
-                    }
-                    speechUtteranceRef.current = utterance;
-                    speechSynthesis.speak(speechUtteranceRef.current);
-                } catch (e) {
-                    console.error(e)
-                }
-            }
+
         async function translate_and_speek() {
             const newFinalArrived = (finalTranscriptHistory.length ? finalTranscript1 !== finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscript1 : true)
             if (newFinalArrived) {
@@ -179,15 +137,35 @@ export default function LanguageDashboard() {
                     setTranslation(translationResult)
                     setFinalTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscript1: finalTranscript1, translation: translationResult, fromLang: fromLang, toLang: toLang }])
                     await SpeechRecognition.abortListening().catch(e => {
-                        throw new Error(e.message)
+                        console.error(e)
+                        // throw new Error(e.message)
                     })
-                    freeSpeech(translationResult);
+                    setIsSpeaking(true)
+
+                    freeSpeech(translationResult, toLang).then(() => {
+                        setIsSpeaking(false)
+
+                    }).catch(e => {
+                        console.error(e);
+                        setIsSpeaking(false)
+
+                    });
                 } else {
                     setFinalTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscript1: finalTranscript1, translation: '', fromLang: fromLang, toLang: toLang }])
                     await SpeechRecognition.abortListening().catch(e => {
-                        throw new Error(e.message)
+                        console.error(e)
+                        // throw new Error(e.message)
                     })
-                    freeSpeech(finalTranscript1)
+                    setIsSpeaking(true)
+
+                    freeSpeech(finalTranscript1, toLang).then(() => {
+                        setIsSpeaking(false)
+
+                    }).catch(e => {
+                        console.error(e);
+                        setIsSpeaking(false)
+
+                    });
                 }
             }
         }
@@ -230,7 +208,7 @@ export default function LanguageDashboard() {
     }
 
     return (
-        <div style={{ background: isLoading ? 'blue' : (danger ? 'grey' : 'green') }}>
+        <div style={{ background: isSpeaking ? 'blue' : (danger ? 'grey' : 'green') }}>
             <div>
                 <h1>How to use:</h1>
                 <p>"speak english" - to reset source and destination language</p>
@@ -238,9 +216,9 @@ export default function LanguageDashboard() {
                 <a href="https://github.com/ofer-shaham/voice-recognition-chrome">source code</a>
             </div>
             <p>Microphone: {listening ? 'on' : 'off'}</p>
-            <p>currently proccess: {isLoading ? 'yes' : 'no'}</p>
+            <p>currently proccess: {isSpeaking ? 'yes' : 'no'}</p>
 
-            <button onClick={SpeechRecognition.stopListening}>Stop</button>
+            <button onClick={() => SpeechRecognition.stopListening()}>Stop</button>
             <button disabled={listening} onClick={() => SpeechRecognition.startListening(getListeningOptions())}>Start</button>
             <div>
                 <label>
@@ -299,12 +277,13 @@ export default function LanguageDashboard() {
 
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                         <label style={{ marginRight: '10px' }}>fromLang:</label>
-                        <input type="text" value={fromLang} style={{ marginLeft: 'auto' }} readOnly />
+                        <input onChange={(ev) => { setFromLang(ev.target.value) }} type="text" value={fromLang} style={{ marginLeft: 'auto' }} />
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                         <label style={{ marginRight: '10px' }}>toLang:</label>
                         <input onChange={(ev) => { setToLang(ev.target.value) }} type="text" value={toLang} style={{ marginLeft: 'auto' }} />
+                        <button onClick={() => { freeSpeech(finalTranscript1, toLang) }}>translate</button>
                     </div>
                 </div>
             </div>
@@ -398,4 +377,50 @@ const translate = ({ finalTranscript1, fromLang, toLang }: { finalTranscript1: s
         .catch(err => {
             console.error(err.message); return `error, ${err.message}`
         })
+}
+
+
+const freeSpeech = (text: string, toLang: string): Promise<void> => {
+    return new Promise((resolve: any, reject: any) => {
+        const utterance = new SpeechSynthesisUtterance(text);
+        if (availableVoices) {
+            const voice = getVoice(toLang, isMobile)
+            if (!voice) {
+                console.warn('error - no voice found for language:', toLang)
+            } else { utterance.voice = voice; }
+            utterance.lang = toLang; //.replace('_', '-'); //TODO: may need to replace between _ ,-
+        } else {
+            console.error('no voices available')
+        }
+        utterance.addEventListener("error", (event: SpeechSynthesisErrorEvent) => {
+            console.log(
+                `An error has occurred with the speech synthesis: ${event.error}`,
+                event);
+
+        });
+        try {
+            // utterance.onstart = function (ev) { setIsSpeaking(true) }
+            utterance.onerror = function (event) {
+                console.log(
+                    `An error has occurred with the speech synthesis: ${event.error}`,
+                );
+                reject(event.error)
+            }
+            utterance.onboundary = function (ev) { console.info('onboundary', { ev }) }
+            utterance.onmark = function (ev) { console.info('onmark', { ev }) }
+            utterance.onpause = function (ev) { console.info('onpause', { ev }) }
+            utterance.onresume = function (ev) { console.info('onresume', { ev }) }
+            utterance.onend = function (ev) {
+                // console.log('finished speaking and start listening again')
+                // setIsSpeaking(false)
+                // setIsSpeaking(false)
+                resolve()
+            }
+            // speechUtteranceRef.current = utterance;
+            speechSynthesis.speak(utterance);
+        } catch (e) {
+            console.error(e)
+            reject(e)
+        }
+    })
 }
