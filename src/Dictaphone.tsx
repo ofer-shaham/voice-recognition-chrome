@@ -131,7 +131,7 @@ export default function LanguageDashboard() {
                 if (availableVoices) {
                     const voice = getVoice(toLang, isMobile)
                     if (!voice) {
-                        console.error('error - no voice found for language:' , toLang)
+                        console.warn('error - no voice found for language:' , toLang)
                     }
                     utterance.voice = voice || null
                     utterance.lang = toLang.replace('_', '-'); //TODO: may need to replace between _ ,-
@@ -162,14 +162,14 @@ export default function LanguageDashboard() {
 
                     setTranslation(translationResult)
                     setFinalTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscript1: finalTranscript1, translation: translationResult, fromLang: fromLang, toLang: toLang }])
-                    SpeechRecognition.stopListening().then(() => {
+                    SpeechRecognition.abortListening().then(() => {
                         freeSpeech(translationResult);
                     }).catch(e => {
                         console.error(e.message)
                     })
                 } else {
                     setFinalTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscript1: finalTranscript1, translation: '', fromLang: fromLang, toLang: toLang }])
-                    SpeechRecognition.stopListening().then(() => {
+                    SpeechRecognition.abortListening().then(() => {
                         freeSpeech(finalTranscript1)
                     }).catch(e => {
                         console.error(e.message)
