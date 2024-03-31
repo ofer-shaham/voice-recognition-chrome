@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import SpeechRecognition, { ListeningOptions, useSpeechRecognition } from 'react-speech-recognition'
 import { Command } from "./types/speechRecognition";
 import VoicesDropdownSelect from "./voicesDropdownSelector";
@@ -45,7 +45,7 @@ export default function LanguageDashboard() {
     const [danger, setDanger] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
-    const speechUtteranceRef = useRef(null);
+    const speechUtteranceRef = useRef<SpeechSynthesisUtterance|null>(null);
 
     const commands: Command[] = [
         {
@@ -136,7 +136,7 @@ export default function LanguageDashboard() {
                         console.warn('error - no voice found for language:', toLang)
                     }
                     utterance.voice = voice || null
-                    utterance.lang = toLang.replace('_', '-'); //TODO: may need to replace between _ ,-
+                    utterance.lang = toLang; //.replace('_', '-'); //TODO: may need to replace between _ ,-
                 } else {
                     console.error('no voices available')
                 }
