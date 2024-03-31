@@ -226,7 +226,7 @@ export default function LanguageDashboard() {
 
 
     if (!browserSupportsSpeechRecognition) {
-        console.error('Your browser does not support speech recognition!')
+        alert('Your browser does not support speech recognition!')
         return null
     }
 
@@ -305,7 +305,7 @@ export default function LanguageDashboard() {
 
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                         <label style={{ marginRight: '10px' }}>toLang:</label>
-                        <input type="text" value={toLang} style={{ marginLeft: 'auto' }} readOnly />
+                        <input onChange={(ev) => { setToLang(ev.target.value) }} type="text" value={toLang} style={{ marginLeft: 'auto' }} />
                     </div>
                 </div>
             </div>
