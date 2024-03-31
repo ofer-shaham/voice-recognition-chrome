@@ -130,7 +130,10 @@ export default function LanguageDashboard() {
                 const utterance = new SpeechSynthesisUtterance(text);
                 if (availableVoices) {
                     const voice = getVoice(toLang, isMobile)
-                    utterance.lang = voice.lang.replace('_', '-'); //TODO: may need to replace between _ ,-
+                    if (!voice) {
+                        alert('error - no voice found:' + toLang)
+                    }
+                    utterance.lang = toLang.replace('_', '-'); //TODO: may need to replace between _ ,-
                     utterance.voice = voice || null
                 } else {
                     console.error('no voices available')
