@@ -131,25 +131,36 @@ export default function LanguageDashboard() {
                 if (availableVoices) {
                     const voice = getVoice(toLang, isMobile)
                     if (!voice) {
-                        console.warn('error - no voice found for language:' , toLang)
+                        console.warn('error - no voice found for language:', toLang)
                     }
                     utterance.voice = voice || null
                     utterance.lang = toLang.replace('_', '-'); //TODO: may need to replace between _ ,-
                 } else {
                     console.error('no voices available')
                 }
+                utterance.addEventListener("error", (event: SpeechSynthesisErrorEvent) => {
+                    console.log(
+                        `An error has occurred with the speech synthesis: ${event.error}`,
+                    );
+                    alert(event.error)
+                });
+                try {
+                    speechSynthesis.speak(utterance)
+                    utterance.onstart = function (ev) { setIsSpeaking(true) }
+                    utterance.onerror = function (ev) { console.error({ ev }) }
+                    utterance.onboundary = function (ev) { console.info('onboundary', { ev }) }
+                    utterance.onmark = function (ev) { console.info('onmark', { ev }) }
+                    utterance.onpause = function (ev) { console.info('onpause', { ev }) }
+                    utterance.onresume = function (ev) { console.info('onresume', { ev }) }
+                    
+                    utterance.onend = function (ev) {
+                        console.log('finished speaking and start listening again')
+                        setIsSpeaking(false)
+                        setIsLoading(false)
 
-                speechSynthesis.speak(utterance)
-                utterance.onstart = function (ev) { setIsSpeaking(true) }
-                utterance.onerror = function (ev) { console.error({ ev }) }
-                utterance.onboundary = function (ev) { console.info('onboundary', { ev }) }
-                utterance.onmark = function (ev) { console.info('onmark', { ev }) }
-
-                utterance.onend = function (ev) {
-                    console.log('finished speaking and start listening again')
-                    setIsSpeaking(false)
-                    setIsLoading(false)
-
+                    }
+                } catch (e) {
+                    console.error(e)
                 }
             }
         async function translate_and_speek() {
@@ -162,18 +173,16 @@ export default function LanguageDashboard() {
 
                     setTranslation(translationResult)
                     setFinalTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscript1: finalTranscript1, translation: translationResult, fromLang: fromLang, toLang: toLang }])
-                    SpeechRecognition.abortListening().then(() => {
-                        freeSpeech(translationResult);
-                    }).catch(e => {
-                        console.error(e.message)
+                    await SpeechRecognition.abortListening().catch(e => {
+                        throw new Error(e.message)
                     })
+                    freeSpeech(translationResult);
                 } else {
                     setFinalTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscript1: finalTranscript1, translation: '', fromLang: fromLang, toLang: toLang }])
-                    SpeechRecognition.abortListening().then(() => {
-                        freeSpeech(finalTranscript1)
-                    }).catch(e => {
-                        console.error(e.message)
+                    await SpeechRecognition.abortListening().catch(e => {
+                        throw new Error(e.message)
                     })
+                    freeSpeech(finalTranscript1)
                 }
             }
         }
@@ -187,6 +196,7 @@ export default function LanguageDashboard() {
         let timeoutId: NodeJS.Timeout | null = null
         async function startListening() {
             try {
+                resetTranscript()
                 await SpeechRecognition.startListening(getListeningOptions());
                 console.log('Started listening');
             } catch (error) {
@@ -198,7 +208,7 @@ export default function LanguageDashboard() {
 
         return () => { timeoutId && clearTimeout(timeoutId) }
 
-    }, [getListeningOptions, onVacation]);
+    }, [getListeningOptions,resetTranscript, onVacation]);
 
 
 
