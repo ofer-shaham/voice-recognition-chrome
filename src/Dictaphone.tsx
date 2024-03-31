@@ -47,7 +47,7 @@ export default function LanguageDashboard() {
 
     const commands: Command[] = [
         {
-            command: 'translate (from) * to *',
+            command: '(please) translate (from) * to *',
             callback: (fromLang: string, toLang: string) => {
                 const fromCode = mapLanguageToCode(fromLang)
                 const toCode = mapLanguageToCode(toLang)
@@ -70,7 +70,7 @@ export default function LanguageDashboard() {
         listening,
         resetTranscript,
         browserSupportsSpeechRecognition } = useSpeechRecognition({ commands })
-    const onVacation = !listening && !isSpeaking 
+    const onVacation = !listening && !isSpeaking
 
 
 
@@ -100,6 +100,24 @@ export default function LanguageDashboard() {
         };
     }, [onVacation]);
 
+
+    useEffect(() => {
+        if (!finalTranscriptHistory.length) return
+        const speakIt = () => {
+            const target = finalTranscriptHistory[finalTranscriptHistory.length - 1]
+            setIsSpeaking(true)
+
+            freeSpeech(target.translation || target.finalTranscript1, target.toLang).then(() => {
+                setIsSpeaking(false)
+
+            }).catch(e => {
+                console.error(e);
+                setIsSpeaking(false)
+
+            });
+        }
+        speakIt()
+    }, [finalTranscriptHistory])
 
     /**
      * keep transcript that haven't reach the final stage
@@ -140,32 +158,14 @@ export default function LanguageDashboard() {
                         console.error(e)
                         // throw new Error(e.message)
                     })
-                    setIsSpeaking(true)
 
-                    freeSpeech(translationResult, toLang).then(() => {
-                        setIsSpeaking(false)
-
-                    }).catch(e => {
-                        console.error(e);
-                        setIsSpeaking(false)
-
-                    });
                 } else {
                     setFinalTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscript1: finalTranscript1, translation: '', fromLang: fromLang, toLang: toLang }])
                     await SpeechRecognition.abortListening().catch(e => {
                         console.error(e)
                         // throw new Error(e.message)
                     })
-                    setIsSpeaking(true)
 
-                    freeSpeech(finalTranscript1, toLang).then(() => {
-                        setIsSpeaking(false)
-
-                    }).catch(e => {
-                        console.error(e);
-                        setIsSpeaking(false)
-
-                    });
                 }
             }
         }
@@ -215,8 +215,9 @@ export default function LanguageDashboard() {
                 <p>"translate from hebrew to russian" -   recognized hebrew and speak out the russian translation</p>
                 <a href="https://github.com/ofer-shaham/voice-recognition-chrome">source code</a>
             </div>
-            <p>Microphone: {listening ? 'on' : 'off'}</p>
-            <p>currently proccess: {isSpeaking ? 'yes' : 'no'}</p>
+
+            <p>listening: {listening ? 'yes' : 'no'}</p>
+            <p>speaking: {isSpeaking ? 'yes' : 'no'}</p>
 
             <button onClick={() => SpeechRecognition.stopListening()}>Stop</button>
             <button disabled={listening} onClick={() => SpeechRecognition.startListening(getListeningOptions())}>Start</button>
@@ -381,6 +382,7 @@ const translate = ({ finalTranscript1, fromLang, toLang }: { finalTranscript1: s
 
 
 const freeSpeech = (text: string, toLang: string): Promise<void> => {
+    console.log('freeSpeech', { text, toLang })
     return new Promise((resolve: any, reject: any) => {
         const utterance = new SpeechSynthesisUtterance(text);
         if (availableVoices) {
