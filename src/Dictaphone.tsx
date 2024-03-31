@@ -131,10 +131,10 @@ export default function LanguageDashboard() {
                 if (availableVoices) {
                     const voice = getVoice(toLang, isMobile)
                     if (!voice) {
-                        alert('error - no voice found:' + toLang)
+                        console.error('error - no voice found for language:' , toLang)
                     }
-                    utterance.lang = toLang.replace('_', '-'); //TODO: may need to replace between _ ,-
                     utterance.voice = voice || null
+                    utterance.lang = toLang.replace('_', '-'); //TODO: may need to replace between _ ,-
                 } else {
                     console.error('no voices available')
                 }
