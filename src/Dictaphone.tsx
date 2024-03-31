@@ -45,7 +45,7 @@ export default function LanguageDashboard() {
     const [danger, setDanger] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
 
-    const speechUtteranceRef = useRef<SpeechSynthesisUtterance|null>(null);
+    const speechUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
     const commands: Command[] = [
         {
@@ -135,7 +135,7 @@ export default function LanguageDashboard() {
                     if (!voice) {
                         console.warn('error - no voice found for language:', toLang)
                     }
-                    utterance.voice = voice || null
+                    voice && utterance.voice
                     utterance.lang = toLang; //.replace('_', '-'); //TODO: may need to replace between _ ,-
                 } else {
                     console.error('no voices available')
