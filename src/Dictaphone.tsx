@@ -52,7 +52,7 @@ export default function LanguageDashboard() {
 
     const commands: Command[] = [
         {
-            command: 'translate (from) * to *',
+            command: '(please) translate (from) * to *',
             callback: (fromLang: string, toLang: string) => {
                 const fromCode = mapLanguageToCode(fromLang)
                 const toCode = mapLanguageToCode(toLang)
@@ -95,9 +95,9 @@ export default function LanguageDashboard() {
                 setIsSpeaking(false)
 
             }).catch(e => {
+                //one must click on the page in order to permit speech Synthesis 
                 console.error(e);
                 setIsSpeaking(false)
-
             });
         }
         speakIt()
