@@ -129,10 +129,8 @@ export default function LanguageDashboard() {
         //keep transcription that missed the final stage
         if (keepSurvivorBeforeLost) {
             //on mobile we need to compansate for delayed resetTranscript scheduler
-            if (isMobile) {
-                console.log('save it:' + prevTranscript)
-                // setFinalTranscriptProxy(prevTranscript);
-            }
+            console.log('skip saving it:' + prevTranscript)
+            // setFinalTranscriptProxy(prevTranscript);
         }
         setPrevTranscriptTime(prev => [prev[1], Date.now()])
         setPrevTranscript(transcript)
