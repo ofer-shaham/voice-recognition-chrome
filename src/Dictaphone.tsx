@@ -11,10 +11,13 @@ import { isMobile } from './services/isMobile';
 finalTranscript1 - is the source for a tts/translation operation. it replace the finalTranslcript functionality when the client is Mobile.
 current solution: update its content based on changes to the transcription. when its not updated for 2 seconds - we force a content recycle.
 */
+// let delta = 0
+let deltaMax = 0
 
 const LIMIT_ARR_CUT = 5
 const LIMIT_ARR_CUT_FINAL = 2
 const DELAY_LISTENING_RESTART = 1000
+const MAX_DELAY_BETWEEN_RECOGNITIONS = 3000
 
 const instructions = {
     "speak_english": 'say "speak english" - for making the application repeat what you say in english',
@@ -46,8 +49,20 @@ export default function LanguageDashboard() {
     const [isInterimResults, setIsInterimResults] = useState(false)
     const [isContinuous, setIsContinuous] = useState(false)
     const [finalTranscript1, setFinalTranscript1] = useState('');
+
+
     const [prevTranscript, setPrevTranscript] = useState('');
+    const [prevTranscriptTime, setPrevTranscriptTime] = useState<[number, number]>([Date.now(), Date.now()]);
+
     const [isModeDebug, setIsModeDebug] = useState(true)
+    const [maxDelayBetweenRecognitions, setMaxDelayBetweenRecognitions] = useState(MAX_DELAY_BETWEEN_RECOGNITIONS)
+
+
+    useEffect(() => {
+        if (prevTranscriptTime[0] - prevTranscriptTime[1] > MAX_DELAY_BETWEEN_RECOGNITIONS * 1000) {
+            console.log('longer than ', MAX_DELAY_BETWEEN_RECOGNITIONS)
+        }
+    }, [prevTranscriptTime])
 
     // const [danger, setDanger] = useState(false);
 
@@ -105,14 +120,29 @@ export default function LanguageDashboard() {
         speakIt()
     }, [finalTranscriptHistory])
 
+    // /*
+    // if transcript is freezed and its value is not moved to finalTranscript - force its renewal after X seconds
+    // */
+    // useEffect(() => {
+    //     if (!transcript) return;
+    //     if (!listening) return;
+
+    //     const lastSave = finalTranscriptHistory.length ?  finalTranscriptHistory[finalTranscriptHistory.length - 1].uuid : 0
+
+    //     if (Date.now())
+    //     setTimeout()
+    // }, [transcript, listening])
+
     /**
      * keep transcript that haven't reach the final stage
      * on mobile - advance it to final stage
      */
     useEffect(() => {
+
         const completlyNewTranscript = !transcript.includes(prevTranscript)
         const alreadyStagedTranscript = finalTranscript1 === prevTranscript
         const keepSurvivorBeforeLost = completlyNewTranscript && !alreadyStagedTranscript
+
 
         //keep transcription that missed the final stage
         if (keepSurvivorBeforeLost) {
@@ -122,8 +152,28 @@ export default function LanguageDashboard() {
                 setFinalTranscript1(prevTranscript);
             }
         }
+        //transcript is not empty
+        // else if (transcript !== prevTranscript && prevTranscriptTime) {
+        // if (Date.now() - prevTranscriptTime > maxDelayBetweenRecognitions * 1000) {
+        //     setTimeout(resetTranscript, 100)
+
+        // }
+
+        // }
+
+
+
+        setPrevTranscriptTime(prev => [prev[1], Date.now()])
         setPrevTranscript(transcript)
-    }, [prevTranscript, transcript, setFinalTranscript1, setTranscriptHistory1, finalTranscript1, fromLang, toLang])
+    }, [
+      //  'finalTranscript1', 'fromLang', 'prevTranscript', 'toLang', 'transcript'
+           maxDelayBetweenRecognitions, prevTranscriptTime, resetTranscript,
+           prevTranscript, transcript, setFinalTranscript1, setTranscriptHistory1, finalTranscript1, fromLang, toLang
+    ])
+
+    useEffect(() => {
+
+    }, [prevTranscriptTime])
 
     useEffect(() => {
         if (!finalTranscript1) return;
@@ -183,51 +233,52 @@ export default function LanguageDashboard() {
     }
 
 
-const freeSpeech = (text: string, toLang: string = 'en-US'): Promise<void> => {
-    console.log('freeSpeech', { text, toLang })
-    return new Promise((resolve: any, reject: any) => {
-        const utterance = new SpeechSynthesisUtterance(text);
-        if (availableVoices) {
-            const voice = getVoice(toLang, isMobile)
-            if (!voice) {
-                console.warn('error - no voice found for language:', toLang)
-            } else { utterance.voice = voice; }
-            utterance.lang = toLang; //.replace('_', '-'); //TODO: may need to replace between _ ,-
-        } else {
-            console.error('no voices available')
-        }
-        utterance.addEventListener("error", (event: SpeechSynthesisErrorEvent) => {
-            console.log(
-                `An error has occurred with the speech synthesis: ${event.error}`,
-                event);
-        });
-        try {
-            utterance.onstart = function (ev) { setIsSpeaking(true) }
-            utterance.onerror = function (event) {
+    const freeSpeech = (text: string, toLang: string = 'en-US'): Promise<void> => {
+        console.log('freeSpeech', { text, toLang })
+        return new Promise((resolve: any, reject: any) => {
+            const utterance = new SpeechSynthesisUtterance(text);
+            if (availableVoices) {
+                const voice = getVoice(toLang, isMobile)
+                if (!voice) {
+                    console.warn('error - no voice found for language:', toLang)
+                } else { utterance.voice = voice; }
+                utterance.lang = toLang; //.replace('_', '-'); //TODO: may need to replace between _ ,-
+            } else {
+                console.error('no voices available')
+            }
+            utterance.addEventListener("error", (event: SpeechSynthesisErrorEvent) => {
                 console.log(
                     `An error has occurred with the speech synthesis: ${event.error}`,
-                );
-                reject(event.error)
+                    event);
+            });
+            try {
+                utterance.onstart = function (ev) { setIsSpeaking(true) }
+                utterance.onerror = function (event) {
+                    console.log(
+                        `An error has occurred with the speech synthesis: ${event.error}`,
+                    );
+                    reject(event.error)
+                }
+                utterance.onboundary = function (ev) { console.info('onboundary', { ev }) }
+                utterance.onmark = function (ev) { console.info('onmark', { ev }) }
+                utterance.onpause = function (ev) { console.info('onpause', { ev }) }
+                utterance.onresume = function (ev) { console.info('onresume', { ev }) }
+                utterance.onend = function (ev) {
+                    setIsSpeaking(false)
+                    resolve()
+                }
+                speechSynthesis.speak(utterance);
+            } catch (e) {
+                console.error(e)
+                reject(e)
             }
-            utterance.onboundary = function (ev) { console.info('onboundary', { ev }) }
-            utterance.onmark = function (ev) { console.info('onmark', { ev }) }
-            utterance.onpause = function (ev) { console.info('onpause', { ev }) }
-            utterance.onresume = function (ev) { console.info('onresume', { ev }) }
-            utterance.onend = function (ev) {
-                setIsSpeaking(false)
-                resolve()
-            }
-            speechSynthesis.speak(utterance);
-        } catch (e) {
-            console.error(e)
-            reject(e)
-        }
-    })
-}
+        })
+    }
 
     return (
         <div style={{ background: isSpeaking ? 'blue' : (listening ? 'green' : 'grey') }}>
-            <div id="instructions" style={{ background: 'black' }} >
+            <p>deltaMax: {deltaMax}</p>
+            <div id="instructions" style={{ background: 'grey' }} >
                 <h1>How to use:</h1>
                 <p onClick={() => { isModeDebug || freeSpeech(instructions.speak_english) }}>{instructions.speak_english}</p>
                 <p onClick={() => { isModeDebug || freeSpeech(instructions.translate_from_to) }}>{instructions.translate_from_to}</p>
@@ -381,7 +432,28 @@ const freeSpeech = (text: string, toLang: string = 'en-US'): Promise<void> => {
                         </tr>)}
                     </tbody>
                 </table></>)}
-            <div id='footer' style={{display: 'flex'}}>
+
+            <div>
+                <label htmlFor="rangeInput">maxDelayBetweenRecognitions:</label>
+                <input
+                    type="range"
+                    id="rangeInput"
+                    name="maxDelayBetweenRecognitions"
+                    min="0"
+                    max={MAX_DELAY_BETWEEN_RECOGNITIONS * 2}
+                    step="0.1"
+                    value={maxDelayBetweenRecognitions}
+                    onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+                        const value = parseFloat(event.target.value);
+                        setMaxDelayBetweenRecognitions(value);
+                    }}
+                />
+                <br />
+                <p>{maxDelayBetweenRecognitions}</p>
+                <p>{(prevTranscriptTime[1] / 1000) - (prevTranscriptTime[0] / 1000)}</p>
+            </div>
+
+            <div id='footer' style={{ display: 'flex' }}>
                 <a href="https://github.com/ofer-shaham/voice-recognition-chrome">source code</a>
             </div>
         </div>
