@@ -431,7 +431,7 @@ export default function LanguageDashboard() {
                 />
                 <br />
                 <p>{maxDelayBetweenRecognitions}</p>
-                <p>{(prevTranscriptTime[1] / 1000) - (prevTranscriptTime[0] / 1000)}</p>
+                <p>{Math.floor(prevTranscriptTime[1] / 1000) - (prevTranscriptTime[0] / 1000)}</p>
             </div>
 
             <div id='footer' style={{ display: 'flex' }}>
