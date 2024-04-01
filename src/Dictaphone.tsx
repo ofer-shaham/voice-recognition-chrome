@@ -47,6 +47,8 @@ export default function LanguageDashboard() {
     const [isContinuous, setIsContinuous] = useState(false)
     const [finalTranscript1, setFinalTranscript1] = useState('');
     const [prevTranscript, setPrevTranscript] = useState('');
+    const [isModeDebug, setIsModeDebug] = useState(true)
+
     // const [danger, setDanger] = useState(false);
 
 
@@ -73,7 +75,7 @@ export default function LanguageDashboard() {
         interimTranscript,
         transcript,
         listening,
-        resetTranscript,
+        resetTranscript, isMicrophoneAvailable,
         browserSupportsSpeechRecognition } = useSpeechRecognition({ commands })
 
     const getListeningOptions = useCallback((): ListeningOptions => {
@@ -190,12 +192,26 @@ export default function LanguageDashboard() {
                 <a href="https://github.com/ofer-shaham/voice-recognition-chrome">source code</a>
             </div>
 
-            <p>listening: {listening ? 'yes' : 'no'}</p>
-            <p>speaking: {isSpeaking ? 'yes' : 'no'}</p>
+            <div id="read_only_flags" style={{ background: 'brown' }}>
+                <p>is Microphone Available: {isMicrophoneAvailable ? 'yes' : 'no'}</p>
+                <p>listening: {listening ? 'yes' : 'no'}</p>
+                <p>speaking: {isSpeaking ? 'yes' : 'no'}</p>
+            </div>
+            <div id="buttons" style={{ background: 'darkblue' }}>
+                <div>
+                    <button disabled={!listening} onClick={() => SpeechRecognition.stopListening()}>Stop</button>
+                    <button disabled={listening} onClick={() => SpeechRecognition.startListening(getListeningOptions())}>Start</button>
+                </div>
+                <div>
+                    <button onClick={() => {
+                        setFromLang('en-US')
+                        setToLang('en-US')
+                    }}>set language to english</button>
+                    <button onClick={resetTranscript}>Reset Transcript</button>
+                </div>
+            </div>
 
-            <button onClick={() => SpeechRecognition.stopListening()}>Stop</button>
-            <button disabled={listening} onClick={() => SpeechRecognition.startListening(getListeningOptions())}>Start</button>
-            <div>
+            <div id="checkboxes" style={{ background: 'brown' }}>
                 <label>
                     Interim Results:{isInterimResults ? 'yes' : 'no'}
                     <input
@@ -212,54 +228,70 @@ export default function LanguageDashboard() {
                         checked={isContinuous}
                         onChange={() => setIsContinuous(!isContinuous)}
                     />
-                </label>                <br />
+                </label>
+                <br />
+                <label>
+                    Debug modes:{isModeDebug ? 'yes' : 'no'}
+                    <input
+                        type="checkbox"
+                        checked={isModeDebug}
+                        onChange={() => setIsModeDebug(!isModeDebug)}
+                    />
+                </label>
 
             </div>
 
 
-            <button onClick={resetTranscript}>Reset Transcript</button>
 
             <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setToLang={setToLang} selectedVoice={selectedVoice}
                 setSelectedVoice={setSelectedVoice} />
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                    <label style={{ marginRight: '10px' }}>finalTranscript1 history:</label>
-                    <input type="text" value={finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscript1 : ''} style={{ marginLeft: 'auto' }} readOnly />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                    <label style={{ marginRight: '10px' }}>finalTranscript:</label>
-                    <input type="text" value={finalTranscript} style={{ marginLeft: 'auto' }} readOnly />
-                </div>
-                {/* <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                    <label style={{ marginRight: '10px' }}>finalTranscript1:</label>
-                    <input type="text" value={finalTranscript1} style={{ marginLeft: 'auto' }} readOnly />
-                </div> */}
-                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                    <label style={{ marginRight: '10px' }}>transcript:</label>
-                    <input type="text" value={transcript} style={{ marginLeft: 'auto' }} readOnly />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                    <label style={{ marginRight: '10px' }}>interimTranscript:</label>
-                    <input type="text" value={interimTranscript} style={{ marginLeft: 'auto' }} readOnly />
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                    <label style={{ marginRight: '10px' }}>translation:</label>
-                    <input type="text" value={translation} style={{ marginLeft: 'auto' }} readOnly />
-                </div>
+ 
+                {!isModeDebug && (<>
+                    <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                        <label style={{ marginRight: '10px' }}>finalTranscript:</label>
+                        <input type="text" value={finalTranscript} style={{ marginLeft: 'auto' }} readOnly />
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                        <label style={{ marginRight: '10px' }}>transcript:</label>
+                        <input type="text" value={transcript} style={{ marginLeft: 'auto' }} readOnly />
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                        <label style={{ marginRight: '10px' }}>interimTranscript:</label>
+                        <input type="text" value={interimTranscript} style={{ marginLeft: 'auto' }} readOnly />
+                    </div>
+                </>)}
+
 
                 <div style={{ display: 'flex', flexDirection: 'row' }}>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <label style={{ marginRight: '10px' }}>fromLang:</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'darkgray' }}>
+                        <label style={{ marginRight: '10px' }}>from:</label>
                         <input onChange={(ev) => { setFromLang(ev.target.value) }} type="text" value={fromLang} style={{ marginLeft: 'auto' }} />
+                        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                    
+                    {/* finalTranscript1 history: */}
+                    <input type="text" value={finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscript1 : ''} style={{ marginLeft: 'auto' }} readOnly />
+                    
+                </div>
+                <button onClick={() => { freeSpeech(finalTranscript1, fromLang) }}>translate</button>
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                        <label style={{ marginRight: '10px' }}>toLang:</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'gray' }}>
+                      
+                        <label style={{ marginRight: '10px' }}>to:</label>
                         <input onChange={(ev) => { setToLang(ev.target.value) }} type="text" value={toLang} style={{ marginLeft: 'auto' }} />
-                        <button onClick={() => { freeSpeech(finalTranscript1, toLang) }}>translate</button>
+
+                        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                            
+                            <input type="text" value={translation} style={{ marginLeft: 'auto' }} readOnly />
+                        </div>
+                        <button onClick={() => { freeSpeech(translation, toLang) }}>translate</button>
                     </div>
+
                 </div>
             </div>
             <p>finalTranscriptHistory</p>
@@ -283,25 +315,26 @@ export default function LanguageDashboard() {
                     </tr>)}
                 </tbody>
             </table>
-            <p>transcriptHistory</p>
-            <table>
-                <thead>
-                    <tr>
-                        <th>id</th>
-                        <th>fromLang</th>
-                        <th>toLang</th>
-                        <th>finalTranscript</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {transcriptHistory.slice(-LIMIT_ARR_CUT).reverse().map((r, i) => <tr key={r.uuid}>
-                        <td>{r.uuid}</td>
-                        <td>{r.fromLang}</td>
-                        <td>{r.toLang}</td>
-                        <td>{r.finalTranscript1}</td>
-                    </tr>)}
-                </tbody>
-            </table>
+
+            {isModeDebug && (<> <p>transcriptHistory</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>id</th>
+                            <th>fromLang</th>
+                            <th>toLang</th>
+                            <th>finalTranscript</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {transcriptHistory.slice(-LIMIT_ARR_CUT).reverse().map((r, i) => <tr key={r.uuid}>
+                            <td>{r.uuid}</td>
+                            <td>{r.fromLang}</td>
+                            <td>{r.toLang}</td>
+                            <td>{r.finalTranscript1}</td>
+                        </tr>)}
+                    </tbody>
+                </table></>)}
         </div>
     );
 }
