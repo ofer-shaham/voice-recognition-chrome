@@ -14,8 +14,7 @@ build finalTranscriptProxy:
 * on pc     - based on finalTranscript
 * on mobile - recycle the transcript every X seconds.
  */
-// let delta = 0
-let deltaMax = 0
+
 
 // const LIMIT_ARR_CUT = 5
 const LIMIT_ARR_CUT_FINAL = 2
@@ -251,7 +250,6 @@ export default function LanguageDashboard() {
 
     return (
         <div style={{ background: listening ? 'green' : (isSpeaking ? 'blue' : 'grey') }}>
-            <p>deltaMax: {deltaMax}</p>
             <div id="instructions" style={{ background: 'grey' }} >
                 <h1>How to use:</h1>
                 <p onClick={() => { isModeDebug || freeSpeech(instructions.speak_english) }}>{instructions.speak_english}</p>
@@ -387,7 +385,7 @@ export default function LanguageDashboard() {
             </>)}
 
 
-            {isModeDebug && (<>
+            {isMobile && (<>
                 <div>
                     <label htmlFor="rangeInput">maxDelayBetweenRecognitions:</label>
                     <input
