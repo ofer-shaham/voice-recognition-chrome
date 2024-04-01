@@ -22,8 +22,12 @@ const DELAY_LISTENING_RESTART = 1000
 const MAX_DELAY_BETWEEN_RECOGNITIONS = 3000
 
 const instructions = {
-    "speak_english": 'say "speak english" - for making the application repeat what you say in english',
-    "translate_from_to": "say 'translate from hebrew to russian' - for making the application recognize speech in hebrew and speak out the russian translation"
+    "speak_english": { test: 'speak english', explain: 'say "speak english" - for making the application repeat what you say in english' },
+    "translate_from_en_to_ru": { test: 'translate from hebrew to russian', explain: "say 'translate from hebrew to russian' - for making the application recognize speech in hebrew and speak out the russian translation" },
+    "translate_from_he_to_ar": { test: 'translate from hebrew to arabic', explain: "say 'translate from hebrew to arabic' - for making the application recognize speech in hebrew and speak out the russian translation" },
+
+    "welcome": "hello world"
+
 }
 
 interface LanguageMap {
@@ -38,8 +42,8 @@ const cachedVoices: any = {}
 
 export default function LanguageDashboard() {
 
-    const [fromLang, setFromLang] = useState('iw-IL')
-    const [toLang, setToLang] = useState('ar-AE')
+    const [fromLang, setFromLang] = useState('en-US')
+    const [toLang, setToLang] = useState('ru-RU')
     const [translation, setTranslation] = useState('')
     const [finalTranscriptHistory, setFinalTranscriptHistory] = useState<FinalTranscriptHistory[]>([])
     const [isSpeaking, setIsSpeaking] = useState(false)
@@ -50,14 +54,16 @@ export default function LanguageDashboard() {
     const [prevTranscript, setPrevTranscript] = useState('');
     const [prevTranscriptTime, setPrevTranscriptTime] = useState<[number, number]>([Date.now(), Date.now()]);
 
-    const [isModeDebug, setIsModeDebug] = useState(true)
+    const [isModeDebug, setIsModeDebug] = useState(false)
     const [maxDelayBetweenRecognitions, setMaxDelayBetweenRecognitions] = useState(MAX_DELAY_BETWEEN_RECOGNITIONS)
     const [stream, setStream] = useState<MediaStream | null>(null);
+
 
     const handleMicAccess = async () => {
         try {
             const mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
             setStream(mediaStream);
+            await freeSpeech(instructions.welcome)
         } catch (error) {
             console.error('Error getting user media:', error);
             alert('Error getting user media')
@@ -70,16 +76,28 @@ export default function LanguageDashboard() {
             callback: (fromLang: string, toLang: string) => {
                 const fromCode = mapLanguageToCode(fromLang)
                 const toCode = mapLanguageToCode(toLang)
-                setFromLang(fromCode); setToLang(toCode)
+                setFromLang(fromCode); setToLang(toCode);
                 console.log(`from ${fromCode} to ${toCode}`)
             }
         },
         {
             command: 'speak *',
             callback: (language: string) => {
+                debugger;
                 const langCode = mapLanguageToCode(language)
                 setFromLang(langCode);
-                setToLang(langCode)
+                setToLang(langCode);
+                setTranslation('')
+            }
+        },
+        {
+            command: 'speak english',
+            callback: () => {
+                debugger;
+                const langCode = mapLanguageToCode('english')
+                setFromLang(langCode);
+                setToLang(langCode);
+                setTranslation('')
             }
         },
     ]
@@ -89,7 +107,15 @@ export default function LanguageDashboard() {
         listening,
         resetTranscript, isMicrophoneAvailable,
         browserSupportsSpeechRecognition } = useSpeechRecognition({ commands })
+    useEffect(() => {
+        if (isSpeaking && !speechSynthesis.speaking) {
+            console.error('wierd status', speechSynthesis)
+            // alert('force cancel speech')
+            speechSynthesis.resume();
+            speechSynthesis.cancel();
+        }
 
+    }, [isSpeaking])
     useEffect(() => {
         if (prevTranscriptTime[0] - prevTranscriptTime[1] > MAX_DELAY_BETWEEN_RECOGNITIONS * 1000) {
             resetTranscript()
@@ -101,9 +127,29 @@ export default function LanguageDashboard() {
         return { language: fromLang, interimResults: isInterimResults, continuous: isContinuous }
     }, [fromLang, isContinuous, isInterimResults])
 
+    const listenNow = useCallback((): Promise<void> => {
+        try {
+
+            return SpeechRecognition.startListening(getListeningOptions())
+        } catch (e) {
+            console.error(e);
+            return Promise.reject(e)
+        }
+    }, [getListeningOptions])
+
+    useEffect(() => {
+        try {
+            listenNow();
+        } catch (e) {
+            console.error(e)
+        }
+
+    }, [listenNow])
+
     const startListening = useCallback((): Promise<void> | never => {
         return SpeechRecognition.startListening(getListeningOptions()).catch(e => { throw new Error(e.message) });
     }, [getListeningOptions])
+
 
 
     useEffect(() => {
@@ -143,8 +189,8 @@ export default function LanguageDashboard() {
         //keep transcription that missed the final stage
         if (keepSurvivorBeforeLost) {
             //on mobile we need to compansate for delayed resetTranscript scheduler
-            console.log('skip saving it:' + prevTranscript)
-            // setFinalTranscriptProxy(prevTranscript);
+            console.log('saving it:' + prevTranscript)
+            setFinalTranscriptProxy(prevTranscript);
         }
         setPrevTranscriptTime(prev => [prev[1], Date.now()])
         setPrevTranscript(transcript)
@@ -199,9 +245,9 @@ export default function LanguageDashboard() {
     useEffect(() => {
         let timeoutId: NodeJS.Timeout | null = null
 
-        if (!isSpeaking) { timeoutId = setTimeout(startListening, isMobile ? DELAY_LISTENING_RESTART : DELAY_LISTENING_RESTART) }
+        if (!isSpeaking && !listening) { timeoutId = setTimeout(listenNow, isMobile ? DELAY_LISTENING_RESTART : DELAY_LISTENING_RESTART) }
         return () => { timeoutId && clearTimeout(timeoutId) }
-    }, [isSpeaking, startListening]);
+    }, [isSpeaking, startListening, listening]);
 
 
 
@@ -263,15 +309,17 @@ export default function LanguageDashboard() {
     return (
         <div>
             {stream ? (
-                <div style={{ background: listening ? 'green' : (isSpeaking ? 'blue' : 'grey') }}>
+                <div style={{ background: (isSpeaking ? 'blue' : (listening ? 'green' : 'grey')) }}>
 
                     <div id="instructions" style={{ background: 'grey' }} >
                         <h1>How to use:</h1>
-                        <p onClick={() => { isModeDebug || freeSpeech(instructions.speak_english) }}>{instructions.speak_english}</p>
-                        <p onClick={() => { isModeDebug || freeSpeech(instructions.translate_from_to) }}>{instructions.translate_from_to}</p>
+                        <p onClick={() => { freeSpeech(instructions.speak_english.test) }}>{instructions.speak_english.explain}</p>
+                        <p onClick={() => { freeSpeech(instructions.translate_from_en_to_ru.test) }}>{instructions.translate_from_en_to_ru.explain}</p>
+                        <p onClick={() => { freeSpeech(instructions.translate_from_he_to_ar.test) }}>{instructions.translate_from_he_to_ar.explain}</p>
                     </div>
 
-                    {!isModeDebug && (<>
+
+                    {isModeDebug && (<>
                         <div id="read_only_flags" style={{ background: 'brown' }}>
                             <p>is Microphone Available: {isMicrophoneAvailable ? 'yes' : 'no'}</p>
                             <p>listening: {listening ? 'yes' : 'no'}</p>
@@ -281,38 +329,43 @@ export default function LanguageDashboard() {
                     <div id="buttons" style={{ background: 'darkblue' }}>
                         <div>
                             <button disabled={!listening} onClick={() => SpeechRecognition.stopListening()}>Stop</button>
-                            <button disabled={listening} onClick={() => SpeechRecognition.startListening(getListeningOptions())}>Start</button>
+                            <button style={{ color: 'darkgreen' }} disabled={listening} onClick={() => listenNow()}>Start</button>
                         </div>
                         <div>
                             <button onClick={() => {
                                 setFromLang('en-US')
-                                setToLang('en-US')
-                            }}>set language to english</button>
+                                setToLang('en-US');
+                                setTranslation('')
+                            }}>reset languages</button>
                             <button onClick={resetTranscript}>Reset Transcript</button>
                         </div>
                     </div>
 
                     <div id="checkboxes" style={{ background: 'brown' }}>
+                        {isModeDebug && (<div>
+
+
+                            <label>
+                                Interim Results:
+                                <input
+                                    type="checkbox"
+                                    checked={isInterimResults}
+                                    onChange={() => setIsInterimResults(!isInterimResults)}
+                                />
+                            </label>
+                            <br />
+                            <label>
+                                Continuous:
+                                <input
+                                    type="checkbox"
+                                    checked={isContinuous}
+                                    onChange={() => setIsContinuous(!isContinuous)}
+                                />
+                            </label>
+                            <br />
+                        </div>)}
                         <label>
-                            Interim Results:
-                            <input
-                                type="checkbox"
-                                checked={isInterimResults}
-                                onChange={() => setIsInterimResults(!isInterimResults)}
-                            />
-                        </label>
-                        <br />
-                        <label>
-                            Continuous:
-                            <input
-                                type="checkbox"
-                                checked={isContinuous}
-                                onChange={() => setIsContinuous(!isContinuous)}
-                            />
-                        </label>
-                        <br />
-                        <label>
-                            Debug modes:
+                            Debug mode:
                             <input
                                 type="checkbox"
                                 checked={isModeDebug}
@@ -324,12 +377,11 @@ export default function LanguageDashboard() {
 
 
 
-                    <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setToLang={setToLang} selectedVoice={selectedVoice}
-                        setSelectedVoice={setSelectedVoice} />
+
 
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
 
-                        {!isModeDebug && (<>
+                        {isModeDebug && (<>
                             <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
                                 <label style={{ marginRight: '10px' }}>finalTranscript:</label>
                                 <input type="text" value={finalTranscript} style={{ marginLeft: 'auto' }} readOnly />
@@ -368,14 +420,20 @@ export default function LanguageDashboard() {
 
                                 <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
 
-                                    <input type="text" value={translation} style={{ marginLeft: 'auto' }} readOnly />
+                                    <input type="text" value={translation} readOnly />
                                 </div>
-                                <button onClick={() => { freeSpeech(translation, toLang) }}>speak</button>
+                                <div>
+
+
+                                    <button onClick={() => { freeSpeech(translation, toLang) }}>speak</button>
+                                </div>
+
                             </div>
 
-                        </div>
+                        </div><VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setToLang={setToLang} selectedVoice={selectedVoice}
+                            setSelectedVoice={setSelectedVoice} />
                     </div>
-                    {!isModeDebug && (<>
+                    {isModeDebug && (<>
                         <p>finalTranscriptHistory</p>
                         <table>
                             <thead>
@@ -480,4 +538,3 @@ const translate = ({ finalTranscriptProxy, fromLang, toLang }: { finalTranscript
             console.error(err.message); return `error, ${err.message}`
         })
 }
-
