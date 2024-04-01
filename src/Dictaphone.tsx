@@ -135,9 +135,9 @@ export default function LanguageDashboard() {
         if (keepSurvivorBeforeLost) {
             // setTranscriptHistory1(prev => [...prev, { uuid: Date.now(), fromLang, toLang, finalTranscript1: prevTranscript }]);
             //on mobile we need to compansate for delayed resetTranscript scheduler
-            // if (isMobile) {
-            //     setFinalTranscript1(prevTranscript);
-            // }
+            if (isMobile) {
+                setFinalTranscript1(prevTranscript);
+            }
             console.log('lost', prevTranscript)
         }
 
