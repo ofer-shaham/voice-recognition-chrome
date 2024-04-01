@@ -8,13 +8,16 @@ import { isMobile } from './services/isMobile';
 
 
 /*
-finalTranscript1 - is the source for a tts/translation operation. it replace the finalTranslcript functionality when the client is Mobile.
-current solution: update its content based on changes to the transcription. when its not updated for 2 seconds - we force a content recycle.
-*/
+finalTranscript - is not function on mobile so we use finalTranscriptProxy as the source for translation/tts
+
+build finalTranscriptProxy:
+* on pc     - based on finalTranscript
+* on mobile - recycle the transcript every X seconds.
+ */
 // let delta = 0
 let deltaMax = 0
 
-const LIMIT_ARR_CUT = 5
+// const LIMIT_ARR_CUT = 5
 const LIMIT_ARR_CUT_FINAL = 2
 const DELAY_LISTENING_RESTART = 1000
 const MAX_DELAY_BETWEEN_RECOGNITIONS = 3000
@@ -27,11 +30,9 @@ const instructions = {
 interface LanguageMap {
     [key: string]: string;
 }
-interface TranscriptHistory {
-    finalTranscript1: string; uuid: number; fromLang: string; toLang: string;
-}
+
 interface FinalTranscriptHistory {
-    finalTranscript1: string; uuid: number; translation: string; fromLang: string; toLang: string;
+    finalTranscriptProxy: string; uuid: number; translation: string; fromLang: string; toLang: string;
 }
 
 const cachedVoices: any = {}
@@ -41,16 +42,12 @@ export default function LanguageDashboard() {
     const [fromLang, setFromLang] = useState('iw-IL')
     const [toLang, setToLang] = useState('ar-AE')
     const [translation, setTranslation] = useState('')
-    const [transcriptHistory, setTranscriptHistory1] = useState<TranscriptHistory[]>([])
-
     const [finalTranscriptHistory, setFinalTranscriptHistory] = useState<FinalTranscriptHistory[]>([])
     const [isSpeaking, setIsSpeaking] = useState(false)
     const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
     const [isInterimResults, setIsInterimResults] = useState(false)
     const [isContinuous, setIsContinuous] = useState(false)
-    const [finalTranscript1, setFinalTranscript1] = useState('');
-
-
+    const [finalTranscriptProxy, setFinalTranscriptProxy] = useState('');
     const [prevTranscript, setPrevTranscript] = useState('');
     const [prevTranscriptTime, setPrevTranscriptTime] = useState<[number, number]>([Date.now(), Date.now()]);
 
@@ -106,7 +103,7 @@ export default function LanguageDashboard() {
             const target = finalTranscriptHistory[finalTranscriptHistory.length - 1]
             setIsSpeaking(true)
 
-            freeSpeech(target.translation || target.finalTranscript1, target.toLang).then(() => {
+            freeSpeech(target.translation || target.finalTranscriptProxy, target.toLang).then(() => {
                 setIsSpeaking(false)
 
             }).catch(e => {
@@ -125,57 +122,53 @@ export default function LanguageDashboard() {
      * on mobile - advance it to final stage
      */
     useEffect(() => {
-
+        if (!isMobile) return
         const completlyNewTranscript = !transcript.includes(prevTranscript)
-        const alreadyStagedTranscript = finalTranscript1 === prevTranscript
+        const alreadyStagedTranscript = finalTranscriptProxy === prevTranscript
         const keepSurvivorBeforeLost = completlyNewTranscript && !alreadyStagedTranscript
-
 
         //keep transcription that missed the final stage
         if (keepSurvivorBeforeLost) {
-            // setTranscriptHistory1(prev => [...prev, { uuid: Date.now(), fromLang, toLang, finalTranscript1: prevTranscript }]);
             //on mobile we need to compansate for delayed resetTranscript scheduler
             if (isMobile) {
-                setFinalTranscript1(prevTranscript);
+                alert('save it:' + prevTranscript) // TODO: is alert is shown -> setFinalTranscriptProxy(prevTranscript);
             }
-            console.log('lost', prevTranscript)
         }
-
-
-
 
         setPrevTranscriptTime(prev => [prev[1], Date.now()])
         setPrevTranscript(transcript)
     }, [
-        //  'finalTranscript1', 'fromLang', 'prevTranscript', 'toLang', 'transcript'
-        maxDelayBetweenRecognitions, setPrevTranscriptTime, resetTranscript,
-        prevTranscript, transcript, setFinalTranscript1, setTranscriptHistory1, finalTranscript1, fromLang, toLang
+        finalTranscriptProxy, prevTranscript, transcript
     ])
 
     useEffect(() => {
+        if (!isMobile) return
 
-    }, [prevTranscriptTime])
+        if (prevTranscriptTime[0] - prevTranscriptTime[1] > maxDelayBetweenRecognitions)
+            console.log('resetTranscript')
+        resetTranscript()
+    }, [prevTranscriptTime, maxDelayBetweenRecognitions, resetTranscript])
 
     useEffect(() => {
-        if (!finalTranscript1) return;
+        if (!finalTranscriptProxy) return;
         setIsSpeaking(true)
         let ignore = false;
 
         async function translate_and_speek() {
-            const newFinalArrived = (finalTranscriptHistory.length ? finalTranscript1 !== finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscript1 : true)
+            const newFinalArrived = (finalTranscriptHistory.length ? finalTranscriptProxy !== finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : true)
             if (newFinalArrived) {
                 if (fromLang !== toLang) {
-                    const translationResult = await translate({ finalTranscript1, fromLang, toLang })
+                    const translationResult = await translate({ finalTranscriptProxy, fromLang, toLang })
                     if (ignore) return
                     console.log('setTranslation', translationResult)
 
                     setTranslation(translationResult)
-                    setFinalTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscript1: finalTranscript1, translation: translationResult, fromLang: fromLang, toLang: toLang }])
+                    setFinalTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscriptProxy: finalTranscriptProxy, translation: translationResult, fromLang: fromLang, toLang: toLang }])
                     await SpeechRecognition.abortListening().catch(e => {
                         console.error(e)
                     })
                 } else {
-                    setFinalTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscript1: finalTranscript1, translation: '', fromLang: fromLang, toLang: toLang }])
+                    setFinalTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscriptProxy: finalTranscriptProxy, translation: '', fromLang: fromLang, toLang: toLang }])
                     await SpeechRecognition.abortListening().catch(e => {
                         console.error(e)
                     })
@@ -184,7 +177,7 @@ export default function LanguageDashboard() {
         }
         translate_and_speek()
         return () => { ignore = true }
-    }, [finalTranscript1, fromLang, toLang, finalTranscriptHistory, setFinalTranscriptHistory])
+    }, [finalTranscriptProxy, fromLang, toLang, finalTranscriptHistory, setFinalTranscriptHistory])
 
 
     useEffect(() => {
@@ -204,8 +197,8 @@ export default function LanguageDashboard() {
 
     useEffect(() => {
         if (isMobile) { console.info('finally arrive', { finalTranscript }) };
-        setFinalTranscript1(finalTranscript);
-    }, [finalTranscript, setFinalTranscript1])
+        setFinalTranscriptProxy(finalTranscript);
+    }, [finalTranscript, setFinalTranscriptProxy])
 
 
     if (!browserSupportsSpeechRecognition) {
@@ -348,11 +341,11 @@ export default function LanguageDashboard() {
                         <input onChange={(ev) => { setFromLang(ev.target.value) }} type="text" value={fromLang} style={{ marginLeft: 'auto' }} />
                         <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
 
-                            {/* finalTranscript1 history: */}
-                            <input type="text" value={finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscript1 : ''} style={{ marginLeft: 'auto' }} readOnly />
+                            {/* finalTranscriptProxy history: */}
+                            <input type="text" defaultValue={finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : ''} style={{ marginLeft: 'auto' }} />
 
                         </div>
-                        <button onClick={() => { transcript || freeSpeech(finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscript1 : '', fromLang) }}>translate</button>
+                        <button onClick={() => { transcript || freeSpeech(finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : '', fromLang) }}>speak</button>
                     </div>
 
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'gray' }}>
@@ -362,9 +355,9 @@ export default function LanguageDashboard() {
 
                         <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
 
-                            <input type="text" value={translation} style={{ marginLeft: 'auto' }} readOnly />
+                            <input type="text" defaultValue={translation} style={{ marginLeft: 'auto' }} />
                         </div>
-                        <button onClick={() => { freeSpeech(translation, toLang) }}>translate</button>
+                        <button onClick={() => { freeSpeech(translation, toLang) }}>speak</button>
                     </div>
 
                 </div>
@@ -386,7 +379,7 @@ export default function LanguageDashboard() {
                             <td>{r.uuid}</td>
                             <td>{r.fromLang}</td>
                             <td>{r.toLang}</td>
-                            <td>{r.finalTranscript1}</td>
+                            <td>{r.finalTranscriptProxy}</td>
                             <td>{r.translation}</td>
                         </tr>)}
                     </tbody>
@@ -394,46 +387,27 @@ export default function LanguageDashboard() {
             </>)}
 
 
-            {!isModeDebug && (<> <p>transcriptHistory</p>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>id</th>
-                            <th>fromLang</th>
-                            <th>toLang</th>
-                            <th>finalTranscript</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {transcriptHistory.slice(-LIMIT_ARR_CUT).reverse().map((r, i) => <tr key={r.uuid}>
-                            <td>{r.uuid}</td>
-                            <td>{r.fromLang}</td>
-                            <td>{r.toLang}</td>
-                            <td>{r.finalTranscript1}</td>
-                        </tr>)}
-                    </tbody>
-                </table></>)}
-
-            <div>
-                <label htmlFor="rangeInput">maxDelayBetweenRecognitions:</label>
-                <input
-                    type="range"
-                    id="rangeInput"
-                    name="maxDelayBetweenRecognitions"
-                    min="0"
-                    max={MAX_DELAY_BETWEEN_RECOGNITIONS * 2}
-                    step="0.1"
-                    value={maxDelayBetweenRecognitions}
-                    onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-                        const value = parseFloat(event.target.value);
-                        setMaxDelayBetweenRecognitions(value);
-                    }}
-                />
-                <br />
-                <p>{maxDelayBetweenRecognitions}</p>
-                <p>{Math.floor(prevTranscriptTime[1] / 1000) - (prevTranscriptTime[0] / 1000)}</p>
-            </div>
-
+            {isModeDebug && (<>
+                <div>
+                    <label htmlFor="rangeInput">maxDelayBetweenRecognitions:</label>
+                    <input
+                        type="range"
+                        id="rangeInput"
+                        name="maxDelayBetweenRecognitions"
+                        min="0"
+                        max={MAX_DELAY_BETWEEN_RECOGNITIONS * 2}
+                        step="0.1"
+                        value={maxDelayBetweenRecognitions}
+                        onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+                            const value = parseFloat(event.target.value);
+                            setMaxDelayBetweenRecognitions(value);
+                        }}
+                    />
+                    <br />
+                    <p>{maxDelayBetweenRecognitions}</p>
+                    <p>{Math.floor((prevTranscriptTime[1] - prevTranscriptTime[0]) / 1000)}</p>
+                </div>
+            </>)}
             <div id='footer' style={{ display: 'flex' }}>
                 <a href="https://github.com/ofer-shaham/voice-recognition-chrome">source code</a>
             </div>
@@ -477,8 +451,8 @@ const mapLanguageToCode = (language: string): string => {
 };
 
 
-const translate = ({ finalTranscript1, fromLang, toLang }: { finalTranscript1: string, fromLang: string, toLang: string }): Promise<string> => {
-    return fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${fromLang}&tl=${toLang}&dt=t&q=${encodeURIComponent(finalTranscript1)}`)
+const translate = ({ finalTranscriptProxy, fromLang, toLang }: { finalTranscriptProxy: string, fromLang: string, toLang: string }): Promise<string> => {
+    return fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=${fromLang}&tl=${toLang}&dt=t&q=${encodeURIComponent(finalTranscriptProxy)}`)
         .then(res => res.json())
         .then(data => {
             const y = data[0][0][0]
