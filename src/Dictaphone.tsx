@@ -52,7 +52,17 @@ export default function LanguageDashboard() {
 
     const [isModeDebug, setIsModeDebug] = useState(true)
     const [maxDelayBetweenRecognitions, setMaxDelayBetweenRecognitions] = useState(MAX_DELAY_BETWEEN_RECOGNITIONS)
+    const [stream, setStream] = useState<MediaStream | null>(null);
 
+    const handleMicAccess = async () => {
+        try {
+            const mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            setStream(mediaStream);
+        } catch (error) {
+            console.error('Error getting user media:', error);
+            alert('Error getting user media')
+        }
+    };
 
     const commands: Command[] = [
         {
@@ -106,8 +116,12 @@ export default function LanguageDashboard() {
                 setIsSpeaking(false)
 
             }).catch(e => {
-                //one must click on the page in order to permit speech Synthesis 
                 console.error(e);
+                if (e === "not-allowed") alert('please tap on the page to permit access to microphone')
+
+
+                //one must click on the page in order to permit speech Synthesis 
+
                 setIsSpeaking(false)
             });
         }
@@ -247,167 +261,175 @@ export default function LanguageDashboard() {
     }
 
     return (
-        <div style={{ background: listening ? 'green' : (isSpeaking ? 'blue' : 'grey') }}>
-            <div id="instructions" style={{ background: 'grey' }} >
-                <h1>How to use:</h1>
-                <p onClick={() => { isModeDebug || freeSpeech(instructions.speak_english) }}>{instructions.speak_english}</p>
-                <p onClick={() => { isModeDebug || freeSpeech(instructions.translate_from_to) }}>{instructions.translate_from_to}</p>
-            </div>
+        <div>
+            {stream ? (
+                <div style={{ background: listening ? 'green' : (isSpeaking ? 'blue' : 'grey') }}>
 
-            {!isModeDebug && (<>
-                <div id="read_only_flags" style={{ background: 'brown' }}>
-                    <p>is Microphone Available: {isMicrophoneAvailable ? 'yes' : 'no'}</p>
-                    <p>listening: {listening ? 'yes' : 'no'}</p>
-                    <p>speaking: {isSpeaking ? 'yes' : 'no'}</p>
-                </div>
-            </>)}
-            <div id="buttons" style={{ background: 'darkblue' }}>
-                <div>
-                    <button disabled={!listening} onClick={() => SpeechRecognition.stopListening()}>Stop</button>
-                    <button disabled={listening} onClick={() => SpeechRecognition.startListening(getListeningOptions())}>Start</button>
-                </div>
-                <div>
-                    <button onClick={() => {
-                        setFromLang('en-US')
-                        setToLang('en-US')
-                    }}>set language to english</button>
-                    <button onClick={resetTranscript}>Reset Transcript</button>
-                </div>
-            </div>
-
-            <div id="checkboxes" style={{ background: 'brown' }}>
-                <label>
-                    Interim Results:
-                    <input
-                        type="checkbox"
-                        checked={isInterimResults}
-                        onChange={() => setIsInterimResults(!isInterimResults)}
-                    />
-                </label>
-                <br />
-                <label>
-                    Continuous:
-                    <input
-                        type="checkbox"
-                        checked={isContinuous}
-                        onChange={() => setIsContinuous(!isContinuous)}
-                    />
-                </label>
-                <br />
-                <label>
-                    Debug modes:
-                    <input
-                        type="checkbox"
-                        checked={isModeDebug}
-                        onChange={() => setIsModeDebug(!isModeDebug)}
-                    />
-                </label>
-
-            </div>
-
-
-
-            <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setToLang={setToLang} selectedVoice={selectedVoice}
-                setSelectedVoice={setSelectedVoice} />
-
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-
-                {!isModeDebug && (<>
-                    <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                        <label style={{ marginRight: '10px' }}>finalTranscript:</label>
-                        <input type="text" value={finalTranscript} style={{ marginLeft: 'auto' }} readOnly />
+                    <div id="instructions" style={{ background: 'grey' }} >
+                        <h1>How to use:</h1>
+                        <p onClick={() => { isModeDebug || freeSpeech(instructions.speak_english) }}>{instructions.speak_english}</p>
+                        <p onClick={() => { isModeDebug || freeSpeech(instructions.translate_from_to) }}>{instructions.translate_from_to}</p>
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                        <label style={{ marginRight: '10px' }}>transcript:</label>
-                        <input type="text" value={transcript} style={{ marginLeft: 'auto' }} readOnly />
+                    {!isModeDebug && (<>
+                        <div id="read_only_flags" style={{ background: 'brown' }}>
+                            <p>is Microphone Available: {isMicrophoneAvailable ? 'yes' : 'no'}</p>
+                            <p>listening: {listening ? 'yes' : 'no'}</p>
+                            <p>speaking: {isSpeaking ? 'yes' : 'no'}</p>
+                        </div>
+                    </>)}
+                    <div id="buttons" style={{ background: 'darkblue' }}>
+                        <div>
+                            <button disabled={!listening} onClick={() => SpeechRecognition.stopListening()}>Stop</button>
+                            <button disabled={listening} onClick={() => SpeechRecognition.startListening(getListeningOptions())}>Start</button>
+                        </div>
+                        <div>
+                            <button onClick={() => {
+                                setFromLang('en-US')
+                                setToLang('en-US')
+                            }}>set language to english</button>
+                            <button onClick={resetTranscript}>Reset Transcript</button>
+                        </div>
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                        <label style={{ marginRight: '10px' }}>interimTranscript:</label>
-                        <input type="text" value={interimTranscript} style={{ marginLeft: 'auto' }} readOnly />
+                    <div id="checkboxes" style={{ background: 'brown' }}>
+                        <label>
+                            Interim Results:
+                            <input
+                                type="checkbox"
+                                checked={isInterimResults}
+                                onChange={() => setIsInterimResults(!isInterimResults)}
+                            />
+                        </label>
+                        <br />
+                        <label>
+                            Continuous:
+                            <input
+                                type="checkbox"
+                                checked={isContinuous}
+                                onChange={() => setIsContinuous(!isContinuous)}
+                            />
+                        </label>
+                        <br />
+                        <label>
+                            Debug modes:
+                            <input
+                                type="checkbox"
+                                checked={isModeDebug}
+                                onChange={() => setIsModeDebug(!isModeDebug)}
+                            />
+                        </label>
+
                     </div>
-                </>)}
 
 
-                <div style={{ display: 'flex', flexDirection: 'row' }}>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'darkgray' }}>
-                        <label style={{ marginRight: '10px' }}>from:</label>
-                        <input onChange={(ev) => { setFromLang(ev.target.value) }} type="text" value={fromLang} style={{ marginLeft: 'auto' }} />
-                        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                    <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setToLang={setToLang} selectedVoice={selectedVoice}
+                        setSelectedVoice={setSelectedVoice} />
 
-                            {/* finalTranscriptProxy history: */}
-                            <input type="text" value={finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : ''} style={{ marginLeft: 'auto' }} />
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+
+                        {!isModeDebug && (<>
+                            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                                <label style={{ marginRight: '10px' }}>finalTranscript:</label>
+                                <input type="text" value={finalTranscript} style={{ marginLeft: 'auto' }} readOnly />
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                                <label style={{ marginRight: '10px' }}>transcript:</label>
+                                <input type="text" value={transcript} style={{ marginLeft: 'auto' }} readOnly />
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                                <label style={{ marginRight: '10px' }}>interimTranscript:</label>
+                                <input type="text" value={interimTranscript} style={{ marginLeft: 'auto' }} readOnly />
+                            </div>
+                        </>)}
+
+
+                        <div style={{ display: 'flex', flexDirection: 'row' }}>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'darkgray' }}>
+                                <label style={{ marginRight: '10px' }}>from:</label>
+                                <input onChange={(ev) => { setFromLang(ev.target.value) }} type="text" value={fromLang} style={{ marginLeft: 'auto' }} />
+                                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+
+                                    {/* finalTranscriptProxy history: */}
+                                    <input type="text" value={finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : ''} style={{ marginLeft: 'auto' }} readOnly />
+
+                                </div>
+                                <button onClick={() => { transcript || freeSpeech(finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : '', fromLang) }}>speak</button>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'gray' }}>
+
+                                <label style={{ marginRight: '10px' }}>to:</label>
+                                <input onChange={(ev) => { setToLang(ev.target.value) }} type="text" value={toLang} style={{ marginLeft: 'auto' }} />
+
+                                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+
+                                    <input type="text" value={translation} style={{ marginLeft: 'auto' }} readOnly />
+                                </div>
+                                <button onClick={() => { freeSpeech(translation, toLang) }}>speak</button>
+                            </div>
 
                         </div>
-                        <button onClick={() => { transcript || freeSpeech(finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : '', fromLang) }}>speak</button>
                     </div>
+                    {!isModeDebug && (<>
+                        <p>finalTranscriptHistory</p>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>id</th>
+                                    <th>fromLang</th>
+                                    <th>toLang</th>
+                                    <th>finalTranscript</th>
+                                    <th>translation</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {finalTranscriptHistory.slice(-LIMIT_ARR_CUT_FINAL).reverse().map((r, i) => <tr key={r.uuid}>
+                                    <td>{r.uuid}</td>
+                                    <td>{r.fromLang}</td>
+                                    <td>{r.toLang}</td>
+                                    <td>{r.finalTranscriptProxy}</td>
+                                    <td>{r.translation}</td>
+                                </tr>)}
+                            </tbody>
+                        </table>
+                    </>)}
 
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'gray' }}>
 
-                        <label style={{ marginRight: '10px' }}>to:</label>
-                        <input onChange={(ev) => { setToLang(ev.target.value) }} type="text" value={toLang} style={{ marginLeft: 'auto' }} />
-
-                        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-
-                            <input type="text" value={translation} style={{ marginLeft: 'auto' }} />
+                    {isMobile && (<>
+                        <div>
+                            <label htmlFor="rangeInput">maxDelayBetweenRecognitions:</label>
+                            <input
+                                type="range"
+                                id="rangeInput"
+                                name="maxDelayBetweenRecognitions"
+                                min="0"
+                                max={MAX_DELAY_BETWEEN_RECOGNITIONS * 2}
+                                step="0.1"
+                                value={maxDelayBetweenRecognitions}
+                                onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
+                                    const value = parseFloat(event.target.value);
+                                    setMaxDelayBetweenRecognitions(value);
+                                }}
+                            />
+                            <br />
+                            <p>{maxDelayBetweenRecognitions}</p>
+                            <p>{Math.floor((prevTranscriptTime[1] - prevTranscriptTime[0]) / 1000)}</p>
                         </div>
-                        <button onClick={() => { freeSpeech(translation, toLang) }}>speak</button>
+                    </>)}
+                    <div id='footer' style={{ display: 'flex' }}>
+                        <a href="https://github.com/ofer-shaham/voice-recognition-chrome">source code</a>
                     </div>
-
                 </div>
-            </div>
-            {!isModeDebug && (<>
-                <p>finalTranscriptHistory</p>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>id</th>
-                            <th>fromLang</th>
-                            <th>toLang</th>
-                            <th>finalTranscript</th>
-                            <th>translation</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {finalTranscriptHistory.slice(-LIMIT_ARR_CUT_FINAL).reverse().map((r, i) => <tr key={r.uuid}>
-                            <td>{r.uuid}</td>
-                            <td>{r.fromLang}</td>
-                            <td>{r.toLang}</td>
-                            <td>{r.finalTranscriptProxy}</td>
-                            <td>{r.translation}</td>
-                        </tr>)}
-                    </tbody>
-                </table>
-            </>)}
-
-
-            {isMobile && (<>
-                <div>
-                    <label htmlFor="rangeInput">maxDelayBetweenRecognitions:</label>
-                    <input
-                        type="range"
-                        id="rangeInput"
-                        name="maxDelayBetweenRecognitions"
-                        min="0"
-                        max={MAX_DELAY_BETWEEN_RECOGNITIONS * 2}
-                        step="0.1"
-                        value={maxDelayBetweenRecognitions}
-                        onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-                            const value = parseFloat(event.target.value);
-                            setMaxDelayBetweenRecognitions(value);
-                        }}
-                    />
-                    <br />
-                    <p>{maxDelayBetweenRecognitions}</p>
-                    <p>{Math.floor((prevTranscriptTime[1] - prevTranscriptTime[0]) / 1000)}</p>
-                </div>
-            </>)}
-            <div id='footer' style={{ display: 'flex' }}>
-                <a href="https://github.com/ofer-shaham/voice-recognition-chrome">source code</a>
-            </div>
+            ) : (
+                <button onClick={handleMicAccess}>Grant microphone access</button>
+            )}
         </div>
+
     );
 }
 
