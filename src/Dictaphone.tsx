@@ -131,7 +131,7 @@ export default function LanguageDashboard() {
         if (keepSurvivorBeforeLost) {
             //on mobile we need to compansate for delayed resetTranscript scheduler
             if (isMobile) {
-                alert('save it:' + prevTranscript) // TODO: is alert is shown -> setFinalTranscriptProxy(prevTranscript);
+                alert('save it:transcript' + transcript + ' doesnt include: ' + prevTranscript) // TODO: is alert is shown -> setFinalTranscriptProxy(prevTranscript);
             }
         }
 
