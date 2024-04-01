@@ -250,7 +250,7 @@ export default function LanguageDashboard() {
     }
 
     return (
-        <div style={{ background: isSpeaking ? 'blue' : (listening ? 'green' : 'grey') }}>
+        <div style={{ background: listening ? 'green' : (isSpeaking ? 'blue' : 'grey') }}>
             <p>deltaMax: {deltaMax}</p>
             <div id="instructions" style={{ background: 'grey' }} >
                 <h1>How to use:</h1>
@@ -342,7 +342,7 @@ export default function LanguageDashboard() {
                         <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
 
                             {/* finalTranscriptProxy history: */}
-                            <input type="text" defaultValue={finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : ''} style={{ marginLeft: 'auto' }} />
+                            <input type="text" value={finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : ''} style={{ marginLeft: 'auto' }} />
 
                         </div>
                         <button onClick={() => { transcript || freeSpeech(finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : '', fromLang) }}>speak</button>
@@ -355,7 +355,7 @@ export default function LanguageDashboard() {
 
                         <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
 
-                            <input type="text" defaultValue={translation} style={{ marginLeft: 'auto' }} />
+                            <input type="text" value={translation} style={{ marginLeft: 'auto' }} />
                         </div>
                         <button onClick={() => { freeSpeech(translation, toLang) }}>speak</button>
                     </div>
