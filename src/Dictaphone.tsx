@@ -122,17 +122,6 @@ export default function LanguageDashboard() {
      */
     useEffect(() => {
         if (!isMobile) return
-        const completlyNewTranscript = !transcript.includes(prevTranscript)
-        const alreadyStagedTranscript = finalTranscriptProxy === prevTranscript
-        const keepSurvivorBeforeLost = completlyNewTranscript && !alreadyStagedTranscript
-
-        //keep transcription that missed the final stage
-        if (keepSurvivorBeforeLost) {
-            //on mobile we need to compansate for delayed resetTranscript scheduler
-            if (isMobile) {
-                alert('save it:transcript' + transcript + ' doesnt include: ' + prevTranscript) // TODO: is alert is shown -> setFinalTranscriptProxy(prevTranscript);
-            }
-        }
 
         setPrevTranscriptTime(prev => [prev[1], Date.now()])
         setPrevTranscript(transcript)
