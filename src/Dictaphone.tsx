@@ -247,7 +247,7 @@ export default function LanguageDashboard() {
 
         if (!isSpeaking && !listening) { timeoutId = setTimeout(listenNow, isMobile ? DELAY_LISTENING_RESTART : DELAY_LISTENING_RESTART) }
         return () => { timeoutId && clearTimeout(timeoutId) }
-    }, [isSpeaking, startListening, listening]);
+    }, [isSpeaking, startListening, listening, listenNow]);
 
 
 
