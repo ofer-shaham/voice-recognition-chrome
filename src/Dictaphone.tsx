@@ -38,8 +38,8 @@ const cachedVoices: any = {}
 
 export default function LanguageDashboard() {
 
-    const [fromLang, setFromLang] = useState('en-US')
-    const [toLang, setToLang] = useState('en-US')
+    const [fromLang, setFromLang] = useState('iw-IL')
+    const [toLang, setToLang] = useState('ar-AE')
     const [translation, setTranslation] = useState('')
     const [transcriptHistory, setTranscriptHistory1] = useState<TranscriptHistory[]>([])
 
@@ -56,15 +56,6 @@ export default function LanguageDashboard() {
 
     const [isModeDebug, setIsModeDebug] = useState(true)
     const [maxDelayBetweenRecognitions, setMaxDelayBetweenRecognitions] = useState(MAX_DELAY_BETWEEN_RECOGNITIONS)
-
-
-    useEffect(() => {
-        if (prevTranscriptTime[0] - prevTranscriptTime[1] > MAX_DELAY_BETWEEN_RECOGNITIONS * 1000) {
-            console.log('longer than ', MAX_DELAY_BETWEEN_RECOGNITIONS)
-        }
-    }, [prevTranscriptTime])
-
-    // const [danger, setDanger] = useState(false);
 
 
     const commands: Command[] = [
@@ -93,6 +84,13 @@ export default function LanguageDashboard() {
         resetTranscript, isMicrophoneAvailable,
         browserSupportsSpeechRecognition } = useSpeechRecognition({ commands })
 
+    useEffect(() => {
+        if (prevTranscriptTime[0] - prevTranscriptTime[1] > MAX_DELAY_BETWEEN_RECOGNITIONS * 1000) {
+            resetTranscript()
+            console.log('longer than ', MAX_DELAY_BETWEEN_RECOGNITIONS)
+        }
+    }, [prevTranscriptTime, resetTranscript])
+
     const getListeningOptions = useCallback((): ListeningOptions => {
         return { language: fromLang, interimResults: isInterimResults, continuous: isContinuous }
     }, [fromLang, isContinuous, isInterimResults])
@@ -120,18 +118,7 @@ export default function LanguageDashboard() {
         speakIt()
     }, [finalTranscriptHistory])
 
-    // /*
-    // if transcript is freezed and its value is not moved to finalTranscript - force its renewal after X seconds
-    // */
-    // useEffect(() => {
-    //     if (!transcript) return;
-    //     if (!listening) return;
 
-    //     const lastSave = finalTranscriptHistory.length ?  finalTranscriptHistory[finalTranscriptHistory.length - 1].uuid : 0
-
-    //     if (Date.now())
-    //     setTimeout()
-    // }, [transcript, listening])
 
     /**
      * keep transcript that haven't reach the final stage
@@ -146,29 +133,23 @@ export default function LanguageDashboard() {
 
         //keep transcription that missed the final stage
         if (keepSurvivorBeforeLost) {
-            setTranscriptHistory1(prev => [...prev, { uuid: Date.now(), fromLang, toLang, finalTranscript1: prevTranscript }]);
-            //on mobile we need to compansate for depected update to finalTranscript
-            if (isMobile) {
-                setFinalTranscript1(prevTranscript);
-            }
+            // setTranscriptHistory1(prev => [...prev, { uuid: Date.now(), fromLang, toLang, finalTranscript1: prevTranscript }]);
+            //on mobile we need to compansate for delayed resetTranscript scheduler
+            // if (isMobile) {
+            //     setFinalTranscript1(prevTranscript);
+            // }
+            console.log('lost', prevTranscript)
         }
-        //transcript is not empty
-        // else if (transcript !== prevTranscript && prevTranscriptTime) {
-        // if (Date.now() - prevTranscriptTime > maxDelayBetweenRecognitions * 1000) {
-        //     setTimeout(resetTranscript, 100)
 
-        // }
-
-        // }
 
 
 
         setPrevTranscriptTime(prev => [prev[1], Date.now()])
         setPrevTranscript(transcript)
     }, [
-      //  'finalTranscript1', 'fromLang', 'prevTranscript', 'toLang', 'transcript'
-           maxDelayBetweenRecognitions, prevTranscriptTime, resetTranscript,
-           prevTranscript, transcript, setFinalTranscript1, setTranscriptHistory1, finalTranscript1, fromLang, toLang
+        //  'finalTranscript1', 'fromLang', 'prevTranscript', 'toLang', 'transcript'
+        maxDelayBetweenRecognitions, setPrevTranscriptTime, resetTranscript,
+        prevTranscript, transcript, setFinalTranscript1, setTranscriptHistory1, finalTranscript1, fromLang, toLang
     ])
 
     useEffect(() => {
