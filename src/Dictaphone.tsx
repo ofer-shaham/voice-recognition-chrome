@@ -131,7 +131,7 @@ export default function LanguageDashboard() {
             //on mobile we need to compansate for delayed resetTranscript scheduler
             if (isMobile) {
                 console.log('save it:' + prevTranscript)
-                setFinalTranscriptProxy(prevTranscript);
+                // setFinalTranscriptProxy(prevTranscript);
             }
         }
         setPrevTranscriptTime(prev => [prev[1], Date.now()])
