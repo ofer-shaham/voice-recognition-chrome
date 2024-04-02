@@ -5,6 +5,10 @@ import VoicesDropdownSelect from "./voicesDropdownSelector";
 import { availableVoices } from './services/AvailableVoices';
 import languageMap from './consts/languageMap.json';
 import { isMobile } from './services/isMobile';
+import { Logger } from './Logger';
+
+import Debug from './Debug';
+
 
 
 /*
@@ -16,7 +20,6 @@ build finalTranscriptProxy:
  */
 
 
-// const LIMIT_ARR_CUT = 5
 const LIMIT_ARR_CUT_FINAL = 2
 const DELAY_LISTENING_RESTART = 1000
 const MAX_DELAY_BETWEEN_RECOGNITIONS = 3000
@@ -26,9 +29,10 @@ const instructions = {
     "translate_from_en_to_ru": { test: 'translate from hebrew to russian', explain: "say 'translate from hebrew to russian' - for making the application recognize speech in hebrew and speak out the russian translation" },
     "translate_from_he_to_ar": { test: 'translate from hebrew to arabic', explain: "say 'translate from hebrew to arabic' - for making the application recognize speech in hebrew and speak out the russian translation" },
 
-    "welcome": "hello world"
+    "welcome": { test: "hello world", explain: "say 'translate from hebrew to arabic' - for making the application recognize speech in hebrew and speak out the russian translation" },
 
 }
+
 
 interface LanguageMap {
     [key: string]: string;
@@ -58,12 +62,14 @@ export default function LanguageDashboard() {
     const [maxDelayBetweenRecognitions, setMaxDelayBetweenRecognitions] = useState(MAX_DELAY_BETWEEN_RECOGNITIONS)
     const [stream, setStream] = useState<MediaStream | null>(null);
 
+    const [errors, setErrors] = useState<any[]>([]);
+
 
     const handleMicAccess = async () => {
         try {
             const mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
             setStream(mediaStream);
-            await freeSpeech(instructions.welcome)
+            await freeSpeech(instructions.welcome.test)
         } catch (error) {
             console.error('Error getting user media:', error);
             alert('Error getting user media')
@@ -80,27 +86,53 @@ export default function LanguageDashboard() {
                 console.log(`from ${fromCode} to ${toCode}`)
             }
         },
+
         {
-            command: 'speak *',
-            callback: (language: string) => {
-                debugger;
-                const langCode = mapLanguageToCode(language)
-                setFromLang(langCode);
-                setToLang(langCode);
-                setTranslation('')
-            }
-        },
-        {
-            command: 'speak english',
+            command: '(please) speak english',
             callback: () => {
-                debugger;
+                ;
                 const langCode = mapLanguageToCode('english')
                 setFromLang(langCode);
                 setToLang(langCode);
                 setTranslation('')
-            }
+            },
+            matchInterim: true
+        }, {
+            command: '(please) speak :language',
+            callback: (language: string) => {
+                ;
+                const langCode = mapLanguageToCode(language)
+                setFromLang(langCode);
+                setToLang(langCode);
+                setTranslation('')
+            },
+            matchInterim: true
         },
+        {
+            command: 'speak hebrew',
+            callback: (command, spokenPhrase, similarityRatio) => console.info(`${command} and ${spokenPhrase} are ${similarityRatio * 100}% similar`),
+            // If the spokenPhrase is "Benji", the message would be "Beijing and Benji are 40% similar"
+            isFuzzyMatch: true,
+            fuzzyMatchingThreshold: 0.2
+        },
+        {
+            command: ['up', 'down', 'left', 'right'],
+            callback: (command) => console.info(`Best matching command: ${command}`),
+            isFuzzyMatch: true,
+            fuzzyMatchingThreshold: 0.2,
+            bestMatchOnly: true
+        },
+        {
+            command: 'clear',
+            callback: ({ resetTranscript }) => { console.info('got command: clear'); resetTranscript() }
+        }
     ]
+
+
+
+
+
+
     const { finalTranscript,
         interimTranscript,
         transcript,
@@ -239,7 +271,7 @@ export default function LanguageDashboard() {
 
     useEffect(() => {
         console.log('init app');
-
+        setErrors([])
     }, [])
 
     useEffect(() => {
@@ -306,6 +338,8 @@ export default function LanguageDashboard() {
         })
     }
 
+
+
     return (
         <div>
             {stream ? (
@@ -313,20 +347,20 @@ export default function LanguageDashboard() {
 
                     <div id="instructions" style={{ background: 'grey' }} >
                         <h1>How to use:</h1>
-                        <p onClick={() => { freeSpeech(instructions.speak_english.test) }}>{instructions.speak_english.explain}</p>
-                        <p onClick={() => { freeSpeech(instructions.translate_from_en_to_ru.test) }}>{instructions.translate_from_en_to_ru.explain}</p>
-                        <p onClick={() => { freeSpeech(instructions.translate_from_he_to_ar.test) }}>{instructions.translate_from_he_to_ar.explain}</p>
+                        <button onClick={() => { freeSpeech(instructions.speak_english.test) }}>{instructions.speak_english.explain}</button>
+                        <button onClick={() => { freeSpeech(instructions.translate_from_en_to_ru.test) }}>{instructions.translate_from_en_to_ru.explain}</button>
+                        <button onClick={() => { freeSpeech(instructions.translate_from_he_to_ar.test) }}>{instructions.translate_from_he_to_ar.explain}</button>
                     </div>
 
 
-                    {isModeDebug && (<>
-                        <div id="read_only_flags" style={{ background: 'brown' }}>
+                    <Debug isModeDebug={isModeDebug}>
+                        <div id="read_only_flags" >
                             <p>is Microphone Available: {isMicrophoneAvailable ? 'yes' : 'no'}</p>
                             <p>listening: {listening ? 'yes' : 'no'}</p>
                             <p>speaking: {isSpeaking ? 'yes' : 'no'}</p>
                         </div>
-                    </>)}
-                    <div id="buttons" style={{ background: 'darkblue' }}>
+                    </Debug>
+                    <div id="buttons" style={{ background: 'grey' }}>
                         <div>
                             <button disabled={!listening} onClick={() => SpeechRecognition.stopListening()}>Stop</button>
                             <button style={{ color: 'darkgreen' }} disabled={listening} onClick={() => listenNow()}>Start</button>
@@ -341,8 +375,9 @@ export default function LanguageDashboard() {
                         </div>
                     </div>
 
-                    <div id="checkboxes" style={{ background: 'brown' }}>
-                        {isModeDebug && (<div>
+
+                    <Debug isModeDebug={isModeDebug}>
+                        <div>
 
 
                             <label>
@@ -363,7 +398,11 @@ export default function LanguageDashboard() {
                                 />
                             </label>
                             <br />
-                        </div>)}
+                        </div>
+                    </Debug>
+
+
+                    <div id="configuration" >
                         <label>
                             Debug mode:
                             <input
@@ -372,31 +411,32 @@ export default function LanguageDashboard() {
                                 onChange={() => setIsModeDebug(!isModeDebug)}
                             />
                         </label>
-
                     </div>
 
 
 
 
 
+
+
+                    <Debug isModeDebug={isModeDebug}>
+                        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                            <label style={{ marginRight: '10px' }}>finalTranscript:</label>
+                            <input type="text" value={finalTranscript} style={{ marginLeft: 'auto' }} readOnly />
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                            <label style={{ marginRight: '10px' }}>transcript:</label>
+                            <input type="text" value={transcript} style={{ marginLeft: 'auto' }} readOnly />
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+                            <label style={{ marginRight: '10px' }}>interimTranscript:</label>
+                            <input type="text" value={interimTranscript} style={{ marginLeft: 'auto' }} readOnly />
+                        </div>
+                    </Debug>
+
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-
-                        {isModeDebug && (<>
-                            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                                <label style={{ marginRight: '10px' }}>finalTranscript:</label>
-                                <input type="text" value={finalTranscript} style={{ marginLeft: 'auto' }} readOnly />
-                            </div>
-
-                            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                                <label style={{ marginRight: '10px' }}>transcript:</label>
-                                <input type="text" value={transcript} style={{ marginLeft: 'auto' }} readOnly />
-                            </div>
-
-                            <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                                <label style={{ marginRight: '10px' }}>interimTranscript:</label>
-                                <input type="text" value={interimTranscript} style={{ marginLeft: 'auto' }} readOnly />
-                            </div>
-                        </>)}
 
 
                         <div style={{ display: 'flex', flexDirection: 'row' }}>
@@ -410,7 +450,7 @@ export default function LanguageDashboard() {
                                     <input type="text" value={finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : ''} style={{ marginLeft: 'auto' }} readOnly />
 
                                 </div>
-                                <button onClick={() => { transcript || freeSpeech(finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : '', fromLang) }}>speak</button>
+                                <button onClick={() => {   freeSpeech(finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : '', fromLang) }}>speak</button>
                             </div>
 
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'gray' }}>
@@ -433,29 +473,31 @@ export default function LanguageDashboard() {
                         </div><VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setToLang={setToLang} selectedVoice={selectedVoice}
                             setSelectedVoice={setSelectedVoice} />
                     </div>
-                    {isModeDebug && (<>
-                        <p>finalTranscriptHistory</p>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>id</th>
-                                    <th>fromLang</th>
-                                    <th>toLang</th>
-                                    <th>finalTranscript</th>
-                                    <th>translation</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {finalTranscriptHistory.slice(-LIMIT_ARR_CUT_FINAL).reverse().map((r, i) => <tr key={r.uuid}>
-                                    <td>{r.uuid}</td>
-                                    <td>{r.fromLang}</td>
-                                    <td>{r.toLang}</td>
-                                    <td>{r.finalTranscriptProxy}</td>
-                                    <td>{r.translation}</td>
-                                </tr>)}
-                            </tbody>
-                        </table>
-                    </>)}
+                    <Debug isModeDebug={isModeDebug}>
+                        <div>
+                            <p>finalTranscriptHistory</p>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>id</th>
+                                        <th>fromLang</th>
+                                        <th>toLang</th>
+                                        <th>finalTranscript</th>
+                                        <th>translation</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {finalTranscriptHistory.slice(-LIMIT_ARR_CUT_FINAL).reverse().map((r, i) => <tr key={r.uuid}>
+                                        <td>{r.uuid}</td>
+                                        <td>{r.fromLang}</td>
+                                        <td>{r.toLang}</td>
+                                        <td>{r.finalTranscriptProxy}</td>
+                                        <td>{r.translation}</td>
+                                    </tr>)}
+                                </tbody>
+                            </table>
+                        </div>
+                    </Debug>
 
 
                     {isMobile && (<>
@@ -486,7 +528,9 @@ export default function LanguageDashboard() {
             ) : (
                 <button onClick={handleMicAccess}>Grant microphone access</button>
             )}
+            <Logger errors={errors} setErrors={setErrors} />
         </div>
+
 
     );
 }
