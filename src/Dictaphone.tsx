@@ -8,6 +8,8 @@ import { isMobile } from './services/isMobile';
 import { Logger } from './Logger';
 
 import Debug from './Debug';
+import TranscriptHistory from './TranscriptHistory';
+import TranslationBox from './TranslationBox';
 
 
 
@@ -20,7 +22,6 @@ build finalTranscriptProxy:
  */
 
 
-const LIMIT_ARR_CUT_FINAL = 2
 const DELAY_LISTENING_RESTART = 1000
 const MAX_DELAY_BETWEEN_RECOGNITIONS = 3000
 
@@ -441,64 +442,17 @@ export default function LanguageDashboard() {
 
                         <div style={{ display: 'flex', flexDirection: 'row' }}>
 
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'darkgray' }}>
-                                <label style={{ marginRight: '10px' }}>from:</label>
-                                <input onChange={(ev) => { setFromLang(ev.target.value) }} type="text" value={fromLang} style={{ marginLeft: 'auto' }} />
-                                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-
-                                    {/* finalTranscriptProxy history: */}
-                                    <input type="text" value={finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : ''} style={{ marginLeft: 'auto' }} readOnly />
-
-                                </div>
-                                <button onClick={() => {   freeSpeech(finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : '', fromLang) }}>speak</button>
-                            </div>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'gray' }}>
-
-                                <label style={{ marginRight: '10px' }}>to:</label>
-                                <input onChange={(ev) => { setToLang(ev.target.value) }} type="text" value={toLang} style={{ marginLeft: 'auto' }} />
-
-                                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-
-                                    <input type="text" value={translation} readOnly />
-                                </div>
-                                <div>
-
-
-                                    <button onClick={() => { freeSpeech(translation, toLang) }}>speak</button>
-                                </div>
-
-                            </div>
-
                         </div><VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setToLang={setToLang} selectedVoice={selectedVoice}
                             setSelectedVoice={setSelectedVoice} />
                     </div>
-                    <Debug isModeDebug={isModeDebug}>
-                        <div>
-                            <p>finalTranscriptHistory</p>
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>id</th>
-                                        <th>fromLang</th>
-                                        <th>toLang</th>
-                                        <th>finalTranscript</th>
-                                        <th>translation</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {finalTranscriptHistory.slice(-LIMIT_ARR_CUT_FINAL).reverse().map((r, i) => <tr key={r.uuid}>
-                                        <td>{r.uuid}</td>
-                                        <td>{r.fromLang}</td>
-                                        <td>{r.toLang}</td>
-                                        <td>{r.finalTranscriptProxy}</td>
-                                        <td>{r.translation}</td>
-                                    </tr>)}
-                                </tbody>
-                            </table>
-                        </div>
-                    </Debug>
+                    <TranslationBox language={fromLang} text={
+                        finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : ''} onFreeSpeech={freeSpeech} />
 
+                    <TranslationBox language={toLang}
+                        text={translation || ''}
+                        onFreeSpeech={freeSpeech} />
+
+                    <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} isModeDebug={isModeDebug} />
 
                     {isMobile && (<>
                         <div>
