@@ -2,30 +2,26 @@
 
 export let availableVoices: SpeechSynthesisVoice[] = []
 
-function setAvailableVoices() {
-    const populateVoiceList = () => {
-        if (typeof speechSynthesis === 'undefined') {
-            return;
+const getAvailableVoices = (): Promise<SpeechSynthesisVoice[] | Error> => {
+    return new Promise((resolve, reject) => {
+        if (availableVoices.length) return availableVoices;
+        if (typeof speechSynthesis !== 'undefined') {
+            speechSynthesis.addEventListener('voiceschanged', () => {
+                const voices = speechSynthesis.getVoices();
+                console.log(voices);
+                availableVoices = (voices);
+                resolve(voices)
+            });
+            speechSynthesis.addEventListener('onerror', (ev) => {
+                reject(ev)
+            })
+
+            speechSynthesis.getVoices(); //trigger voiceschanged event
+        } else {
+            throw new Error('speechSynthesis undefined')
         }
 
-        availableVoices = speechSynthesis.getVoices();
+    })
 
-        console.log(availableVoices.map(voice => ({
-            name: voice.name,
-            lang: voice.lang,
-            default: voice.default,
-            localService: voice.localService,
-            voiceURI: voice.voiceURI
-        })));
-    };
-    populateVoiceList();
-
-    if (
-        typeof speechSynthesis !== 'undefined' &&
-        speechSynthesis.onvoiceschanged !== undefined
-    ) {
-        speechSynthesis.onvoiceschanged = populateVoiceList;
-    }
 }
 
-setAvailableVoices()

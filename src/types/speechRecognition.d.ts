@@ -40,6 +40,5 @@ export function useSpeechRecognition(options?: SpeechRecognitionOptions): {
     isMicrophoneAvailable: boolean;
 };
 
-// declare const SpeechRecognition: SpeechRecognition;
 
 export default SpeechRecognition;
