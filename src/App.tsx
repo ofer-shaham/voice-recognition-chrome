@@ -31,7 +31,7 @@ function App() {
     <div>
       {stream ? (
         <div className="App">
-          <VoiceRecorder stream={stream} />
+          {/* <VoiceRecorder stream={stream} /> */}
           <Dictaphone stream={stream} />
 
         </div>

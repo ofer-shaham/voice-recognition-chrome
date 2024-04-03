@@ -118,7 +118,11 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
         browserSupportsSpeechRecognition } = useSpeechRecognition({ commands })
 
     useEffect(() => {
-        setAvailableVoices(availableVoices)
+        if (!availableVoices.length) { console.warn('no voices') }
+        else {
+            setAvailableVoices(availableVoices)
+            console.info({ availableVoices })
+        }
     }, [availableVoices])
 
     useEffect(() => {
@@ -256,7 +260,11 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
     useEffect(() => {
         let timeoutId: NodeJS.Timeout | null = null
 
-        if (!isSpeaking && !listening) { timeoutId = setTimeout(listenNow, isMobile ? DELAY_LISTENING_RESTART : DELAY_LISTENING_RESTART) }
+
+        if (!isSpeaking && !listening) {
+
+            timeoutId = setTimeout(listenNow, isMobile ? DELAY_LISTENING_RESTART : 0)
+        }
         return () => { timeoutId && clearTimeout(timeoutId) }
     }, [isSpeaking, startListening, listening, listenNow]);
 
@@ -380,10 +388,9 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
                 </div><VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setToLang={setToLang} selectedVoice={selectedVoice}
                     setSelectedVoice={setSelectedVoice} />
             </div>
-            <TranslationBox setLanguage={setToLang} language={fromLang} text={
-                finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : ''} onFreeSpeech={freeSpeech} />
+            <TranslationBox setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang} text={finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : ''} onFreeSpeech={freeSpeech} />
 
-            <TranslationBox setLanguage={setToLang} language={toLang}
+            <TranslationBox   setText={setTranslation} setLanguage={setToLang} language={toLang}
                 text={translation || ''}
                 onFreeSpeech={freeSpeech} />
 

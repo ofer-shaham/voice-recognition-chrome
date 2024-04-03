@@ -3,6 +3,9 @@ const cachedVoices: any = {}
 let _availableVoices: SpeechSynthesisVoice[] = []
 
 export function getVoice(language: string, isMobile: boolean): SpeechSynthesisVoice {
+    if (!_availableVoices.length) {
+        throw new Error('no available Voices')
+    }
     if (cachedVoices.hasOwnProperty(language)) {
         console.log('return voice', { cached_voice: cachedVoices[language] }); return cachedVoices[language]
     }
