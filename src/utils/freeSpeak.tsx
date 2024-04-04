@@ -1,8 +1,8 @@
 import { isMobile } from "../services/isMobile";
 import { getVoice } from "./getVoice";
 
-export const freeSpeech = (text: string, toLang: string = 'en-US'): Promise<void> => {
-    console.log('freeSpeech', { text, toLang })
+export const freeSpeak = (text: string, toLang: string = 'en-US'): Promise<void> => {
+    console.log('freeSpeak', { text, toLang })
     return new Promise((resolve: any, reject: any) => {
         const utterance = new SpeechSynthesisUtterance(text);
 

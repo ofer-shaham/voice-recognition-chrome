@@ -3,12 +3,12 @@ import React, { Dispatch, SetStateAction, useEffect } from 'react';
 type TranslationProps = {
   language: string;
   text: string;
-  onFreeSpeech: (text: string, lang: string) => void;
+  onfreeSpeak: (text: string, lang: string) => void;
   setLanguage: Dispatch<SetStateAction<string>>;
   setText: Dispatch<SetStateAction<string>>;
 };
 
-const TranslationBox: React.FC<TranslationProps> = ({ language, text, onFreeSpeech, setLanguage, setText }) => {
+const TranslationBox: React.FC<TranslationProps> = ({ language, text, onfreeSpeak, setLanguage, setText }) => {
   // Update the language when the prop changes from the parent component
   useEffect(() => {
     setLanguage(language);
@@ -28,7 +28,7 @@ const TranslationBox: React.FC<TranslationProps> = ({ language, text, onFreeSpee
       </div>
 
       <div>
-        <button onClick={() => onFreeSpeech(text, language)}>speak</button>
+        <button onClick={() => onfreeSpeak(text, language)}>speak</button>
       </div>
     </div>
   );

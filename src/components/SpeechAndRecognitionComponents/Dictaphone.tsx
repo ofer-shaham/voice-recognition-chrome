@@ -1,25 +1,27 @@
 import { useCallback, useEffect, useState } from 'react'
 import SpeechRecognition, { ListeningOptions, useSpeechRecognition } from 'react-speech-recognition'
-import { Command } from "../types/speechRecognition";
+import { Command } from "../../types/speechRecognition";
 import VoicesDropdownSelect from "./voicesDropdownSelector";
-import { isMobile } from '../services/isMobile';
+import { isMobile } from '../../services/isMobile';
 
-import Debug from '../Debug';
 import TranscriptHistory from './TranscriptHistory';
 import TranslationBox from './TranslationBox';
 
-import { freeSpeech } from '../utils/freeSpeak'
-import { translate } from '../utils/translate';
-import { mapLanguageToCode } from '../utils/mapLanguageToCode';
-import { DELAY_LISTENING_RESTART, MAX_DELAY_BETWEEN_RECOGNITIONS, instructions } from '../consts/config';
-import { useAvailableVoices } from '../hooks/useAvailableVoices';
-import { setAvailableVoices } from '../utils/getVoice';
+// import { freeSpeak } from '../../../utils/freeSpeak'
+import { translate } from '../../utils/translate';
+import { mapLanguageToCode } from '../../utils/mapLanguageToCode';
+import { DELAY_LISTENING_RESTART, MAX_DELAY_BETWEEN_RECOGNITIONS, instructions } from '../../consts/config';
+import { useAvailableVoices } from '../../hooks/useAvailableVoices';
+import { setAvailableVoices } from '../../utils/getVoice';
 import Instructions from './Instructions';
 import TranscriptOptions from './TranscriptOptions';
 import TranscriptLive from './TranscriptLive';
 import RangeInput from './RangeInput';
 import StartAndStopButtons from './StartAndStopButtons';
-import DebugModeSwitch from './DebugModeSwitch';
+import DebugModeSwitch from '../LogAndDebugComponents/DebugModeSwitch';
+import { SpeakLog } from '../LogAndDebugComponents/SpeakLog';
+import { freeSpeak } from '../../utils/freeSpeak';
+import Debug from '../../Debug';
 
 /*
 finalTranscript - is not function on mobile so we use finalTranscriptProxy as the source for translation/tts
@@ -135,8 +137,8 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
         if (isSpeaking !== !speechSynthesis.speaking) {
             console.error('wierd status: isSpeakig:' + (isSpeaking ? 'yes' : 'no'))
             // alert('force cancel speech')
-            speechSynthesis.resume();
-            speechSynthesis.cancel();
+            // speechSynthesis.resume();
+            // speechSynthesis.cancel();
         }
     }, [isSpeaking])
 
@@ -189,7 +191,7 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
 
             try {
                 await SpeechRecognition.abortListening();
-                await freeSpeech(target.translation || target.finalTranscriptProxy, target.toLang);
+                await freeSpeak(target.translation || target.finalTranscriptProxy, target.toLang);
                 setIsSpeaking(false);
             } catch (error) {
                 console.error(error);
@@ -325,7 +327,8 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
         <div style={{ background: (isSpeaking ? 'blue' : (listening ? 'green' : 'grey')) }}>
 
             <Instructions instructions={instructions} />
-
+            <SpeakLog setSpeaking={setIsSpeaking} isSpeaking={isSpeaking} />
+            <p>Is Speaking: {isSpeaking ? 'Yes' : 'No'}</p>
             <Debug isModeDebug={isModeDebug}>
                 <div id="read_only_flags" >
                     <p>is Microphone Available: {isMicrophoneAvailable ? 'yes' : 'no'}</p>
@@ -354,11 +357,11 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
                     setSelectedVoice={setSelectedVoice} /> */}
                 <div style={{ display: 'flex', flexDirection: 'row' }}>
 
-                    <TranslationBox setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang} text={finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : ''} onFreeSpeech={freeSpeech} />
+                    <TranslationBox setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang} text={finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : ''} onfreeSpeak={freeSpeak} />
 
                     <TranslationBox setText={setTranslation} setLanguage={setToLang} language={toLang}
                         text={translation || ''}
-                        onFreeSpeech={freeSpeech} />
+                        onfreeSpeak={freeSpeak} />
 
                 </div>
             </div>

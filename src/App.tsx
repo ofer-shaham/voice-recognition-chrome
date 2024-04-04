@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 // import logo from './logo.svg';
 import './App.css';
-import { Dictaphone } from './components/Dictaphone';
+import { Dictaphone } from './components/SpeechAndRecognitionComponents/Dictaphone';
 // import { VoiceRecorder } from './components/VoiceRecorder';
-import { Logger } from './components/Logger';
+import { Logger } from './components/LogAndDebugComponents/Logger';
+import { VoiceRecorder } from './components/SpeechAndRecognitionComponents/VoiceRecorder';
 
 
 function App() {
@@ -21,7 +22,7 @@ function App() {
     try {
       const mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       setStream(mediaStream);
-      // await freeSpeech(instructions.welcome.test)
+      // await freeSpeak(instructions.welcome.test)
     } catch (error) {
       console.error('Error getting user media:', error);
       alert('Error getting user media')
@@ -31,7 +32,7 @@ function App() {
     <div>
       {stream ? (
         <div className="App">
-          {/* <VoiceRecorder stream={stream} /> */}
+          <VoiceRecorder stream={stream} />
           <Dictaphone stream={stream} />
 
         </div>

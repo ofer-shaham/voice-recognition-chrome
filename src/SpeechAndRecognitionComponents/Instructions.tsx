@@ -1,5 +1,5 @@
 import React from 'react';
-import { freeSpeech } from '../utils/freeSpeak';
+import { freeSpeak } from '../utils/freeSpeak';
 
 interface InstructionsProps {
     instructions: {
@@ -15,7 +15,7 @@ const Instructions: React.FC<InstructionsProps> = ({ instructions }) => {
         <div id="instructions" style={{ background: 'grey' }}>
             <h1>How to use:</h1>
             {Object.keys(instructions).map((key) => (
-                <button key={key} onClick={() => freeSpeech(instructions[key].test)}>
+                <button key={key} onClick={() => freeSpeak(instructions[key].test)}>
                     {instructions[key].explain}
                 </button>
             ))}

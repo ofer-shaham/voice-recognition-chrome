@@ -1,5 +1,6 @@
 import React from 'react';
-import Debug from '../Debug';
+import Debug from '../../Debug';
+
 
 
 
