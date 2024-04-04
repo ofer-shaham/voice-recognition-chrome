@@ -22,6 +22,7 @@ import DebugModeSwitch from '../LogAndDebugComponents/DebugModeSwitch';
 import { SpeakLog } from '../LogAndDebugComponents/SpeakLog';
 import { freeSpeak } from '../../utils/freeSpeak';
 import Debug from '../../Debug';
+import { getLangCodeOnMobile } from '../../utils/getLangCodeOnMobile';
 
 /*
 finalTranscript - is not function on mobile so we use finalTranscriptProxy as the source for translation/tts
@@ -63,6 +64,7 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
     // const [maxDelayBetweenRecognitions, setMaxDelayBetweenRecognitions] = useState(MAX_DELAY_BETWEEN_RECOGNITIONS)
 
     const availableVoices = useAvailableVoices();
+    const availableVoicesCode = availableVoices.map(r => r.lang)
 
 
 
@@ -192,18 +194,37 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
      * 
      */
     useEffect(() => {
+
         if (!finalTranscriptHistory.length) {
             console.log('finalTranscriptHistory is empty')
             return
         };
+        const target = finalTranscriptHistory[finalTranscriptHistory.length - 1];
+
+        let targetText: string | null = null
+        let targetLang: string | null = null
+        //set target text and language
+        if (target.translation) {
+            targetText = target.translation
+            targetLang = target.toLang
+        } else {
+            targetText = target.finalTranscriptProxy
+            targetLang = target.fromLang
+        }
+
+        if (!targetText || !targetLang) return
+        if (!availableVoicesCode.includes(getLangCodeOnMobile(targetLang, isMobile))) {
+            console.log('there is no voice for lang:' + targetLang)
+            return
+        }
+
 
         const speakIt = async () => {
-            const target = finalTranscriptHistory[finalTranscriptHistory.length - 1];
             setIsSpeaking(true);
 
             try {
                 await SpeechRecognition.abortListening();
-                await freeSpeak(target.translation || target.finalTranscriptProxy, target.toLang);
+                await freeSpeak(targetText as string, targetLang as string);
                 setIsSpeaking(false);
             } catch (error) {
                 console.error(error);
@@ -214,6 +235,7 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
                 setIsSpeaking(false);
             }
         };
+
 
         speakIt();
     }, [finalTranscriptHistory]);
@@ -298,6 +320,7 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
         }
         doTranslate()
         return () => {
+            console.log('doTranslate')
             if (finalTranscriptProxy) { ignore = true }
         }
     }, [finalTranscriptProxy, fromLang, toLang, finalTranscriptHistory, setFinalTranscriptHistory])
