@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 // import logo from './logo.svg';
+import Todo from './components/LogAndDebugComponents/mdPresenter';
+
 import './App.css';
 import { Dictaphone } from './components/SpeechAndRecognitionComponents/Dictaphone';
 // import { VoiceRecorder } from './components/VoiceRecorder';
 import { Logger } from './components/LogAndDebugComponents/Logger';
 import { VoiceRecorder } from './components/SpeechAndRecognitionComponents/VoiceRecorder';
-
+ 
 
 function App() {
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -30,6 +32,8 @@ function App() {
   };
   return (
     <div>
+ 
+      <Todo url="plans.md" />
       {stream ? (
         <div className="App">
           <VoiceRecorder stream={stream} />

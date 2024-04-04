@@ -1,15 +1,21 @@
-import React, { useState } from 'react';
+import React from 'react';
 import Debug from '../../Debug';
-
 
 interface TranscriptOptionsProps {
     isModeDebug: boolean;
+    isInterimResults: boolean;
+    setIsInterimResults: React.Dispatch<React.SetStateAction<boolean>>;
+    isContinuous: boolean;
+    setIsContinuous: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
-const TranscriptOptions: React.FC<TranscriptOptionsProps> = ({ isModeDebug }) => {
-    const [isInterimResults, setIsInterimResults] = useState<boolean>(false);
-    const [isContinuous, setIsContinuous] = useState<boolean>(false);
-
+const TranscriptOptions: React.FC<TranscriptOptionsProps> = ({
+    isModeDebug,
+    isInterimResults,
+    setIsInterimResults,
+    isContinuous,
+    setIsContinuous,
+}) => {
     return (
         <Debug isModeDebug={isModeDebug}>
             <div>

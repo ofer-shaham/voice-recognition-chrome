@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import SpeechRecognition, { ListeningOptions, useSpeechRecognition } from 'react-speech-recognition'
 import { Command } from "../../types/speechRecognition";
-import VoicesDropdownSelect from "./voicesDropdownSelector";
+// import VoicesDropdownSelect from "./voicesDropdownSelector";
 import { isMobile } from '../../services/isMobile';
 
 import TranscriptHistory from './TranscriptHistory';
@@ -16,7 +16,7 @@ import { setAvailableVoices } from '../../utils/getVoice';
 import Instructions from './Instructions';
 import TranscriptOptions from './TranscriptOptions';
 import TranscriptLive from './TranscriptLive';
-import RangeInput from './RangeInput';
+// import RangeInput from './RangeInput';
 import StartAndStopButtons from './StartAndStopButtons';
 import DebugModeSwitch from '../LogAndDebugComponents/DebugModeSwitch';
 import { SpeakLog } from '../LogAndDebugComponents/SpeakLog';
@@ -52,15 +52,15 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
     const [translation, setTranslation] = useState('')
     const [finalTranscriptHistory, setFinalTranscriptHistory] = useState<FinalTranscriptHistory[]>([])
     const [isSpeaking, setIsSpeaking] = useState(false)
-    const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
+    // const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
     const [isInterimResults, setIsInterimResults] = useState(false)
     const [isContinuous, setIsContinuous] = useState(false)
     const [finalTranscriptProxy, setFinalTranscriptProxy] = useState('');
-    const [prevTranscript, setPrevTranscript] = useState('');
-    const [prevTranscriptTime, setPrevTranscriptTime] = useState<[number, number]>([Date.now(), Date.now()]);
+    // const [prevTranscript, setPrevTranscript] = useState('');
+    // const [prevTranscriptTime, setPrevTranscriptTime] = useState<[number, number]>([Date.now(), Date.now()]);
 
     const [isModeDebug, setIsModeDebug] = useState(false)
-    const [maxDelayBetweenRecognitions, setMaxDelayBetweenRecognitions] = useState(MAX_DELAY_BETWEEN_RECOGNITIONS)
+    // const [maxDelayBetweenRecognitions, setMaxDelayBetweenRecognitions] = useState(MAX_DELAY_BETWEEN_RECOGNITIONS)
 
     const availableVoices = useAvailableVoices();
 
@@ -142,12 +142,12 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
         }
     }, [isSpeaking])
 
-    useEffect(() => {
-        if (prevTranscriptTime[0] - prevTranscriptTime[1] > MAX_DELAY_BETWEEN_RECOGNITIONS * 1000) {
-            resetTranscript()
-            console.log('longer than ', MAX_DELAY_BETWEEN_RECOGNITIONS)
-        }
-    }, [prevTranscriptTime, resetTranscript])
+    // useEffect(() => {
+    //     if (prevTranscriptTime[0] - prevTranscriptTime[1] > MAX_DELAY_BETWEEN_RECOGNITIONS * 1000) {
+    //         resetTranscript()
+    //         console.log('longer than ', MAX_DELAY_BETWEEN_RECOGNITIONS)
+    //     }
+    // }, [prevTranscriptTime, resetTranscript])
 
     const getListeningOptions = useCallback((): ListeningOptions => {
         return { language: fromLang, interimResults: isInterimResults, continuous: isContinuous }
@@ -246,7 +246,7 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
     */
     useEffect(() => {
         if (!isMobile) return;
-        const delay = maxDelayBetweenRecognitions; // Delay in milliseconds
+        const delay = MAX_DELAY_BETWEEN_RECOGNITIONS; // Delay in milliseconds
         let timerId: NodeJS.Timeout | null = null;
 
         if (transcript) {
@@ -258,7 +258,7 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
         return () => {
             timerId && clearTimeout(timerId);
         };
-    }, [transcript, resetTranscript, isMobile]);
+    }, [transcript, resetTranscript]);
 
     /*
      update history. 
@@ -347,7 +347,13 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
                 handleStopListening={handleStopListening}
             />
 
-            <TranscriptOptions isModeDebug={isModeDebug} />
+            <TranscriptOptions
+                isModeDebug={true}
+                isInterimResults={isInterimResults}
+                setIsInterimResults={setIsInterimResults}
+                isContinuous={isContinuous}
+                setIsContinuous={setIsContinuous}
+            />
             <DebugModeSwitch isModeDebug={isModeDebug} setIsModeDebug={setIsModeDebug} />
             <TranscriptLive finalTranscript={finalTranscript} interimTranscript={interimTranscript} transcript={transcript} isModeDebug={isModeDebug} />
 
@@ -366,10 +372,9 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
                 </div>
             </div>
             <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} isModeDebug={isModeDebug} />
-
-            {isMobile && (
+            {/* {isMobile && (
                 <RangeInput maxDelayBetweenRecognitions={maxDelayBetweenRecognitions} prevTranscriptTime={prevTranscriptTime} setMaxDelayBetweenRecognitions={setMaxDelayBetweenRecognitions} />
-            )}
+            )} */}
             <div id='footer' style={{ display: 'flex' }}>
                 <a href="https://github.com/ofer-shaham/voice-recognition-chrome">source code</a>
             </div>
