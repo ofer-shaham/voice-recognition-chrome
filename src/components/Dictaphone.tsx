@@ -14,6 +14,12 @@ import { mapLanguageToCode } from '../utils/mapLanguageToCode';
 import { DELAY_LISTENING_RESTART, MAX_DELAY_BETWEEN_RECOGNITIONS, instructions } from '../consts/config';
 import { useAvailableVoices } from '../hooks/useAvailableVoices';
 import { setAvailableVoices } from '../utils/getVoice';
+import Instructions from './Instructions';
+import TranscriptOptions from './TranscriptOptions';
+import TranscriptLive from './TranscriptLive';
+import RangeInput from './RangeInput';
+import StartAndStopButtons from './StartAndStopButtons';
+import DebugModeSwitch from './DebugModeSwitch';
 
 /*
 finalTranscript - is not function on mobile so we use finalTranscriptProxy as the source for translation/tts
@@ -40,7 +46,7 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
 
 
     const [fromLang, setFromLang] = useState('en-US')
-    const [toLang, setToLang] = useState('ru-RU')
+    const [toLang, setToLang] = useState('en-US')
     const [translation, setTranslation] = useState('')
     const [finalTranscriptHistory, setFinalTranscriptHistory] = useState<FinalTranscriptHistory[]>([])
     const [isSpeaking, setIsSpeaking] = useState(false)
@@ -126,14 +132,14 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
     }, [availableVoices])
 
     useEffect(() => {
-        if (isSpeaking && !speechSynthesis.speaking) {
-            console.error('wierd status', speechSynthesis)
+        if (isSpeaking !== !speechSynthesis.speaking) {
+            console.error('wierd status: isSpeakig:' + (isSpeaking ? 'yes' : 'no'))
             // alert('force cancel speech')
             speechSynthesis.resume();
             speechSynthesis.cancel();
         }
-
     }, [isSpeaking])
+
     useEffect(() => {
         if (prevTranscriptTime[0] - prevTranscriptTime[1] > MAX_DELAY_BETWEEN_RECOGNITIONS * 1000) {
             resetTranscript()
@@ -169,28 +175,34 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
     }, [getListeningOptions])
 
 
-
+    /**
+     * speak the last peece of history
+     * change state: isSpeaking
+     * 
+     */
     useEffect(() => {
-        if (!finalTranscriptHistory.length) return
-        const speakIt = () => {
-            const target = finalTranscriptHistory[finalTranscriptHistory.length - 1]
-            setIsSpeaking(true)
+        if (!finalTranscriptHistory.length) return;
 
-            freeSpeech(target.translation || target.finalTranscriptProxy, target.toLang).then(() => {
-                setIsSpeaking(false)
+        const speakIt = async () => {
+            const target = finalTranscriptHistory[finalTranscriptHistory.length - 1];
+            setIsSpeaking(true);
 
-            }).catch(e => {
-                console.error(e);
-                if (e === "not-allowed") alert('please tap on the page to permit access to microphone')
+            try {
+                await SpeechRecognition.abortListening();
+                await freeSpeech(target.translation || target.finalTranscriptProxy, target.toLang);
+                setIsSpeaking(false);
+            } catch (error) {
+                console.error(error);
+                if (error === "not-allowed") {
+                    throw new Error('please tap on the page to permit access to microphone');
+                }
+                // One must click on the page in order to permit speech Synthesis
+                setIsSpeaking(false);
+            }
+        };
 
-
-                //one must click on the page in order to permit speech Synthesis 
-
-                setIsSpeaking(false)
-            });
-        }
-        speakIt()
-    }, [finalTranscriptHistory])
+        speakIt();
+    }, [finalTranscriptHistory]);
 
 
 
@@ -198,32 +210,57 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
      * keep transcript that haven't reach the final stage
      * on mobile - advance it to final stage
      */
-    useEffect(() => {
-        if (!isMobile) return
-        const completlyNewTranscript = !transcript.includes(prevTranscript)
-        const alreadyStagedTranscript = finalTranscriptProxy === prevTranscript
-        const keepSurvivorBeforeLost = completlyNewTranscript && !alreadyStagedTranscript
+    // useEffect(() => {
+    //     if (!isMobile) return
+    //     const completlyNewTranscript = !transcript.includes(prevTranscript)
+    //     const alreadyStagedTranscript = finalTranscriptProxy === prevTranscript
+    //     const keepSurvivorBeforeLost = completlyNewTranscript && !alreadyStagedTranscript
 
-        //keep transcription that missed the final stage
-        if (keepSurvivorBeforeLost) {
-            //on mobile we need to compansate for delayed resetTranscript scheduler
-            console.log('saving it:' + prevTranscript)
-            setFinalTranscriptProxy(prevTranscript);
+    //     //keep transcription that missed the final stage
+    //     if (keepSurvivorBeforeLost) {
+    //         //on mobile we need to compansate for delayed resetTranscript scheduler
+    //         console.warn('skeep saving:' + prevTranscript)
+    //         //setFinalTranscriptProxy(prevTranscript);
+    //     }
+    //     setPrevTranscriptTime(prev => [prev[1], Date.now()])
+    //     setPrevTranscript(transcript)
+    // }, [
+    //     finalTranscriptProxy, prevTranscript, transcript
+    // ])
+
+    /**
+     * on mobile - if transcript change 
+     */
+    // useEffect(() => {
+    //     if (!isMobile) return
+
+    //     if (prevTranscriptTime[0] - prevTranscriptTime[1] > maxDelayBetweenRecognitions)
+    //         console.log('resetTranscript')
+    //     resetTranscript()
+    // }, [prevTranscriptTime, maxDelayBetweenRecognitions, resetTranscript])
+
+    /*
+    throttle transcript (resetTranscript will mv the data the finalTranscript )
+    */
+    useEffect(() => {
+        if (!isMobile) return;
+        const delay = maxDelayBetweenRecognitions; // Delay in milliseconds
+        let timerId: NodeJS.Timeout | null = null;
+
+        if (transcript) {
+            timerId = setTimeout(() => {
+                resetTranscript();
+            }, delay);
         }
-        setPrevTranscriptTime(prev => [prev[1], Date.now()])
-        setPrevTranscript(transcript)
-    }, [
-        finalTranscriptProxy, prevTranscript, transcript
-    ])
 
-    useEffect(() => {
-        if (!isMobile) return
+        return () => {
+            timerId && clearTimeout(timerId);
+        };
+    }, [transcript, resetTranscript, isMobile]);
 
-        if (prevTranscriptTime[0] - prevTranscriptTime[1] > maxDelayBetweenRecognitions)
-            console.log('resetTranscript')
-        resetTranscript()
-    }, [prevTranscriptTime, maxDelayBetweenRecognitions, resetTranscript])
-
+    /*
+     update history. 
+     */
     useEffect(() => {
         if (!finalTranscriptProxy) return;
         setIsSpeaking(true)
@@ -239,14 +276,10 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
 
                     setTranslation(translationResult)
                     setFinalTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscriptProxy: finalTranscriptProxy, translation: translationResult, fromLang: fromLang, toLang: toLang }])
-                    await SpeechRecognition.abortListening().catch(e => {
-                        console.error(e)
-                    })
+
                 } else {
                     setFinalTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscriptProxy: finalTranscriptProxy, translation: '', fromLang: fromLang, toLang: toLang }])
-                    await SpeechRecognition.abortListening().catch(e => {
-                        console.error(e)
-                    })
+
                 }
             }
         }
@@ -283,19 +316,15 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
     }
 
 
-
+    const handleStopListening = () => {
+        SpeechRecognition.stopListening()
+    }
 
     return (
 
         <div style={{ background: (isSpeaking ? 'blue' : (listening ? 'green' : 'grey')) }}>
 
-            <div id="instructions" style={{ background: 'grey' }} >
-                <h1>How to use:</h1>
-                <button onClick={() => { freeSpeech(instructions.speak_english.test) }}>{instructions.speak_english.explain}</button>
-                <button onClick={() => { freeSpeech(instructions.translate_from_en_to_ru.test) }}>{instructions.translate_from_en_to_ru.explain}</button>
-                <button onClick={() => { freeSpeech(instructions.translate_from_he_to_ar.test) }}>{instructions.translate_from_he_to_ar.explain}</button>
-            </div>
-
+            <Instructions instructions={instructions} />
 
             <Debug isModeDebug={isModeDebug}>
                 <div id="read_only_flags" >
@@ -304,119 +333,40 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
                     <p>speaking: {isSpeaking ? 'yes' : 'no'}</p>
                 </div>
             </Debug>
-            <div id="buttons" style={{ background: 'grey' }}>
-                <div>
-                    <button disabled={!listening} onClick={() => SpeechRecognition.stopListening()}>Stop</button>
-                    <button style={{ color: 'darkgreen' }} disabled={listening} onClick={() => listenNow()}>Start</button>
-                </div>
-                <div>
-                    <button onClick={() => {
-                        setFromLang('en-US')
-                        setToLang('en-US');
-                        setTranslation('')
-                    }}>reset languages</button>
-                    <button onClick={resetTranscript}>Reset Transcript</button>
-                </div>
-            </div>
 
+            <StartAndStopButtons
+                listening={listening}
+                listenNow={listenNow}
+                resetTranscript={resetTranscript}
+                setFromLang={setFromLang}
+                setToLang={setToLang}
+                setTranslation={setTranslation}
+                handleStopListening={handleStopListening}
+            />
 
-            <Debug isModeDebug={isModeDebug}>
-                <div>
+            <TranscriptOptions isModeDebug={isModeDebug} />
+            <DebugModeSwitch isModeDebug={isModeDebug} setIsModeDebug={setIsModeDebug} />
+            <TranscriptLive finalTranscript={finalTranscript} interimTranscript={interimTranscript} transcript={transcript} isModeDebug={isModeDebug} />
 
-
-                    <label>
-                        Interim Results:
-                        <input
-                            type="checkbox"
-                            checked={isInterimResults}
-                            onChange={() => setIsInterimResults(!isInterimResults)}
-                        />
-                    </label>
-                    <br />
-                    <label>
-                        Continuous:
-                        <input
-                            type="checkbox"
-                            checked={isContinuous}
-                            onChange={() => setIsContinuous(!isContinuous)}
-                        />
-                    </label>
-                    <br />
-                </div>
-            </Debug>
-
-
-            <div id="configuration" >
-                <label>
-                    Debug mode:
-                    <input
-                        type="checkbox"
-                        checked={isModeDebug}
-                        onChange={() => setIsModeDebug(!isModeDebug)}
-                    />
-                </label>
-            </div>
-
-
-
-
-
-
-
-            <Debug isModeDebug={isModeDebug}>
-                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                    <label style={{ marginRight: '10px' }}>finalTranscript:</label>
-                    <input type="text" value={finalTranscript} style={{ marginLeft: 'auto' }} readOnly />
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                    <label style={{ marginRight: '10px' }}>transcript:</label>
-                    <input type="text" value={transcript} style={{ marginLeft: 'auto' }} readOnly />
-                </div>
-
-                <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-                    <label style={{ marginRight: '10px' }}>interimTranscript:</label>
-                    <input type="text" value={interimTranscript} style={{ marginLeft: 'auto' }} readOnly />
-                </div>
-            </Debug>
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-
-
+                {/* <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setToLang={setToLang} selectedVoice={selectedVoice}
+                    setSelectedVoice={setSelectedVoice} /> */}
                 <div style={{ display: 'flex', flexDirection: 'row' }}>
 
-                </div><VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setToLang={setToLang} selectedVoice={selectedVoice}
-                    setSelectedVoice={setSelectedVoice} />
+                    <TranslationBox setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang} text={finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : ''} onFreeSpeech={freeSpeech} />
+
+                    <TranslationBox setText={setTranslation} setLanguage={setToLang} language={toLang}
+                        text={translation || ''}
+                        onFreeSpeech={freeSpeech} />
+
+                </div>
             </div>
-            <TranslationBox setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang} text={finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : ''} onFreeSpeech={freeSpeech} />
-
-            <TranslationBox   setText={setTranslation} setLanguage={setToLang} language={toLang}
-                text={translation || ''}
-                onFreeSpeech={freeSpeech} />
-
             <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} isModeDebug={isModeDebug} />
 
-            {isMobile && (<>
-                <div>
-                    <label htmlFor="rangeInput">maxDelayBetweenRecognitions:</label>
-                    <input
-                        type="range"
-                        id="rangeInput"
-                        name="maxDelayBetweenRecognitions"
-                        min="0"
-                        max={MAX_DELAY_BETWEEN_RECOGNITIONS * 2}
-                        step="0.1"
-                        value={maxDelayBetweenRecognitions}
-                        onChange={(event: React.ChangeEvent<HTMLInputElement>) => {
-                            const value = parseFloat(event.target.value);
-                            setMaxDelayBetweenRecognitions(value);
-                        }}
-                    />
-                    <br />
-                    <p>{maxDelayBetweenRecognitions}</p>
-                    <p>{Math.floor((prevTranscriptTime[1] - prevTranscriptTime[0]) / 1000)}</p>
-                </div>
-            </>)}
+            {isMobile && (
+                <RangeInput maxDelayBetweenRecognitions={maxDelayBetweenRecognitions} prevTranscriptTime={prevTranscriptTime} setMaxDelayBetweenRecognitions={setMaxDelayBetweenRecognitions} />
+            )}
             <div id='footer' style={{ display: 'flex' }}>
                 <a href="https://github.com/ofer-shaham/voice-recognition-chrome">source code</a>
             </div>

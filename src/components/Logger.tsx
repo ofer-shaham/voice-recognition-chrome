@@ -26,7 +26,7 @@ export const Logger: React.FC<LoggerProps> = ({ errors, setErrors }) => {
         <div>
             {/* Render the errors in the component */}
             {[...errors].reverse().map((error, index) => (
-                <div key={index}>{JSON.stringify(error)}</div>
+                <div key={index}>{index}-{JSON.stringify(error)}</div>
             ))}
         </div>
     );

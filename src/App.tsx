@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 // import logo from './logo.svg';
 import './App.css';
 import { Dictaphone } from './components/Dictaphone';
-import { VoiceRecorder } from './components/VoiceRecorder';
-import { Logger } from './Logger';
+// import { VoiceRecorder } from './components/VoiceRecorder';
+import { Logger } from './components/Logger';
 
 
 function App() {
