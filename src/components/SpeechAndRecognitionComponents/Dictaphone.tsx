@@ -179,13 +179,23 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
     }, [getListeningOptions])
 
 
+
+    useEffect(() => {
+        if (isMobile) { console.info('finally arrive', { finalTranscript }) };
+        setFinalTranscriptProxy(finalTranscript);
+        console.log('setFinalTranscriptProxy', { finalTranscript })
+    }, [finalTranscript, setFinalTranscriptProxy])
+
     /**
      * speak the last peece of history
      * change state: isSpeaking
      * 
      */
     useEffect(() => {
-        if (!finalTranscriptHistory.length) return;
+        if (!finalTranscriptHistory.length) {
+            console.log('finalTranscriptHistory is empty')
+            return
+        };
 
         const speakIt = async () => {
             const target = finalTranscriptHistory[finalTranscriptHistory.length - 1];
@@ -266,10 +276,10 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
      update history. 
      */
     useEffect(() => {
-        if (!finalTranscriptProxy) return;
+        if (!finalTranscriptProxy) { console.log({ finalTranscript }, { finalTranscriptProxy }); return };
         let ignore = false;
 
-        async function translate_and_speek() {
+        async function doTranslate() {
             const newFinalArrived = (finalTranscriptHistory.length ? finalTranscriptProxy !== finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : true)
             if (newFinalArrived) {
                 if (fromLang !== toLang) {
@@ -286,8 +296,10 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
                 }
             }
         }
-        translate_and_speek()
-        return () => { ignore = true }
+        doTranslate()
+        return () => {
+            if (finalTranscriptProxy) { ignore = true }
+        }
     }, [finalTranscriptProxy, fromLang, toLang, finalTranscriptHistory, setFinalTranscriptHistory])
 
 
@@ -307,10 +319,7 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
 
 
 
-    useEffect(() => {
-        if (isMobile) { console.info('finally arrive', { finalTranscript }) };
-        setFinalTranscriptProxy(finalTranscript);
-    }, [finalTranscript, setFinalTranscriptProxy])
+
 
 
     if (!browserSupportsSpeechRecognition) {
@@ -328,7 +337,7 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
         <div style={{ background: (isSpeaking ? 'blue' : (listening ? 'green' : 'grey')) }}>
 
             <Instructions instructions={instructions} />
-            <SpeakLog setSpeaking={setIsSpeaking} isSpeaking={isSpeaking} />
+            <SpeakLog setIsSpeaking={setIsSpeaking} isSpeaking={isSpeaking} />
             <p>Is Speaking: {isSpeaking ? 'Yes' : 'No'}</p>
             <Debug isModeDebug={isModeDebug}>
                 <div id="read_only_flags" >
@@ -364,7 +373,7 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
                     setSelectedVoice={setSelectedVoice} /> */}
                 <div style={{ display: 'flex', flexDirection: 'row' }}>
 
-                    <TranslationBox setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang} text={finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : ''} onfreeSpeak={freeSpeak} />
+                    <TranslationBox setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang} text={transcript || (finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : '')} onfreeSpeak={freeSpeak} />
 
                     <TranslationBox setText={setTranslation} setLanguage={setToLang} language={toLang}
                         text={translation || ''}

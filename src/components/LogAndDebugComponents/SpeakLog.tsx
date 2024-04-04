@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from 'react';
 
 interface SpeakLogProps {
-    setSpeaking: React.Dispatch<React.SetStateAction<boolean>>;
+    setIsSpeaking: React.Dispatch<React.SetStateAction<boolean>>;
     isSpeaking: boolean;
 }
 
-export const SpeakLog: React.FC<SpeakLogProps> = ({ setSpeaking, isSpeaking }) => {
+export const SpeakLog: React.FC<SpeakLogProps> = ({ setIsSpeaking, isSpeaking }) => {
     const [log, setLog] = useState<string[]>([]);
 
     useEffect(() => {
         const handleSpeakingChange = () => {
-            setSpeaking(speechSynthesis.speaking);
+            setIsSpeaking(speechSynthesis.speaking);
         };
 
         const handleSpeakEvent = (event: SpeechSynthesisEvent) => {
-            setSpeaking(speechSynthesis.speaking);
+            setIsSpeaking(speechSynthesis.speaking);
 
             const { charIndex, elapsedTime, type, name } = event;
             const logEntry = `[${name}: ${type}] Char Index: ${charIndex}, Elapsed Time: ${elapsedTime}`;
@@ -41,7 +41,7 @@ export const SpeakLog: React.FC<SpeakLogProps> = ({ setSpeaking, isSpeaking }) =
                 speechSynthesis.removeEventListener('boundary', handleSpeakEvent as EventListener);
             };
         }
-    }, [setSpeaking, setLog]);
+    }, [setIsSpeaking, setLog]);
 
     return (
         <div>
