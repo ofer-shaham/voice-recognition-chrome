@@ -146,13 +146,6 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
         }
     }, [isSpeaking])
 
-    // useEffect(() => {
-    //     if (prevTranscriptTime[0] - prevTranscriptTime[1] > MAX_DELAY_BETWEEN_RECOGNITIONS * 1000) {
-    //         resetTranscript()
-    //         console.log('longer than ', MAX_DELAY_BETWEEN_RECOGNITIONS)
-    //     }
-    // }, [prevTranscriptTime, resetTranscript])
-
     const getListeningOptions = useCallback((): ListeningOptions => {
         return { language: fromLang, interimResults: isInterimResults, continuous: isContinuous }
     }, [fromLang, isContinuous, isInterimResults])
@@ -242,38 +235,7 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
 
 
 
-    /**
-     * keep transcript that haven't reach the final stage
-     * on mobile - advance it to final stage
-     */
-    // useEffect(() => {
-    //     if (!isMobile) return
-    //     const completlyNewTranscript = !transcript.includes(prevTranscript)
-    //     const alreadyStagedTranscript = finalTranscriptProxy === prevTranscript
-    //     const keepSurvivorBeforeLost = completlyNewTranscript && !alreadyStagedTranscript
 
-    //     //keep transcription that missed the final stage
-    //     if (keepSurvivorBeforeLost) {
-    //         //on mobile we need to compansate for delayed resetTranscript scheduler
-    //         console.warn('skeep saving:' + prevTranscript)
-    //         //setFinalTranscriptProxy(prevTranscript);
-    //     }
-    //     setPrevTranscriptTime(prev => [prev[1], Date.now()])
-    //     setPrevTranscript(transcript)
-    // }, [
-    //     finalTranscriptProxy, prevTranscript, transcript
-    // ])
-
-    /**
-     * on mobile - if transcript change 
-     */
-    // useEffect(() => {
-    //     if (!isMobile) return
-
-    //     if (prevTranscriptTime[0] - prevTranscriptTime[1] > maxDelayBetweenRecognitions)
-    //         console.log('resetTranscript')
-    //     resetTranscript()
-    // }, [prevTranscriptTime, maxDelayBetweenRecognitions, resetTranscript])
 
     /*
     throttle transcript (resetTranscript will mv the data the finalTranscript )
