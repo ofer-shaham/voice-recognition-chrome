@@ -68,7 +68,7 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
 
     const commands: Command[] = [
         {
-            command: '(please) translate (from) * to *',
+            command: '(‏) (please) translate (from) * to *',
             callback: (fromLang: string, toLang: string) => {
                 const fromCode = mapLanguageToCode(fromLang)
                 const toCode = mapLanguageToCode(toLang)
@@ -97,13 +97,15 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
                 setTranslation('')
             },
             matchInterim: true
-        },
-        {
-            command: 'speak hebrew',
-            callback: (command, spokenPhrase, similarityRatio) => console.info(`${command} and ${spokenPhrase} are ${similarityRatio * 100}% similar`),
-            // If the spokenPhrase is "Benji", the message would be "Beijing and Benji are 40% similar"
-            isFuzzyMatch: true,
-            fuzzyMatchingThreshold: 0.2
+        }, {
+            command: '(‏)speak english',
+            callback: () => {
+                const langCode = mapLanguageToCode('english')
+                setFromLang(langCode);
+                setToLang(langCode);
+                setTranslation('')
+            },
+            matchInterim: true
         },
         {
             command: ['up', 'down', 'left', 'right'],
@@ -265,7 +267,6 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
      */
     useEffect(() => {
         if (!finalTranscriptProxy) return;
-        setIsSpeaking(true)
         let ignore = false;
 
         async function translate_and_speek() {
