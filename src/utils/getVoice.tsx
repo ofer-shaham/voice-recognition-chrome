@@ -19,6 +19,6 @@ export function getVoice(language: string, isMobile: boolean): SpeechSynthesisVo
     return voice
 }
 
-export function setAvailableVoices(availableVoices: SpeechSynthesisVoice[]) {
+export function populateAvailableVoices(availableVoices: SpeechSynthesisVoice[]) {
     _availableVoices = availableVoices
 }
