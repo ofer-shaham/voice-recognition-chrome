@@ -48,8 +48,8 @@ interface VoiceRecorderProps {
 export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
 
 
-    const [fromLang, setFromLang] = useState('en-US')
-    const [toLang, setToLang] = useState('en-US')
+    const [fromLang, setFromLang] = useState('he-IL')
+    const [toLang, setToLang] = useState('ar-AE')
     const [translation, setTranslation] = useState('')
     const [finalTranscriptHistory, setFinalTranscriptHistory] = useState<FinalTranscriptHistory[]>([])
     const [isSpeaking, setIsSpeaking] = useState(false)
@@ -80,7 +80,7 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
         },
 
         {
-            command: '(please) speak english',
+            command: '(‏) (please) speak english',
             callback: () => {
                 ;
                 const langCode = mapLanguageToCode('english')
@@ -90,13 +90,14 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
             },
             matchInterim: true
         }, {
-            command: '(please) speak :language',
+            command: '(‏) (please) speak :language',
             callback: (language: string) => {
 
                 const langCode = mapLanguageToCode(language)
                 setFromLang(langCode);
                 setToLang(langCode);
                 setTranslation('')
+                console.log('match :languge')
             },
             matchInterim: true
         }, {
@@ -106,6 +107,7 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
                 setFromLang(langCode);
                 setToLang(langCode);
                 setTranslation('')
+                console.log('matchInterim')
             },
             matchInterim: true
         },
@@ -113,7 +115,14 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
             command: ['up', 'down', 'left', 'right'],
             callback: (command) => console.info(`Best matching command: ${command}`),
             isFuzzyMatch: true,
-            fuzzyMatchingThreshold: 0.2,
+            fuzzyMatchingThreshold: 0.8,
+            bestMatchOnly: true
+        },
+        {
+            command: ['שמאל', 'ימין', 'למעלה', 'למטה'],
+            callback: (command) => console.info(`Best matching command: ${command}`),
+            isFuzzyMatch: true,
+            fuzzyMatchingThreshold: 0.8,
             bestMatchOnly: true
         },
         {
@@ -231,7 +240,7 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
 
 
         speakIt();
-    }, [finalTranscriptHistory]);
+    }, [finalTranscriptHistory, availableVoicesCode]);
 
 
 
@@ -260,15 +269,16 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
      update history. 
      */
     useEffect(() => {
-        if (!finalTranscriptProxy) { console.log({ finalTranscript }, { finalTranscriptProxy }); return };
-        let ignore = false;
+        if (!finalTranscriptProxy) { return; };
+        console.log('translate', { finalTranscriptProxy })
+        // let ignore = false;
 
         async function doTranslate() {
             const newFinalArrived = (finalTranscriptHistory.length ? finalTranscriptProxy !== finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : true)
             if (newFinalArrived) {
                 if (fromLang !== toLang) {
                     const translationResult = await translate({ finalTranscriptProxy, fromLang, toLang })
-                    if (ignore) return
+                    // if (ignore) return
                     console.log('setTranslation', translationResult)
 
                     setTranslation(translationResult)
@@ -283,7 +293,7 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
         doTranslate()
         return () => {
             console.log('doTranslate')
-            if (finalTranscriptProxy) { ignore = true }
+            // if (finalTranscriptProxy) { ignore = true }
         }
     }, [finalTranscriptProxy, fromLang, toLang, finalTranscriptHistory, setFinalTranscriptHistory])
 
@@ -353,10 +363,10 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
             <TranscriptLive finalTranscript={finalTranscript} interimTranscript={interimTranscript} transcript={transcript} isModeDebug={isModeDebug} />
 
 
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                 {/* <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setToLang={setToLang} selectedVoice={selectedVoice}
                     setSelectedVoice={setSelectedVoice} /> */}
-                <div style={{ display: 'flex', flexDirection: 'row' }}>
+                <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
 
                     <TranslationBox setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang} text={transcript || (finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : '')} onfreeSpeak={freeSpeak} />
 
