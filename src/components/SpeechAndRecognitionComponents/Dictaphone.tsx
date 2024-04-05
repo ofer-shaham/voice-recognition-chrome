@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import SpeechRecognition, { ListeningOptions, useSpeechRecognition } from 'react-speech-recognition'
 import { Command } from "../../types/speechRecognition";
 // import VoicesDropdownSelect from "./voicesDropdownSelector";
@@ -12,7 +12,7 @@ import { translate } from '../../utils/translate';
 import { mapLanguageToCode } from '../../utils/mapLanguageToCode';
 import { DELAY_LISTENING_RESTART, MAX_DELAY_BETWEEN_RECOGNITIONS, instructions } from '../../consts/config';
 import { useAvailableVoices } from '../../hooks/useAvailableVoices';
-import { setAvailableVoices } from '../../utils/getVoice';
+import { populateAvailableVoices } from '../../utils/getVoice';
 import Instructions from './Instructions';
 import TranscriptOptions from './TranscriptOptions';
 import TranscriptLive from './TranscriptLive';
@@ -64,11 +64,14 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
     // const [maxDelayBetweenRecognitions, setMaxDelayBetweenRecognitions] = useState(MAX_DELAY_BETWEEN_RECOGNITIONS)
 
     const availableVoices = useAvailableVoices();
-    const availableVoicesCode = availableVoices.map(r => r.lang)
+    const availableVoicesCode = useMemo(() => availableVoices.map(r => r.lang), [availableVoices])
+
+    const handleStopListening = useCallback(() => {
+        SpeechRecognition.stopListening()
+    }, [])
 
 
-
-    const commands: Command[] = [
+    const commands = useMemo<Command[]>(() => [
         {
             command: '(‏) (please) translate (from) * to *',
             callback: (fromLang: string, toLang: string) => {
@@ -129,7 +132,7 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
             command: 'clear',
             callback: ({ resetTranscript }) => { console.info('got command: clear'); resetTranscript() }
         }
-    ]
+    ], [])
 
     const { finalTranscript,
         interimTranscript,
@@ -141,33 +144,33 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
     useEffect(() => {
         if (!availableVoices.length) { console.warn('no voices') }
         else {
-            setAvailableVoices(availableVoices)
-            console.info({ availableVoices })
+            populateAvailableVoices(availableVoices)
+            console.info('some voices', { availableVoices })
         }
     }, [availableVoices])
 
-    useEffect(() => {
-        if (isSpeaking !== !speechSynthesis.speaking) {
-            console.error('wierd status: isSpeakig:' + (isSpeaking ? 'yes' : 'no'))
-            // alert('force cancel speech')
-            // speechSynthesis.resume();
-            // speechSynthesis.cancel();
-        }
-    }, [isSpeaking])
+    // useEffect(() => {
+    //     if (isSpeaking !== !speechSynthesis.speaking) {
+    //         console.error('wierd status: isSpeakig:' + (isSpeaking ? 'yes' : 'no'))
+    //         // alert('force cancel speech')
+    //         // speechSynthesis.resume();
+    //         // speechSynthesis.cancel();
+    //     }
+    // }, [isSpeaking])
 
-    const getListeningOptions = useCallback((): ListeningOptions => {
+    const listeningOptions = useMemo((): ListeningOptions => {
         return { language: fromLang, interimResults: isInterimResults, continuous: isContinuous }
     }, [fromLang, isContinuous, isInterimResults])
 
     const listenNow = useCallback((): Promise<void> => {
         try {
 
-            return SpeechRecognition.startListening(getListeningOptions())
+            return SpeechRecognition.startListening(listeningOptions)
         } catch (e) {
             console.error(e);
             return Promise.reject(e)
         }
-    }, [getListeningOptions])
+    }, [listeningOptions])
 
     useEffect(() => {
         try {
@@ -179,8 +182,8 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
     }, [listenNow])
 
     const startListening = useCallback((): Promise<void> | never => {
-        return SpeechRecognition.startListening(getListeningOptions()).catch(e => { throw new Error(e.message) });
-    }, [getListeningOptions])
+        return SpeechRecognition.startListening(listeningOptions).catch(e => { throw new Error(e.message) });
+    }, [listeningOptions])
 
 
 
@@ -323,9 +326,7 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
     }
 
 
-    const handleStopListening = () => {
-        SpeechRecognition.stopListening()
-    }
+
 
     return (
 
