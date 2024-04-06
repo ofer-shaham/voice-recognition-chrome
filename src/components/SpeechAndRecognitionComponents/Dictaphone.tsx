@@ -62,6 +62,8 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
 
     const [isModeDebug, setIsModeDebug] = useState(false)
     // const [maxDelayBetweenRecognitions, setMaxDelayBetweenRecognitions] = useState(MAX_DELAY_BETWEEN_RECOGNITIONS)
+    const [isNonStop, setIsNonStop] = useState(!isMobile)
+
 
     const availableVoices = useAvailableVoices();
     const availableVoicesCode = useMemo(() => availableVoices.map(r => r.lang), [availableVoices])
@@ -172,18 +174,18 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
         }
     }, [listeningOptions])
 
-    useEffect(() => {
-        try {
-            listenNow();
-        } catch (e) {
-            console.error(e)
-        }
+    // useEffect(() => {
+    //     try {
+    //         listenNow();
+    //     } catch (e) {
+    //         console.error(e)
+    //     }
 
-    }, [listenNow])
+    // }, [listenNow])
 
-    const startListening = useCallback((): Promise<void> | never => {
-        return SpeechRecognition.startListening(listeningOptions).catch(e => { throw new Error(e.message) });
-    }, [listeningOptions])
+    // const startListeningNow = useCallback((): Promise<void> | never => {
+    //     return SpeechRecognition.startListening(listeningOptions).catch(e => { throw new Error(e.message) });
+    // }, [listeningOptions])
 
 
 
@@ -302,8 +304,10 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
 
 
 
+    
 
     useEffect(() => {
+        if (!isNonStop) return
         let timeoutId: NodeJS.Timeout | null = null
 
 
@@ -312,7 +316,7 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
             timeoutId = setTimeout(listenNow, isMobile ? DELAY_LISTENING_RESTART : 0)
         }
         return () => { timeoutId && clearTimeout(timeoutId) }
-    }, [isSpeaking, startListening, listening, listenNow]);
+    }, [isSpeaking, listening, listenNow,isNonStop]);
 
 
 
@@ -333,6 +337,14 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
         <div style={{ background: (isSpeaking ? 'blue' : (listening ? 'green' : 'grey')) }}>
 
             <Instructions instructions={instructions} />
+            <label>
+                run non-stop:
+                <input
+                    type="checkbox"
+                    checked={isNonStop}
+                    onChange={() => setIsNonStop(prev => !prev)}
+                />
+            </label>
             <SpeakLog setIsSpeaking={setIsSpeaking} isSpeaking={isSpeaking} />
             <p>Is Speaking: {isSpeaking ? 'Yes' : 'No'}</p>
             <Debug isModeDebug={isModeDebug}>

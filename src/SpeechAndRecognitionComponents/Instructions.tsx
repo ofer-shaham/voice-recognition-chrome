@@ -12,13 +12,20 @@ interface InstructionsProps {
 
 const Instructions: React.FC<InstructionsProps> = ({ instructions }) => {
     return (
-        <div id="instructions" style={{ background: 'grey' }}>
+        <div id="instructions" style={{
+            background: 'grey', display: 'flex', flexDirection: 'column',
+        }}>
             <h1>How to use:</h1>
             {Object.keys(instructions).map((key) => (
-                <button key={key} onClick={() => freeSpeak(instructions[key].test)}>
-                    {instructions[key].explain}
-                </button>
+                <div key={key} style={{
+                    background: 'grey', display: 'flex', flexDirection: 'row', width:'100%'
+                }}>
+                    <button style={{ flex: '1' , width: '100%'}} onClick={() => freeSpeak(instructions[key].test)}>
+                        {instructions[key].explain}
+                    </button>
+                </div>
             ))}
+            
         </div>
     );
 };
