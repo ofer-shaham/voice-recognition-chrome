@@ -223,17 +223,19 @@ export const Dictaphone: React.FC = () => {
         const speakIt = async () => {
 
             try {
-                await SpeechRecognition.abortListening();
-                setIsSpeaking(true);
+                await SpeechRecognition.abortListening().catch(e => console.error(e));
+                //  setIsSpeaking(() => true); //
                 await freeSpeak(targetText as string, targetLang as string);
-                setIsSpeaking(false);
+                //   setIsSpeaking(false);
             } catch (error) {
                 console.error(error);
+
+                //TODO: catch earlier "not-allowed" 
                 if (error === "not-allowed") {
                     throw new Error('please tap on the page to permit access to microphone');
+                    // One must click on the page in order to permit speech Synthesis
                 }
-                // One must click on the page in order to permit speech Synthesis
-                setIsSpeaking(false);
+                // setIsSpeaking(false);
             }
         };
 
@@ -308,7 +310,11 @@ export const Dictaphone: React.FC = () => {
 
         if (!isSpeaking && !listening) {
 
-            timeoutId = setTimeout(listenNow, isMobile ? DELAY_LISTENING_RESTART : 0)
+            timeoutId = setTimeout(() => {
+                if (!speechSynthesis.speaking) listenNow(); else {
+                    console.info('abort listening')
+                }
+            }, isMobile ? DELAY_LISTENING_RESTART : 0)
         }
         return () => { timeoutId && clearTimeout(timeoutId) }
     }, [isSpeaking, listening, listenNow, //isNonStop
