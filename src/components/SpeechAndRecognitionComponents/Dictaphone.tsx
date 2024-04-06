@@ -10,7 +10,7 @@ import TranslationBox from './TranslationBox';
 // import { freeSpeak } from '../../../utils/freeSpeak'
 import { translate } from '../../utils/translate';
 import { mapLanguageToCode } from '../../utils/mapLanguageToCode';
-import { DELAY_LISTENING_RESTART, MAX_DELAY_BETWEEN_RECOGNITIONS, instructions } from '../../consts/config';
+import { DELAY_LISTENING_RESTART, INITIAL_DELAY_BETWEEN_WORDS, instructions } from '../../consts/config';
 import { useAvailableVoices } from '../../hooks/useAvailableVoices';
 import { populateAvailableVoices } from '../../utils/getVoice';
 import Instructions from './Instructions';
@@ -24,6 +24,7 @@ import { freeSpeak } from '../../utils/freeSpeak';
 import Debug from '../LogAndDebugComponents/Debug';
 import { getLangCodeOnMobile } from '../../utils/getLangCodeOnMobile';
 import '../../styles/Dictaphone.css'
+import RangeInput from './RangeInput';
 /*
 finalTranscript - is not function on mobile so we use finalTranscriptProxy as the source for translation/tts
 
@@ -59,7 +60,7 @@ export const Dictaphone: React.FC = () => {
     // const [prevTranscriptTime, setPrevTranscriptTime] = useState<[number, number]>([Date.now(), Date.now()]);
 
     const [isModeDebug, setIsModeDebug] = useState(false)
-    // const [maxDelayBetweenRecognitions, setMaxDelayBetweenRecognitions] = useState(MAX_DELAY_BETWEEN_RECOGNITIONS)
+    const [delayBetweenWords, setdelayBetweenWords] = useState(INITIAL_DELAY_BETWEEN_WORDS)
     // const [isNonStop, setIsNonStop] = useState(!isMobile)
 
 
@@ -250,11 +251,12 @@ export const Dictaphone: React.FC = () => {
     */
     useEffect(() => {
         if (!isMobile) return;
-        const delay = MAX_DELAY_BETWEEN_RECOGNITIONS; // Delay in milliseconds
+        const delay = delayBetweenWords; // Delay in milliseconds
         let timerId: NodeJS.Timeout | null = null;
 
         if (transcript) {
             timerId = setTimeout(() => {
+                //TODO: setFinalTranscriptProxy
                 resetTranscript();
             }, delay);
         }
@@ -262,7 +264,7 @@ export const Dictaphone: React.FC = () => {
         return () => {
             timerId && clearTimeout(timerId);
         };
-    }, [transcript, resetTranscript]);
+    }, [transcript, resetTranscript, delayBetweenWords]);
 
     /*
      update history. 
@@ -390,9 +392,9 @@ export const Dictaphone: React.FC = () => {
                 </div>
             </div>
             <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} isModeDebug={isModeDebug} />
-            {/* {isMobile && (
-                <RangeInput maxDelayBetweenRecognitions={maxDelayBetweenRecognitions} prevTranscriptTime={prevTranscriptTime} setMaxDelayBetweenRecognitions={setMaxDelayBetweenRecognitions} />
-            )} */}
+            {isMobile && (
+                <RangeInput delayBetweenWords={delayBetweenWords} setdelayBetweenWords={setdelayBetweenWords} />
+            )}
             <div id='footer' style={{ display: 'flex' }}>
                 <a href="https://github.com/ofer-shaham/voice-recognition-chrome">source code</a>
             </div>

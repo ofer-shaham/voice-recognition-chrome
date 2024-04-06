@@ -1,5 +1,7 @@
 export const DELAY_LISTENING_RESTART = 1000
-export const MAX_DELAY_BETWEEN_RECOGNITIONS = 3000
+export const MAX_DELAY_BETWEEN_WORDS = 3000
+export const INITIAL_DELAY_BETWEEN_WORDS = 1000
+
 
 export const instructions = {
     "welcome": { test: "hello world", explain: "say 'hello world'" },
