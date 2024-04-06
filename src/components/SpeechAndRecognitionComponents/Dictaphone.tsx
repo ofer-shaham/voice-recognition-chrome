@@ -216,16 +216,15 @@ export const Dictaphone: React.FC = () => {
 
         if (!targetText || !targetLang) return
         if (!availableVoicesCode.includes(getLangCodeOnMobile(targetLang, isMobile))) {
-            console.log('there is no voice for lang:' + targetLang)
-            return
+            console.warn('there is no voice for lang:' + targetLang)
         }
 
 
         const speakIt = async () => {
-            setIsSpeaking(true);
 
             try {
                 await SpeechRecognition.abortListening();
+                setIsSpeaking(true);
                 await freeSpeak(targetText as string, targetLang as string);
                 setIsSpeaking(false);
             } catch (error) {
