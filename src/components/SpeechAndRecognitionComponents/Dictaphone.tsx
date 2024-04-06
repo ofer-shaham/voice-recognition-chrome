@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import SpeechRecognition, { ListeningOptions, useSpeechRecognition } from 'react-speech-recognition'
 import { Command } from "../../types/speechRecognition";
-// import VoicesDropdownSelect from "./voicesDropdownSelector";
+import VoicesDropdownSelect from "./voicesDropdownSelector";
 import { isMobile } from '../../services/isMobile';
 
 import TranscriptHistory from './TranscriptHistory';
@@ -19,18 +19,19 @@ import TranscriptLive from './TranscriptLive';
 // import RangeInput from './RangeInput';
 import StartAndStopButtons from './StartAndStopButtons';
 import DebugModeSwitch from '../LogAndDebugComponents/DebugModeSwitch';
-import { SpeakLog } from '../LogAndDebugComponents/SpeakLog';
+// import { SpeakLog } from '../LogAndDebugComponents/SpeakLog';
 import { freeSpeak } from '../../utils/freeSpeak';
-import Debug from '../../Debug';
+import Debug from '../LogAndDebugComponents/Debug';
 import { getLangCodeOnMobile } from '../../utils/getLangCodeOnMobile';
-
+import '../../styles/Dictaphone.css'
+import { VoiceRecorder } from './VoiceRecorder';
 /*
 finalTranscript - is not function on mobile so we use finalTranscriptProxy as the source for translation/tts
 
 build finalTranscriptProxy:
 * on pc     - based on finalTranscript
 * on mobile - recycle the transcript every X seconds.
- */
+*/
 
 
 
@@ -53,7 +54,7 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
     const [translation, setTranslation] = useState('')
     const [finalTranscriptHistory, setFinalTranscriptHistory] = useState<FinalTranscriptHistory[]>([])
     const [isSpeaking, setIsSpeaking] = useState(false)
-    // const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
+    const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
     const [isInterimResults, setIsInterimResults] = useState(false)
     const [isContinuous, setIsContinuous] = useState(false)
     const [finalTranscriptProxy, setFinalTranscriptProxy] = useState('');
@@ -62,7 +63,7 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
 
     const [isModeDebug, setIsModeDebug] = useState(false)
     // const [maxDelayBetweenRecognitions, setMaxDelayBetweenRecognitions] = useState(MAX_DELAY_BETWEEN_RECOGNITIONS)
-    const [isNonStop, setIsNonStop] = useState(!isMobile)
+    // const [isNonStop, setIsNonStop] = useState(!isMobile)
 
 
     const availableVoices = useAvailableVoices();
@@ -126,14 +127,10 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
         {
             command: ['שמאל', 'ימין', 'למעלה', 'למטה'],
             callback: (command) => console.info(`Best matching command: ${command}`),
-            isFuzzyMatch: true,
-            fuzzyMatchingThreshold: 0.8,
-            bestMatchOnly: true
-        },
-        {
-            command: 'clear',
-            callback: ({ resetTranscript }) => { console.info('got command: clear'); resetTranscript() }
+            matchInterim: true
+
         }
+
     ], [])
 
     const { finalTranscript,
@@ -276,14 +273,14 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
     useEffect(() => {
         if (!finalTranscriptProxy) { return; };
         console.log('translate', { finalTranscriptProxy })
-        // let ignore = false;
+
 
         async function doTranslate() {
             const newFinalArrived = (finalTranscriptHistory.length ? finalTranscriptProxy !== finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : true)
             if (newFinalArrived) {
                 if (fromLang !== toLang) {
                     const translationResult = await translate({ finalTranscriptProxy, fromLang, toLang })
-                    // if (ignore) return
+
                     console.log('setTranslation', translationResult)
 
                     setTranslation(translationResult)
@@ -298,16 +295,16 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
         doTranslate()
         return () => {
             console.log('doTranslate')
-            // if (finalTranscriptProxy) { ignore = true }
+
         }
     }, [finalTranscriptProxy, fromLang, toLang, finalTranscriptHistory, setFinalTranscriptHistory])
 
 
 
-    
+
 
     useEffect(() => {
-        if (!isNonStop) return
+        // if (!isNonStop) return
         let timeoutId: NodeJS.Timeout | null = null
 
 
@@ -316,7 +313,8 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
             timeoutId = setTimeout(listenNow, isMobile ? DELAY_LISTENING_RESTART : 0)
         }
         return () => { timeoutId && clearTimeout(timeoutId) }
-    }, [isSpeaking, listening, listenNow,isNonStop]);
+    }, [isSpeaking, listening, listenNow, //isNonStop
+    ]);
 
 
 
@@ -334,19 +332,20 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
 
     return (
 
-        <div style={{ background: (isSpeaking ? 'blue' : (listening ? 'green' : 'grey')) }}>
+        <div className='Dictaphone' style={{ background: (isSpeaking ? 'blue' : (listening ? 'green' : 'grey')) }}>
 
+            <VoiceRecorder stream={stream}/>
             <Instructions instructions={instructions} />
-            <label>
+            {/* <label>
                 run non-stop:
                 <input
                     type="checkbox"
                     checked={isNonStop}
                     onChange={() => setIsNonStop(prev => !prev)}
                 />
-            </label>
-            <SpeakLog setIsSpeaking={setIsSpeaking} isSpeaking={isSpeaking} />
-            <p>Is Speaking: {isSpeaking ? 'Yes' : 'No'}</p>
+            </label> */}
+            {/* <SpeakLog setIsSpeaking={setIsSpeaking} isSpeaking={isSpeaking} /> */}
+            {/* <p>Is Speaking: {isSpeaking ? 'Yes' : 'No'}</p> */}
             <Debug isModeDebug={isModeDebug}>
                 <div id="read_only_flags" >
                     <p>is Microphone Available: {isMicrophoneAvailable ? 'yes' : 'no'}</p>
@@ -355,37 +354,42 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
                 </div>
             </Debug>
 
-            <StartAndStopButtons
-                listening={listening}
-                listenNow={listenNow}
-                resetTranscript={resetTranscript}
-                setFromLang={setFromLang}
-                setToLang={setToLang}
-                setTranslation={setTranslation}
-                handleStopListening={handleStopListening}
-            />
+            <Debug isModeDebug={isModeDebug}>
+                <StartAndStopButtons
+                    listening={listening}
+                    listenNow={listenNow}
+                    resetTranscript={resetTranscript}
+                    setFromLang={setFromLang}
+                    setToLang={setToLang}
+                    setTranslation={setTranslation}
+                    handleStopListening={handleStopListening}
+                />
 
-            <TranscriptOptions
-                isModeDebug={true}
-                isInterimResults={isInterimResults}
-                setIsInterimResults={setIsInterimResults}
-                isContinuous={isContinuous}
-                setIsContinuous={setIsContinuous}
-            />
+                <TranscriptOptions
+                    isModeDebug={true}
+                    isInterimResults={isInterimResults}
+                    setIsInterimResults={setIsInterimResults}
+                    isContinuous={isContinuous}
+                    setIsContinuous={setIsContinuous}
+                />
+            </Debug>
             <DebugModeSwitch isModeDebug={isModeDebug} setIsModeDebug={setIsModeDebug} />
             <TranscriptLive finalTranscript={finalTranscript} interimTranscript={interimTranscript} transcript={transcript} isModeDebug={isModeDebug} />
 
 
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-                {/* <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setToLang={setToLang} selectedVoice={selectedVoice}
-                    setSelectedVoice={setSelectedVoice} /> */}
+
                 <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
 
-                    <TranslationBox setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang} text={transcript || (finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : '')} onfreeSpeak={freeSpeak} />
+                    <TranslationBox setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang} text={transcript || (finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : '')} onfreeSpeak={freeSpeak} ></TranslationBox>
 
                     <TranslationBox setText={setTranslation} setLanguage={setToLang} language={toLang}
                         text={translation || ''}
-                        onfreeSpeak={freeSpeak} />
+                        onfreeSpeak={freeSpeak} >
+                        <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setToLang={setToLang} selectedVoice={selectedVoice}
+                            setSelectedVoice={setSelectedVoice} />
+                    </TranslationBox>
+
 
                 </div>
             </div>

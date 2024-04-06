@@ -103,13 +103,13 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ stream }) => {
     };
 
     return (
-        <div>
+        <div style={{ width: '100%', background: 'darkblue' }}>
             <button onClick={startRecording}>Start Recording</button>
             <button onClick={stopRecording}>Stop Recording</button>
             <button onClick={downloadRecording}>Download Recording</button>
             <button onClick={playRecording}>Play Recording</button>
-            <canvas ref={canvasRef} width={400} height={100}></canvas>
-            <audio ref={audioRef} controls></audio>
+            <canvas ref={canvasRef} style={{ width: '100%' }} height={10}></canvas>
+            <audio ref={audioRef} style={{ width: '100%' }} controls></audio>
         </div>
     );
 };

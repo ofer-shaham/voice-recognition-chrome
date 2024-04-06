@@ -36,7 +36,7 @@ const VoicesDropdownSelect = ({ voices, selectedVoice, setSelectedVoice, toLang,
         }
     };
     return (
-        <div>
+        <div className='select-voice'>
             <select id="voiceSelect"
                 value={selectedVoice?.lang}
                 onChange={handleVoiceSelect}

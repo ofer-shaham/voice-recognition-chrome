@@ -1,6 +1,6 @@
 import React from 'react';
 import { freeSpeak } from '../../utils/freeSpeak';
-
+import '../../styles/Instructions.css';
 interface InstructionsProps {
     instructions: {
         [key: string]: {
