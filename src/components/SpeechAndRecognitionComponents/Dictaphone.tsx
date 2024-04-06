@@ -24,7 +24,6 @@ import { freeSpeak } from '../../utils/freeSpeak';
 import Debug from '../LogAndDebugComponents/Debug';
 import { getLangCodeOnMobile } from '../../utils/getLangCodeOnMobile';
 import '../../styles/Dictaphone.css'
-import { VoiceRecorder } from './VoiceRecorder';
 /*
 finalTranscript - is not function on mobile so we use finalTranscriptProxy as the source for translation/tts
 
@@ -42,11 +41,9 @@ interface FinalTranscriptHistory {
 }
 
 
-interface VoiceRecorderProps {
-    stream: MediaStream | null;
-}
 
-export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
+
+export const Dictaphone: React.FC = () => {
 
 
     const [fromLang, setFromLang] = useState('he-IL')
@@ -334,7 +331,6 @@ export const Dictaphone: React.FC<VoiceRecorderProps> = ({ stream }) => {
 
         <div className='Dictaphone' style={{ background: (isSpeaking ? 'blue' : (listening ? 'green' : 'grey')) }}>
 
-            <VoiceRecorder stream={stream}/>
             <Instructions instructions={instructions} />
             {/* <label>
                 run non-stop:

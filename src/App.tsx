@@ -7,7 +7,6 @@ import { Logger } from './components/LogAndDebugComponents/Logger';
 
 
 function App() {
-  const [stream, setStream] = useState<MediaStream | null>(null);
   const [errors, setErrors] = useState<any[]>([]);
 
 
@@ -19,8 +18,7 @@ function App() {
 
   const handleMicAccess = async () => {
     try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      setStream(mediaStream);
+    
       // await freeSpeak(instructions.welcome.test)
     } catch (error) {
       console.error('Error getting user media:', error);
@@ -31,10 +29,12 @@ function App() {
     <div>
 
 
-      {stream ? (
+      {true ? (
         <div className="App">
 
-          <Dictaphone stream={stream} />
+          {/* <VoiceRecorder stream={stream} /> */}
+
+          <Dictaphone />
           <Todo url="plans.md" />
         </div>
       ) : (
