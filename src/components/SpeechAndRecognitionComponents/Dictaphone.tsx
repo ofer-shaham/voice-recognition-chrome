@@ -256,7 +256,7 @@ export const Dictaphone: React.FC = () => {
 
         if (transcript) {
             timerId = setTimeout(() => {
-                //TODO: setFinalTranscriptProxy
+                setFinalTranscriptProxy(transcript)
                 resetTranscript();
             }, delay);
         }
