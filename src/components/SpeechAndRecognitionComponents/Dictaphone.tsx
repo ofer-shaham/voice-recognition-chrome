@@ -274,7 +274,7 @@ export const Dictaphone: React.FC = () => {
         console.log('translate', { finalTranscriptProxy })
 
 
-        async function doTranslate() {
+        async function appendToHistory() {
             const newFinalArrived = (finalTranscriptHistory.length ? finalTranscriptProxy !== finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : true)
             if (newFinalArrived) {
                 if (fromLang !== toLang) {
@@ -291,7 +291,7 @@ export const Dictaphone: React.FC = () => {
                 }
             }
         }
-        doTranslate()
+        appendToHistory()
         return () => {
             console.log('doTranslate')
 
