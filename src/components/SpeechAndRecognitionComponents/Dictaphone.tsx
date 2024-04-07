@@ -1,4 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+
+/*
+finalTranscript - is not function on mobile so we use finalTranscriptProxy as the source for translation/tts
+
+build finalTranscriptProxy:
+* on pc     - based on finalTranscript
+* on mobile - recycle the transcript every X seconds.
+*/
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import SpeechRecognition, { ListeningOptions, useSpeechRecognition } from 'react-speech-recognition'
 import { Command } from "../../types/speechRecognition";
 import VoicesDropdownSelect from "./voicesDropdownSelector";
@@ -7,16 +15,14 @@ import { isMobile } from '../../services/isMobile';
 import TranscriptHistory from './TranscriptHistory';
 import TranslationBox from './TranslationBox';
 
-// import { freeSpeak } from '../../../utils/freeSpeak'
 import { translate } from '../../utils/translate';
 import { mapLanguageToCode } from '../../utils/mapLanguageToCode';
-import { DELAY_LISTENING_RESTART, INITIAL_DELAY_BETWEEN_WORDS, instructions } from '../../consts/config';
+import { INITIAL_DELAY_BETWEEN_WORDS, instructions } from '../../consts/config';
 import { useAvailableVoices } from '../../hooks/useAvailableVoices';
 import { populateAvailableVoices } from '../../utils/getVoice';
 import Instructions from './Instructions';
 import TranscriptOptions from './TranscriptOptions';
 import TranscriptLive from './TranscriptLive';
-// import RangeInput from './RangeInput';
 import StartAndStopButtons from './StartAndStopButtons';
 import DebugModeSwitch from '../LogAndDebugComponents/DebugModeSwitch';
 import { SpeakLog } from '../LogAndDebugComponents/SpeakLog';
@@ -25,28 +31,12 @@ import Debug from '../LogAndDebugComponents/Debug';
 import { getLangCodeOnMobile } from '../../utils/getLangCodeOnMobile';
 import '../../styles/Dictaphone.css'
 import RangeInput from './RangeInput';
-/*
-finalTranscript - is not function on mobile so we use finalTranscriptProxy as the source for translation/tts
-
-build finalTranscriptProxy:
-* on pc     - based on finalTranscript
-* on mobile - recycle the transcript every X seconds.
-*/
-
-
-
-
 
 interface FinalTranscriptHistory {
     finalTranscriptProxy: string; uuid: number; translation: string; fromLang: string; toLang: string;
 }
 
-
-
-
 export const Dictaphone: React.FC = () => {
-
-
     const [fromLang, setFromLang] = useState('he-IL')
     const [toLang, setToLang] = useState('ar-AE')
     const [translation, setTranslation] = useState('')
@@ -56,21 +46,14 @@ export const Dictaphone: React.FC = () => {
     const [isInterimResults, setIsInterimResults] = useState(false)
     const [isContinuous, setIsContinuous] = useState(false)
     const [finalTranscriptProxy, setFinalTranscriptProxy] = useState('');
-    // const [prevTranscript, setPrevTranscript] = useState('');
-    // const [prevTranscriptTime, setPrevTranscriptTime] = useState<[number, number]>([Date.now(), Date.now()]);
-
     const [isModeDebug, setIsModeDebug] = useState(false)
     const [delayBetweenWords, setdelayBetweenWords] = useState(INITIAL_DELAY_BETWEEN_WORDS)
-    // const [isNonStop, setIsNonStop] = useState(!isMobile)
-
-
     const availableVoices = useAvailableVoices();
-    const availableVoicesCode = useMemo(() => availableVoices.map(r => r.lang), [availableVoices])
-
     const handleStopListening = useCallback(() => {
         SpeechRecognition.stopListening()
     }, [])
-
+    const listeningRef = useRef(false)
+    const availableVoicesCode = useMemo<string[] | null>(() => availableVoices.map(r => r.lang), [availableVoices])
 
     const commands = useMemo<Command[]>(() => [
         {
@@ -82,18 +65,18 @@ export const Dictaphone: React.FC = () => {
                 console.log(`from ${fromCode} to ${toCode}`)
             }
         },
-
+        // {
+        //     command: '(‏) (please) speak english',
+        //     callback: () => {
+        //         ;
+        //         const langCode = mapLanguageToCode('english')
+        //         setFromLang(langCode);
+        //         setToLang(langCode);
+        //         setTranslation('')
+        //     },
+        //     matchInterim: true
+        // },
         {
-            command: '(‏) (please) speak english',
-            callback: () => {
-                ;
-                const langCode = mapLanguageToCode('english')
-                setFromLang(langCode);
-                setToLang(langCode);
-                setTranslation('')
-            },
-            matchInterim: true
-        }, {
             command: '(‏) (please) speak :language',
             callback: (language: string) => {
 
@@ -104,31 +87,30 @@ export const Dictaphone: React.FC = () => {
                 console.log('match :languge')
             },
             matchInterim: true
-        }, {
-            command: '(‏)speak english',
-            callback: () => {
-                const langCode = mapLanguageToCode('english')
-                setFromLang(langCode);
-                setToLang(langCode);
-                setTranslation('')
-                console.log('matchInterim')
-            },
-            matchInterim: true
         },
-        {
-            command: ['up', 'down', 'left', 'right'],
-            callback: (command) => console.info(`Best matching command: ${command}`),
-            isFuzzyMatch: true,
-            fuzzyMatchingThreshold: 0.8,
-            bestMatchOnly: true
-        },
-        {
-            command: ['שמאל', 'ימין', 'למעלה', 'למטה'],
-            callback: (command) => console.info(`Best matching command: ${command}`),
-            matchInterim: true
-
-        }
-
+        // {
+        //     command: '(‏)speak english',
+        //     callback: () => {
+        //         const langCode = mapLanguageToCode('english')
+        //         setFromLang(langCode);
+        //         setToLang(langCode);
+        //         setTranslation('')
+        //         console.log('matchInterim')
+        //     },
+        //     matchInterim: true
+        // },
+        // {
+        //     command: ['up', 'down', 'left', 'right'],
+        //     callback: (command) => console.info(`Best matching command: ${command}`),
+        //     isFuzzyMatch: true,
+        //     fuzzyMatchingThreshold: 0.8,
+        //     bestMatchOnly: true
+        // },
+        // {
+        //     command: ['שמאל', 'ימין', 'למעלה', 'למטה'],
+        //     callback: (command) => console.info(`Best matching command: ${command}`),
+        //     matchInterim: true
+        // }
     ], [])
 
     const { finalTranscript,
@@ -137,31 +119,13 @@ export const Dictaphone: React.FC = () => {
         listening,
         resetTranscript, isMicrophoneAvailable,
         browserSupportsSpeechRecognition } = useSpeechRecognition({ commands })
-
-    useEffect(() => {
-        if (!availableVoices.length) { console.warn('no voices') }
-        else {
-            populateAvailableVoices(availableVoices)
-            console.info('some voices', { availableVoices })
-        }
-    }, [availableVoices])
-
-    // useEffect(() => {
-    //     if (isSpeaking !== !speechSynthesis.speaking) {
-    //         console.error('wierd status: isSpeakig:' + (isSpeaking ? 'yes' : 'no'))
-    //         // alert('force cancel speech')
-    //         // speechSynthesis.resume();
-    //         // speechSynthesis.cancel();
-    //     }
-    // }, [isSpeaking])
-
     const listeningOptions = useMemo((): ListeningOptions => {
         return { language: fromLang, interimResults: isInterimResults, continuous: isContinuous }
     }, [fromLang, isContinuous, isInterimResults])
-
+    //workaround to avoid a change of listening state to trigger a speak useEffect 
+    listeningRef.current = listening
     const listenNow = useCallback((): Promise<void> => {
         try {
-
             return SpeechRecognition.startListening(listeningOptions)
         } catch (e) {
             console.error(e);
@@ -169,20 +133,16 @@ export const Dictaphone: React.FC = () => {
         }
     }, [listeningOptions])
 
-    // useEffect(() => {
-    //     try {
-    //         listenNow();
-    //     } catch (e) {
-    //         console.error(e)
-    //     }
-
-    // }, [listenNow])
-
-    // const startListeningNow = useCallback((): Promise<void> | never => {
-    //     return SpeechRecognition.startListening(listeningOptions).catch(e => { throw new Error(e.message) });
-    // }, [listeningOptions])
-
-
+    /*
+    * update devices' available voices
+    */
+    useEffect(() => {
+        if (!availableVoices.length) { console.warn('no voices') }
+        else {
+            populateAvailableVoices(availableVoices)
+            console.info('some voices', { availableVoices })
+        }
+    }, [availableVoices])
 
     useEffect(() => {
         if (isMobile) { console.info('finally arrive', { finalTranscript }) };
@@ -215,40 +175,21 @@ export const Dictaphone: React.FC = () => {
         }
 
         if (!targetText || !targetLang) return
-        if (!availableVoicesCode.includes(getLangCodeOnMobile(targetLang, isMobile))) {
+        if (!availableVoicesCode?.includes(getLangCodeOnMobile(targetLang, isMobile))) {
             console.warn('there is no voice for lang:' + targetLang)
         }
 
-
         const speakIt = async () => {
-
-            try {
-                await SpeechRecognition.abortListening().catch(e => console.error(e));
-                //  setIsSpeaking(() => true); //
-                await freeSpeak(targetText as string, targetLang as string);
-                //   setIsSpeaking(false);
-            } catch (error) {
-                console.error(error);
-
-                //TODO: catch earlier "not-allowed" 
-                if (error === "not-allowed") {
-                    throw new Error('please tap on the page to permit access to microphone');
-                    // One must click on the page in order to permit speech Synthesis
-                }
-                // setIsSpeaking(false);
-            }
+            if (listeningRef.current) { await SpeechRecognition.abortListening().catch(e => console.error('abortListening', e)); }
+            await freeSpeak(targetText as string, targetLang as string).catch(e => console.error('freeSpeak', e));
+            await listenNow().catch(e => console.error('listenNow', e));
+            console.log()
         };
-
-
         speakIt();
-    }, [finalTranscriptHistory, availableVoicesCode]);
-
-
-
-
+    }, [finalTranscriptHistory, availableVoicesCode, listenNow]);
 
     /*
-    throttle transcript (resetTranscript will mv the data the finalTranscript )
+    force recycle of current transcript on mobile
     */
     useEffect(() => {
         if (!isMobile) return;
@@ -280,64 +221,38 @@ export const Dictaphone: React.FC = () => {
             if (newFinalArrived) {
                 if (fromLang !== toLang) {
                     const translationResult = await translate({ finalTranscriptProxy, fromLang, toLang })
-
                     console.log('setTranslation', translationResult)
-
                     setTranslation(translationResult)
                     setFinalTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscriptProxy: finalTranscriptProxy, translation: translationResult, fromLang: fromLang, toLang: toLang }])
-
                 } else {
                     setFinalTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscriptProxy: finalTranscriptProxy, translation: '', fromLang: fromLang, toLang: toLang }])
-
                 }
             }
         }
+
         appendToHistory()
         return () => {
             console.log('doTranslate')
-
         }
     }, [finalTranscriptProxy, fromLang, toLang, finalTranscriptHistory, setFinalTranscriptHistory])
 
-
-
-
-
+    /**
+     * listening will be forced by the speaking effect
+     */
     useEffect(() => {
-        // if (!isNonStop) return
-        let timeoutId: NodeJS.Timeout | null = null
-
-
         if (!isSpeaking && !listening) {
-
-            timeoutId = setTimeout(() => {
-                if (!speechSynthesis.speaking) listenNow(); else {
-                    console.info('abort listening')
-                }
-            }, isMobile ? DELAY_LISTENING_RESTART : 0)
+            listenNow();
         }
-        return () => { timeoutId && clearTimeout(timeoutId) }
-    }, [isSpeaking, listening, listenNow, //isNonStop
+    }, [isSpeaking, listening, listenNow,
     ]);
-
-
-
-
-
-
 
     if (!browserSupportsSpeechRecognition) {
         alert('Your browser does not support speech recognition!')
         return null
     }
 
-
-
-
     return (
-
         <div className='Dictaphone' style={{ background: (isSpeaking ? 'blue' : (listening ? 'green' : 'grey')) }}>
-
             <Instructions instructions={instructions} />
             {/* <label>
                 run non-stop:
@@ -367,7 +282,6 @@ export const Dictaphone: React.FC = () => {
                     setTranslation={setTranslation}
                     handleStopListening={handleStopListening}
                 />
-
                 <TranscriptOptions
                     isModeDebug={true}
                     isInterimResults={isInterimResults}
@@ -379,13 +293,11 @@ export const Dictaphone: React.FC = () => {
             <DebugModeSwitch isModeDebug={isModeDebug} setIsModeDebug={setIsModeDebug} />
             <TranscriptLive finalTranscript={finalTranscript} interimTranscript={interimTranscript} transcript={transcript} isModeDebug={isModeDebug} />
 
-
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-
                 <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
-
-                    <TranslationBox setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang} text={transcript || (finalTranscriptHistory.length ? finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : '')} onfreeSpeak={freeSpeak} ></TranslationBox>
-
+                    <TranslationBox setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang}
+                        text={transcript || (finalTranscriptHistory.length ?
+                            finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : '')} onfreeSpeak={freeSpeak}></TranslationBox>
                     <TranslationBox setText={setTranslation} setLanguage={setToLang} language={toLang}
                         text={translation || ''}
                         onfreeSpeak={freeSpeak} >
@@ -405,10 +317,4 @@ export const Dictaphone: React.FC = () => {
             </div>
         </div>
     )
-
-
 }
-
-
-
-
