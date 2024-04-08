@@ -1,56 +1,62 @@
 import React from 'react';
-import Debug from '../LogAndDebugComponents/Debug';
 import { FinalTranscriptHistory } from '../../types/FinalTranscriptHistory';
-
-
-
-
-
 
 type TranscriptHistoryProps = {
     finalTranscriptHistory: FinalTranscriptHistory[];
-    isModeDebug: boolean;
+    onfreeSpeak: (text: string, lang: string) => void;
 };
 
-const TranscriptHistory: React.FC<TranscriptHistoryProps> = ({ finalTranscriptHistory, isModeDebug }) => {
+const TranscriptHistory: React.FC<TranscriptHistoryProps> = ({ finalTranscriptHistory, onfreeSpeak }) => {
     const LIMIT_ARR_CUT_FINAL = 10; // Define your desired limit for displaying transcript history
 
     return (
-        <Debug isModeDebug={isModeDebug}>
-            <div>
-                <p>finalTranscriptHistory</p>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>id</th>
-                            <th>fromLang</th>
-                            <th>toLang</th>
-                            <th>finalTranscript</th>
-                            <th>translation</th>
-                            <th>audioData</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {finalTranscriptHistory
-                            .slice(-LIMIT_ARR_CUT_FINAL)
-                            .reverse()
-                            .map((r, i) => (
-                                <tr key={r.uuid}>
-                                    <td>{r.uuid}</td>
-                                    <td>{r.fromLang}</td>
-                                    <td>{r.toLang}</td>
-                                    <td>{r.finalTranscriptProxy}</td>
-                                    <td>{r.translation}</td>
-                                    <td>
-                                        {r.audioData && <audio controls src={`data:audio/webm;base64,${r.audioData}`} />}
-                                    </td>
-                                </tr>
-                            ))}
-                    </tbody>
-                </table>
-            </div>
-        </Debug>
+        <div>
+            <p>finalTranscriptHistory</p>
+            <table style={{ width: '100%' }}>
+                <tbody>
+                    {finalTranscriptHistory
+                        .slice(-LIMIT_ARR_CUT_FINAL)
+                        .reverse()
+                        .map((r, i) => (
+                            <tr key={r.uuid} style={{ marginBottom: '10px' }}> {/* Add margin bottom for vertical space */}
+                                <td style={{ background: 'red', display: 'flex', justifyContent: 'center' }}>
+                                    <button
+                                        style={{ width: '100%', padding: '5px' }}
+                                        onClick={() => onfreeSpeak(r.finalTranscriptProxy, r.fromLang)}
+                                    >
+                                        <span style={{ flex: 1, textAlign: 'left' }}>[{r.fromLang}]</span>
+                                        <span style={{ flex: 2 }}>{r.finalTranscriptProxy}</span>
+                                    </button>
+                                </td>
+                                <td style={{ background: 'green', display: 'flex', justifyContent: 'center' }}>
+                                    <button
+                                        style={{ width: '100%', padding: '5px' }}
+                                        onClick={() => onfreeSpeak(r.translation, r.toLang)}
+                                    >
+                                        <span style={{ flex: 1, textAlign: 'left' }}>[{r.toLang}]</span>
+                                        <span style={{ flex: 2 }}>{r.translation}</span>
+                                    </button>
+                                </td>
+                                <td style={{ background: 'blue', width: '10%' }}>
+                                    {r.audioData && (!isBase64(r.audioData) ?
+                                        <p>{r.audioData}</p>
+                                        : <audio controls src={`data:audio/webm;base64,${r.audioData}`} />)}
+                                </td>
+                            </tr>
+                        ))}
+                </tbody>
+            </table>
+        </div>
     );
 };
 
 export default TranscriptHistory;
+
+function isBase64(str: string): boolean {
+    if (str === '' || str.trim() === '') return false;
+    try {
+        return btoa(atob(str)) === str;
+    } catch (err) {
+        return false;
+    }
+}

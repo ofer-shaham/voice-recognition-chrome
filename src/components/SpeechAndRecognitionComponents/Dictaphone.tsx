@@ -57,7 +57,7 @@ export const Dictaphone: React.FC = () => {
     const listeningRef = useRef(false)
     const availableVoicesCode = useMemo<string[] | null>(() => availableVoices.map(r => r.lang), [availableVoices])
     // const [recordingService, setRecordingService] = useState<RecordingService | null>(null);
-    const [isRecording, setIsRecording] = useState(false);
+    const [isRecording, setIsRecording] = useState(true);
 
     const newRecordingService = useRef<MediaRecorderRecordingService | null>(null)
 
@@ -256,7 +256,7 @@ export const Dictaphone: React.FC = () => {
             const newFinalArrived = (finalTranscriptHistory.length ? finalTranscriptProxy !== finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : true)
 
             let audioEncodedString = ''
-            if (isRecording) { audioEncodedString = await handleStopRecording() }
+            if (isRecording) { audioEncodedString = await handleStopRecording().catch(e => { console.error(e); return e.message }) }
             console.info({ isRecording, audioEncodedString: audioEncodedString?.length })
             if (newFinalArrived) {
                 if (fromLang !== toLang) {
@@ -292,7 +292,11 @@ export const Dictaphone: React.FC = () => {
         return null
     }
 
-
+    const onfreeSpeak = async (text: string, lang: string) => {
+        await stopListen()
+        newRecordingService && newRecordingService?.current?.cancelRecording();
+        freeSpeak(text, lang)
+    }
 
 
     return (
@@ -318,26 +322,26 @@ export const Dictaphone: React.FC = () => {
                 </div>
             </Debug>
 
-            <Debug isModeDebug={isModeDebug}>
-                <StartAndStopButtons
-                    listening={listening}
-                    startListen={startListen}
-                    resetTranscript={resetTranscript}
-                    setFromLang={setFromLang}
-                    setToLang={setToLang}
-                    setTranslation={setTranslation}
-                    handleStopListening={stopListen}
-                    setIsRecording={setIsRecording}
-                    isRecording={isRecording}
-                />
-                <TranscriptOptions
-                    isModeDebug={true}
-                    isInterimResults={isInterimResults}
-                    setIsInterimResults={setIsInterimResults}
-                    isContinuous={isContinuous}
-                    setIsContinuous={setIsContinuous}
-                />
-            </Debug>
+
+            <StartAndStopButtons
+                listening={listening}
+                startListen={startListen}
+                resetTranscript={resetTranscript}
+                setFromLang={setFromLang}
+                setToLang={setToLang}
+                setTranslation={setTranslation}
+                handleStopListening={stopListen}
+                setIsRecording={setIsRecording}
+                isRecording={isRecording}
+            />
+            <TranscriptOptions
+                isModeDebug={true}
+                isInterimResults={isInterimResults}
+                setIsInterimResults={setIsInterimResults}
+                isContinuous={isContinuous}
+                setIsContinuous={setIsContinuous}
+            />
+
             <DebugModeSwitch isModeDebug={isModeDebug} setIsModeDebug={setIsModeDebug} />
             <TranscriptLive finalTranscript={finalTranscript} interimTranscript={interimTranscript} transcript={transcript} isModeDebug={isModeDebug} />
 
@@ -356,7 +360,7 @@ export const Dictaphone: React.FC = () => {
 
                 </div>
             </div>
-            <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} isModeDebug={isModeDebug} />
+            <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} onfreeSpeak={onfreeSpeak} />
             {isMobile && (
                 <RangeInput delayBetweenWords={delayBetweenWords} setdelayBetweenWords={setdelayBetweenWords} />
             )}
