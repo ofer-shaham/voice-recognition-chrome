@@ -2,22 +2,26 @@ import React from 'react';
 
 interface StartAndStopButtonsProps {
     listening: boolean;
-    listenNow: () => void;
+    startListen: () => void;
     resetTranscript: () => void;
     setFromLang: (lang: string) => void;
     setToLang: (lang: string) => void;
     setTranslation: (translation: string) => void;
     handleStopListening: () => void;
+    isRecording: boolean;
+    setIsRecording: (record: boolean) => void;
 }
 
 const StartAndStopButtons: React.FC<StartAndStopButtonsProps> = ({
     listening,
-    listenNow,
+    startListen,
     resetTranscript,
     setFromLang,
     setToLang,
     setTranslation,
     handleStopListening,
+    isRecording,
+    setIsRecording
 }) => {
     const handleResetLanguages = () => {
         setFromLang('en-US');
@@ -28,12 +32,13 @@ const StartAndStopButtons: React.FC<StartAndStopButtonsProps> = ({
     return (
         <div id="buttons" style={{ background: 'grey' }}>
             <div>
-                <button disabled={!listening} onClick={handleStopListening}>
-                    Stop
+                <button onClick={() => setIsRecording(!isRecording)}>
+                    Recording {isRecording ? 'yes' : 'no'}
                 </button>
-                <button style={{ color: 'darkgreen' }} disabled={listening} onClick={listenNow}>
-                    Start
+                <button onClick={listening ? handleStopListening : startListen}>
+                    Listening {listening ? 'yes' : 'no'}
                 </button>
+
             </div>
             <div>
                 <button onClick={handleResetLanguages}>reset languages</button>

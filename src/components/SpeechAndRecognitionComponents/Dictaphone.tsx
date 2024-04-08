@@ -7,7 +7,9 @@ build finalTranscriptProxy:
 * on mobile - recycle the transcript every X seconds.
 */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import SpeechRecognition, { ListeningOptions, useSpeechRecognition } from 'react-speech-recognition'
+import SpeechRecognition, {
+    ListeningOptions, useSpeechRecognition, // SpeechRecognitionOptions 
+} from 'react-speech-recognition'
 import { Command } from "../../types/speechRecognition";
 import VoicesDropdownSelect from "./voicesDropdownSelector";
 import { isMobile } from '../../services/isMobile';
@@ -31,10 +33,11 @@ import Debug from '../LogAndDebugComponents/Debug';
 import { getLangCodeOnMobile } from '../../utils/getLangCodeOnMobile';
 import '../../styles/Dictaphone.css'
 import RangeInput from './RangeInput';
+// import RecordingComponent from './VoiceRecorder';
+import { MediaRecorderRecordingService } from '../../services/RecordService';
+import { FinalTranscriptHistory } from '../../types/FinalTranscriptHistory';
 
-interface FinalTranscriptHistory {
-    finalTranscriptProxy: string; uuid: number; translation: string; fromLang: string; toLang: string;
-}
+
 
 export const Dictaphone: React.FC = () => {
     const [fromLang, setFromLang] = useState('he-IL')
@@ -49,11 +52,40 @@ export const Dictaphone: React.FC = () => {
     const [isModeDebug, setIsModeDebug] = useState(false)
     const [delayBetweenWords, setdelayBetweenWords] = useState(INITIAL_DELAY_BETWEEN_WORDS)
     const availableVoices = useAvailableVoices();
-    const handleStopListening = useCallback(() => {
-        SpeechRecognition.stopListening()
-    }, [])
+
+
     const listeningRef = useRef(false)
     const availableVoicesCode = useMemo<string[] | null>(() => availableVoices.map(r => r.lang), [availableVoices])
+    // const [recordingService, setRecordingService] = useState<RecordingService | null>(null);
+    const [isRecording, setIsRecording] = useState(false);
+
+    const newRecordingService = useRef<MediaRecorderRecordingService | null>(null)
+
+    const stopListen = useCallback((): Promise<void> => {
+        return SpeechRecognition.abortListening().catch(e => console.error('abortListening', e));
+    }, [])
+
+    // const stopListen = async () => {
+    //     if (listeningRef.current) {
+    //         return SpeechRecognition.abortListening().catch(e => console.error('abortListening', e));
+    //     }
+    // }
+
+    const handleStartRecording = useCallback(() => {
+
+        newRecordingService.current = new MediaRecorderRecordingService(new AudioContext());
+        newRecordingService.current.startRecording();
+
+
+    }, [])
+
+    const handleStopRecording = useCallback(async () => {
+        const encodedAudioString = await newRecordingService.current?.stopRecording();
+        if (encodedAudioString) return encodedAudioString
+        return ''
+    }, []);
+
+
 
     const commands = useMemo<Command[]>(() => [
         {
@@ -124,14 +156,17 @@ export const Dictaphone: React.FC = () => {
     }, [fromLang, isContinuous, isInterimResults])
     //workaround to avoid a change of listening state to trigger a speak useEffect 
     listeningRef.current = listening
-    const listenNow = useCallback((): Promise<void> => {
+
+    const startListen = useCallback((): Promise<void> => {
         try {
-            return SpeechRecognition.startListening(listeningOptions)
+            if (isRecording) {
+                handleStartRecording()
+            } return SpeechRecognition.startListening(listeningOptions)
         } catch (e) {
             console.error(e);
             return Promise.reject(e)
         }
-    }, [listeningOptions])
+    }, [listeningOptions, isRecording, handleStartRecording])
 
     /*
     * update devices' available voices
@@ -179,14 +214,15 @@ export const Dictaphone: React.FC = () => {
             console.warn('there is no voice for lang:' + targetLang)
         }
 
+
         const speakIt = async () => {
-            if (listeningRef.current) { await SpeechRecognition.abortListening().catch(e => console.error('abortListening', e)); }
+            await stopListen()
             await freeSpeak(targetText as string, targetLang as string).catch(e => console.error('freeSpeak', e));
-            await listenNow().catch(e => console.error('listenNow', e));
+            await startListen().catch(e => console.error('startListen', e));
             console.log()
         };
         speakIt();
-    }, [finalTranscriptHistory, availableVoicesCode, listenNow]);
+    }, [finalTranscriptHistory, availableVoicesCode, startListen, stopListen]);
 
     /*
     force recycle of current transcript on mobile
@@ -218,15 +254,20 @@ export const Dictaphone: React.FC = () => {
 
         async function appendToHistory() {
             const newFinalArrived = (finalTranscriptHistory.length ? finalTranscriptProxy !== finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : true)
+
+            let audioEncodedString = ''
+            if (isRecording) { audioEncodedString = await handleStopRecording() }
+            console.info({ isRecording, audioEncodedString: audioEncodedString?.length })
             if (newFinalArrived) {
                 if (fromLang !== toLang) {
                     const translationResult = await translate({ finalTranscriptProxy, fromLang, toLang })
                     console.log('setTranslation', translationResult)
                     setTranslation(translationResult)
-                    setFinalTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscriptProxy: finalTranscriptProxy, translation: translationResult, fromLang: fromLang, toLang: toLang }])
+                    setFinalTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscriptProxy: finalTranscriptProxy, translation: translationResult, fromLang: fromLang, toLang: toLang, audioData: audioEncodedString }])
                 } else {
-                    setFinalTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscriptProxy: finalTranscriptProxy, translation: '', fromLang: fromLang, toLang: toLang }])
+                    setFinalTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscriptProxy: finalTranscriptProxy, translation: '', fromLang: fromLang, toLang: toLang, audioData: audioEncodedString }])
                 }
+                console.info({ finalTranscriptHistory })
             }
         }
 
@@ -234,16 +275,16 @@ export const Dictaphone: React.FC = () => {
         return () => {
             console.log('doTranslate')
         }
-    }, [finalTranscriptProxy, fromLang, toLang, finalTranscriptHistory, setFinalTranscriptHistory])
+    }, [finalTranscriptProxy, fromLang, toLang, finalTranscriptHistory, setFinalTranscriptHistory, handleStopRecording, isRecording])
 
     /**
      * listening will be forced by the speaking effect
      */
     useEffect(() => {
         if (!isSpeaking && !listening) {
-            listenNow();
+            startListen();
         }
-    }, [isSpeaking, listening, listenNow,
+    }, [isSpeaking, listening, startListen,
     ]);
 
     if (!browserSupportsSpeechRecognition) {
@@ -251,9 +292,13 @@ export const Dictaphone: React.FC = () => {
         return null
     }
 
+
+
+
     return (
         <div className='Dictaphone' style={{ background: (isSpeaking ? 'blue' : (listening ? 'green' : 'grey')) }}>
             <Instructions instructions={instructions} />
+            {/* <RecordingComponent /> */}
             {/* <label>
                 run non-stop:
                 <input
@@ -269,18 +314,21 @@ export const Dictaphone: React.FC = () => {
                     <p>is Microphone Available: {isMicrophoneAvailable ? 'yes' : 'no'}</p>
                     <p>listening: {listening ? 'yes' : 'no'}</p>
                     <p>speaking: {isSpeaking ? 'yes' : 'no'}</p>
+                    <p>recording: {isRecording ? 'yes' : 'no'}</p>
                 </div>
             </Debug>
 
             <Debug isModeDebug={isModeDebug}>
                 <StartAndStopButtons
                     listening={listening}
-                    listenNow={listenNow}
+                    startListen={startListen}
                     resetTranscript={resetTranscript}
                     setFromLang={setFromLang}
                     setToLang={setToLang}
                     setTranslation={setTranslation}
-                    handleStopListening={handleStopListening}
+                    handleStopListening={stopListen}
+                    setIsRecording={setIsRecording}
+                    isRecording={isRecording}
                 />
                 <TranscriptOptions
                     isModeDebug={true}

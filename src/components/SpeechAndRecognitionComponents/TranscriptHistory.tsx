@@ -1,12 +1,10 @@
 import React from 'react';
 import Debug from '../LogAndDebugComponents/Debug';
+import { FinalTranscriptHistory } from '../../types/FinalTranscriptHistory';
 
 
 
 
-interface FinalTranscriptHistory {
-    finalTranscriptProxy: string; uuid: number; translation: string; fromLang: string; toLang: string;
-}
 
 
 type TranscriptHistoryProps = {
@@ -29,6 +27,7 @@ const TranscriptHistory: React.FC<TranscriptHistoryProps> = ({ finalTranscriptHi
                             <th>toLang</th>
                             <th>finalTranscript</th>
                             <th>translation</th>
+                            <th>audioData</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -42,6 +41,9 @@ const TranscriptHistory: React.FC<TranscriptHistoryProps> = ({ finalTranscriptHi
                                     <td>{r.toLang}</td>
                                     <td>{r.finalTranscriptProxy}</td>
                                     <td>{r.translation}</td>
+                                    <td>
+                                        {r.audioData && <audio controls src={`data:audio/webm;base64,${r.audioData}`} />}
+                                    </td>
                                 </tr>
                             ))}
                     </tbody>

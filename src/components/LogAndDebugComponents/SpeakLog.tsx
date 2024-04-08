@@ -9,9 +9,9 @@ export const SpeakLog: React.FC<SpeakLogProps> = ({ setIsSpeaking, isSpeaking })
     const [log, setLog] = useState<string[]>([]);
 
     useEffect(() => {
-        const handleSpeakingChange = () => {
-            setIsSpeaking(speechSynthesis.speaking);
-        };
+        // const handleSpeakingChange = () => {
+        //     setIsSpeaking(speechSynthesis.speaking);
+        // };
 
         const handleSpeakEvent = (event: SpeechSynthesisEvent) => {
             setIsSpeaking(speechSynthesis.speaking);
@@ -23,7 +23,7 @@ export const SpeakLog: React.FC<SpeakLogProps> = ({ setIsSpeaking, isSpeaking })
         };
 
         if ('speechSynthesis' in window) {
-            speechSynthesis.addEventListener('voiceschanged', handleSpeakingChange);
+            speechSynthesis.addEventListener('voiceschanged', handleSpeakEvent as EventListener);
             speechSynthesis.addEventListener('start', handleSpeakEvent as EventListener);
             speechSynthesis.addEventListener('end', handleSpeakEvent as EventListener);
             speechSynthesis.addEventListener('pause', handleSpeakEvent as EventListener);
@@ -32,7 +32,7 @@ export const SpeakLog: React.FC<SpeakLogProps> = ({ setIsSpeaking, isSpeaking })
             speechSynthesis.addEventListener('boundary', handleSpeakEvent as EventListener);
 
             return () => {
-                speechSynthesis.removeEventListener('voiceschanged', handleSpeakingChange);
+                speechSynthesis.removeEventListener('voiceschanged', handleSpeakEvent as EventListener);
                 speechSynthesis.removeEventListener('start', handleSpeakEvent as EventListener);
                 speechSynthesis.removeEventListener('end', handleSpeakEvent as EventListener);
                 speechSynthesis.removeEventListener('pause', handleSpeakEvent as EventListener);

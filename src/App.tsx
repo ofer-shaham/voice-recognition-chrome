@@ -18,7 +18,7 @@ function App() {
 
   const handleMicAccess = async () => {
     try {
-    
+
       // await freeSpeak(instructions.welcome.test)
     } catch (error) {
       console.error('Error getting user media:', error);
