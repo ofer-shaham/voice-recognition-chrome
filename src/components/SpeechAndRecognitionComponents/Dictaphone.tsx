@@ -318,7 +318,7 @@ export const Dictaphone: React.FC = () => {
                     onChange={() => setIsNonStop(prev => !prev)}
                 />
             </label> */}
-            <SpeakLog setIsSpeaking={setIsSpeaking} isSpeaking={isSpeaking} />
+            {/* <SpeakLog setIsSpeaking={setIsSpeaking} isSpeaking={isSpeaking} /> */}
             {/* <p>Is Speaking: {isSpeaking ? 'Yes' : 'No'}</p> */}
             <Debug isModeDebug={isModeDebug}>
                 <div id="read_only_flags" >
