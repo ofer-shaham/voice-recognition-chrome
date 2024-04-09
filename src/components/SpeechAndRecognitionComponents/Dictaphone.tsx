@@ -292,10 +292,17 @@ export const Dictaphone: React.FC = () => {
         return null
     }
 
+    const onEndedCB = () => {
+        startListen()
+    }
+    const onBeforePlayCB = async () => {
+        listening && await stopListen()
+        isRecording && newRecordingService?.current?.cancelRecording();
+    }
     const onfreeSpeak = async (text: string, lang: string) => {
-        await stopListen()
-        newRecordingService && newRecordingService?.current?.cancelRecording();
-        freeSpeak(text, lang)
+        await onBeforePlayCB()
+        await freeSpeak(text, lang)
+        onEndedCB()
     }
 
 
@@ -360,7 +367,7 @@ export const Dictaphone: React.FC = () => {
 
                 </div>
             </div>
-            <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} onfreeSpeak={onfreeSpeak} />
+            <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} onfreeSpeak={onfreeSpeak} onEndedCB={onEndedCB} onBeforePlayCB={onBeforePlayCB} />
             {isMobile && (
                 <RangeInput delayBetweenWords={delayBetweenWords} setdelayBetweenWords={setdelayBetweenWords} />
             )}

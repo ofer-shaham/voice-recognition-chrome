@@ -4,9 +4,12 @@ import { FinalTranscriptHistory } from '../../types/FinalTranscriptHistory';
 type TranscriptHistoryProps = {
     finalTranscriptHistory: FinalTranscriptHistory[];
     onfreeSpeak: (text: string, lang: string) => void;
+    onBeforePlayCB: () => void;
+    onEndedCB: () => void;
+
 };
 
-const TranscriptHistory: React.FC<TranscriptHistoryProps> = ({ finalTranscriptHistory, onfreeSpeak }) => {
+const TranscriptHistory: React.FC<TranscriptHistoryProps> = ({ finalTranscriptHistory, onfreeSpeak, onBeforePlayCB, onEndedCB }) => {
     const LIMIT_ARR_CUT_FINAL = 10; // Define your desired limit for displaying transcript history
 
     return (
@@ -40,7 +43,8 @@ const TranscriptHistory: React.FC<TranscriptHistoryProps> = ({ finalTranscriptHi
                                 <td style={{ background: 'blue', width: '10%' }}>
                                     {r.audioData && (!isBase64(r.audioData) ?
                                         <p>{r.audioData}</p>
-                                        : <audio controls src={`data:audio/webm;base64,${r.audioData}`} />)}
+                                        : <audio controls src={`data:audio/webm;base64,${r.audioData}`} onPlay={onBeforePlayCB}
+                                            onEnded={onEndedCB} />)}
                                 </td>
                             </tr>
                         ))}
