@@ -36,6 +36,7 @@ import RangeInput from './RangeInput';
 // import RecordingComponent from './VoiceRecorder';
 import { MediaRecorderRecordingService } from '../../services/RecordService';
 import { FinalTranscriptHistory } from '../../types/FinalTranscriptHistory';
+// import { useSpeechSynthesis } from '../../hooks/useSpeaking';
 
 
 
@@ -44,7 +45,9 @@ export const Dictaphone: React.FC = () => {
     const [toLang, setToLang] = useState('ar-AE')
     const [translation, setTranslation] = useState('')
     const [finalTranscriptHistory, setFinalTranscriptHistory] = useState<FinalTranscriptHistory[]>([])
+    // const isSpeaking = useSpeechSynthesis()
     const [isSpeaking, setIsSpeaking] = useState(false)
+
     const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
     const [isInterimResults, setIsInterimResults] = useState(false)
     const [isContinuous, setIsContinuous] = useState(false)
@@ -217,7 +220,7 @@ export const Dictaphone: React.FC = () => {
 
         const speakIt = async () => {
             await stopListen()
-            await freeSpeak(targetText as string, targetLang as string).catch(e => console.error('freeSpeak', e));
+            await myFreeSpeak(targetText as string, targetLang as string).catch(e => console.error('freeSpeak', e));
             await startListen().catch(e => console.error('startListen', e));
             console.log()
         };
@@ -292,20 +295,31 @@ export const Dictaphone: React.FC = () => {
         return null
     }
 
-    const onEndedCB = () => {
+    const onAudioEndedCB = () => {
         startListen()
     }
-    const onBeforePlayCB = async () => {
+    const onAudioBeforePlayCB = async () => {
         listening && await stopListen()
         isRecording && newRecordingService?.current?.cancelRecording();
     }
     const onfreeSpeak = async (text: string, lang: string) => {
-        await onBeforePlayCB()
-        await freeSpeak(text, lang)
-        onEndedCB()
+
+        await onAudioBeforePlayCB()
+        setIsSpeaking(() => true)
+        await myFreeSpeak(text, lang)
+        setIsSpeaking(() => false)
+        onAudioEndedCB()
     }
-
-
+    const onfreeSpeakNoCB = async (text: string, lang: string) => {
+        setIsSpeaking(() => true)
+        await myFreeSpeak(text, lang).catch(e => console.error(e.message))
+        setIsSpeaking(() => false)
+    }
+    const myFreeSpeak = async (text: string, lang: string) => {
+        setIsSpeaking(() => true)
+        await freeSpeak(text, lang).catch(e => console.error(e.message))
+        setIsSpeaking(() => false)
+    }
     return (
         <div className='Dictaphone' style={{ background: (isSpeaking ? 'blue' : (listening ? 'green' : 'grey')) }}>
             <Instructions instructions={instructions} />
@@ -318,8 +332,8 @@ export const Dictaphone: React.FC = () => {
                     onChange={() => setIsNonStop(prev => !prev)}
                 />
             </label> */}
-            {/* <SpeakLog setIsSpeaking={setIsSpeaking} isSpeaking={isSpeaking} /> */}
-            {/* <p>Is Speaking: {isSpeaking ? 'Yes' : 'No'}</p> */}
+            <SpeakLog setIsSpeaking={setIsSpeaking} isSpeaking={isSpeaking} />
+            <p>Is Speaking: {isSpeaking ? 'Yes' : 'No'}</p>
             <Debug isModeDebug={isModeDebug}>
                 <div id="read_only_flags" >
                     <p>is Microphone Available: {isMicrophoneAvailable ? 'yes' : 'no'}</p>
@@ -356,10 +370,10 @@ export const Dictaphone: React.FC = () => {
                 <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
                     <TranslationBox setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang}
                         text={transcript || (finalTranscriptHistory.length ?
-                            finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : '')} onfreeSpeak={freeSpeak}></TranslationBox>
+                            finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : '')} onfreeSpeak={onfreeSpeakNoCB}></TranslationBox>
                     <TranslationBox setText={setTranslation} setLanguage={setToLang} language={toLang}
                         text={translation || ''}
-                        onfreeSpeak={freeSpeak} >
+                        onfreeSpeak={onfreeSpeak} >
                         <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setToLang={setToLang} selectedVoice={selectedVoice}
                             setSelectedVoice={setSelectedVoice} />
                     </TranslationBox>
@@ -367,7 +381,7 @@ export const Dictaphone: React.FC = () => {
 
                 </div>
             </div>
-            <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} onfreeSpeak={onfreeSpeak} onEndedCB={onEndedCB} onBeforePlayCB={onBeforePlayCB} />
+            <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} onfreeSpeak={onfreeSpeak} onEndedCB={onAudioEndedCB} onBeforePlayCB={onAudioBeforePlayCB} />
             {isMobile && (
                 <RangeInput delayBetweenWords={delayBetweenWords} setdelayBetweenWords={setdelayBetweenWords} />
             )}
