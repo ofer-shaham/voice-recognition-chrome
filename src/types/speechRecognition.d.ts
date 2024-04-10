@@ -19,7 +19,7 @@ interface SpeechRecognition {
     getRecognition(): globalThis.SpeechRecognition | null;
     startListening(options?: ListeningOptions): Promise<void>;
     stopListening(): Promise<void>;
-    abortListening(): Promise<void>;
+    stopListening(): Promise<void>;
     browserSupportsSpeechRecognition(): boolean;
     applyPolyfill(speechRecognitionPolyfill: any): void;
 }

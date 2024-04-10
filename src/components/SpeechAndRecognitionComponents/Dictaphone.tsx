@@ -65,12 +65,12 @@ export const Dictaphone: React.FC = () => {
     const newRecordingService = useRef<MediaRecorderRecordingService | null>(null)
 
     const stopListen = useCallback((): Promise<void> => {
-        return SpeechRecognition.abortListening().catch(e => console.error('abortListening', e));
+        return SpeechRecognition.stopListening().catch(e => console.error('stopListening', e));
     }, [])
 
     // const stopListen = async () => {
     //     if (listeningRef.current) {
-    //         return SpeechRecognition.abortListening().catch(e => console.error('abortListening', e));
+    //         return SpeechRecognition.stopListening().catch(e => console.error('stopListening', e));
     //     }
     // }
 
