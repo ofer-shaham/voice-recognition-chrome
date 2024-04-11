@@ -1,19 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import Todo from './components/LogAndDebugComponents/mdPresenter';
 
 import './styles/App.css';
 import { Dictaphone } from './components/SpeechAndRecognitionComponents/Dictaphone';
-import { Logger } from './components/LogAndDebugComponents/Logger';
 
 
 function App() {
-  const [logMessages, setLogMessages] = useState<any[]>([]);
 
-
-  useEffect(() => {
-    console.log('init app');
-    setLogMessages([])
-  }, [])
 
 
   const handleMicAccess = async () => {
@@ -41,7 +34,6 @@ function App() {
         <button onClick={handleMicAccess}>Grant microphone access</button>
 
       )}
-      <Logger messages={logMessages} setMessages={setLogMessages} />
 
     </div>
 
