@@ -53,6 +53,8 @@ export const Dictaphone: React.FC = () => {
     const [finalTranscriptProxy, setFinalTranscriptProxy] = useState('');
     const [isModeDebug, setIsModeDebug] = useState(false)
     const [delayBetweenWords, setdelayBetweenWords] = useState(INITIAL_DELAY_BETWEEN_WORDS)
+    const [logMessages, setLogMessages] = useState<any[]>([]);
+
     const availableVoices = useAvailableVoices();
 
 
