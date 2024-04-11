@@ -229,7 +229,6 @@ export const Dictaphone: React.FC = () => {
     force recycle of current transcript on mobile
     */
     useEffect(() => {
-        if (!isMobile) return;
         const delay = delayBetweenWords; // Delay in milliseconds
         let timerId: NodeJS.Timeout | null = null;
 
@@ -382,10 +381,9 @@ export const Dictaphone: React.FC = () => {
 
                 </div>
             </div>
-            <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} onfreeSpeak={onfreeSpeak} onEndedCB={onAudioEndedCB} onBeforePlayCB={onAudioBeforePlayCB} />
-            {isMobile && (
+
                 <RangeInput delayBetweenWords={delayBetweenWords} setdelayBetweenWords={setdelayBetweenWords} />
-            )}
+
             <div id='footer' style={{ display: 'flex' }}>
                 <a href="https://github.com/ofer-shaham/voice-recognition-chrome">source code</a>
             </div>
