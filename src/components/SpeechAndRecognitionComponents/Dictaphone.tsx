@@ -76,15 +76,15 @@ export const Dictaphone: React.FC = () => {
     // }
 
     const handleStartRecording = useCallback(() => {
-
         newRecordingService.current = new MediaRecorderRecordingService(new AudioContext());
         newRecordingService.current.startRecording();
-
-
+        setIsRecording(() => true)
     }, [])
 
     const handleStopRecording = useCallback(async () => {
         const encodedAudioString = await newRecordingService.current?.stopRecording();
+        console.info({ encodedAudioString })
+        setIsRecording(() => false)
         if (encodedAudioString) return encodedAudioString
         return ''
     }, []);
@@ -163,14 +163,13 @@ export const Dictaphone: React.FC = () => {
 
     const startListen = useCallback((): Promise<void> => {
         try {
-            if (isRecording) {
-                handleStartRecording()
-            } return SpeechRecognition.startListening(listeningOptions)
+            handleStartRecording()
+            return SpeechRecognition.startListening(listeningOptions)
         } catch (e) {
             console.error(e);
             return Promise.reject(e)
         }
-    }, [listeningOptions, isRecording, handleStartRecording])
+    }, [listeningOptions, handleStartRecording])
 
     /*
     * update devices' available voices
@@ -258,8 +257,8 @@ export const Dictaphone: React.FC = () => {
             const newFinalArrived = (finalTranscriptHistory.length ? finalTranscriptProxy !== finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : true)
 
             let audioEncodedString = ''
-            if (isRecording) { audioEncodedString = await handleStopRecording().catch(e => { console.error(e); return e.message }) }
-            console.info({ isRecording, audioEncodedString: audioEncodedString?.length })
+            audioEncodedString = await handleStopRecording().catch(e => { console.error(e); return e.message })
+            // console.info({ audioEncodedString: audioEncodedString?.length })
             if (newFinalArrived) {
                 if (fromLang !== toLang) {
                     const translationResult = await translate({ finalTranscriptProxy, fromLang, toLang })
@@ -277,7 +276,8 @@ export const Dictaphone: React.FC = () => {
         return () => {
             console.log('doTranslate')
         }
-    }, [finalTranscriptProxy, fromLang, toLang, finalTranscriptHistory, handleStopRecording, isRecording])
+    },
+        [finalTranscriptProxy, fromLang, toLang, finalTranscriptHistory, handleStopRecording])
 
     /**
      * listening will be forced by the speaking effect
