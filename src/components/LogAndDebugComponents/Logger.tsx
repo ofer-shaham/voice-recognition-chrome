@@ -1,8 +1,16 @@
 import React, { useEffect } from "react";
 
+type MessageType = "error" | "log" | "info" | "warn";
+
+type Message = {
+    id: number;
+    type: MessageType;
+    message: any[];
+};
+
 type LoggerProps = {
-    messages: any[];
-    setMessages: React.Dispatch<React.SetStateAction<any[]>>;
+    messages: Message[];
+    setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
 };
 
 export const Logger: React.FC<LoggerProps> = ({ messages, setMessages }) => {
@@ -14,32 +22,32 @@ export const Logger: React.FC<LoggerProps> = ({ messages, setMessages }) => {
 
         console.error = (...args: any[]) => {
             setMessages((prevMessages) => [
+                { id: getRandom(), type: "error", message: args },
                 ...prevMessages,
-                { type: "error", message: args },
             ]);
             originalConsoleError(...args);
         };
 
         console.log = (...args: any[]) => {
             setMessages((prevMessages) => [
+                { id: getRandom(), type: "log", message: args },
                 ...prevMessages,
-                { type: "log", message: args },
             ]);
             originalConsoleLog(...args);
         };
 
         console.info = (...args: any[]) => {
             setMessages((prevMessages) => [
+                { id: getRandom(), type: "info", message: args },
                 ...prevMessages,
-                { type: "info", message: args },
             ]);
             originalConsoleInfo(...args);
         };
 
         console.warn = (...args: any[]) => {
             setMessages((prevMessages) => [
+                { id: getRandom(), type: "warn", message: args },
                 ...prevMessages,
-                { type: "warn", message: args },
             ]);
             originalConsoleWarn(...args);
         };
@@ -52,26 +60,29 @@ export const Logger: React.FC<LoggerProps> = ({ messages, setMessages }) => {
         };
     }, [setMessages]);
 
-    const getColor = (type: string): string => {
-        const typeToColor: { [key: string]: string } = {
-            error: "red",
-            log: "black",
-            info: "blue",
-            warn: "orange",
-        };
-
-        return typeToColor[type] || "inherit";
-    };
-
 
 
     return (
         <div>
-            {[...messages].reverse().map((message, index) => (
-                <div key={index} style={{ color: getColor(message.type) }}>
-                    {index}-{message.type}: {JSON.stringify(message.message)}
+             {[...messages].map((message, index) => (
+                <div key={message.id} style={{ color: getColor(message.type) }}>
+                    <p>{messages.length-index}-{message.type}: {JSON.stringify(message.message)}</p>
                 </div>
             ))}
         </div>
     );
+};
+
+const getRandom = () => {
+    return Date.now() * Math.floor(Math.random() * 100000);
+};
+const getColor = (type: MessageType): string => {
+    const typeToColor: { [key in MessageType]: string } = {
+        error: "red",
+        log: "black",
+        info: "blue",
+        warn: "orange",
+    };
+
+    return typeToColor[type] || "inherit";
 };
