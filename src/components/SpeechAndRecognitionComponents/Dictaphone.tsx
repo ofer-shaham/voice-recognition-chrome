@@ -375,8 +375,9 @@ export const Dictaphone: React.FC = () => {
                 </div>
             </div>
 
-                <RangeInput delayBetweenWords={delayBetweenWords} setdelayBetweenWords={setdelayBetweenWords} />
-
+            <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} onfreeSpeak={onfreeSpeak} onEndedCB={onAudioEndedCB} onBeforePlayCB={onAudioBeforePlayCB} />
+            <RangeInput delayBetweenWords={delayBetweenWords} setdelayBetweenWords={setdelayBetweenWords} />
+         
             <div id='footer' style={{ display: 'flex' }}>
                 <a href="https://github.com/ofer-shaham/voice-recognition-chrome">source code</a>
             </div>
