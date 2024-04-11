@@ -33,10 +33,9 @@ import Debug from '../LogAndDebugComponents/Debug';
 import { getLangCodeOnMobile } from '../../utils/getLangCodeOnMobile';
 import '../../styles/Dictaphone.css'
 import RangeInput from './RangeInput';
-// import RecordingComponent from './VoiceRecorder';
 import { MediaRecorderRecordingService } from '../../services/RecordService';
 import { FinalTranscriptHistory } from '../../types/FinalTranscriptHistory';
-// import { useSpeechSynthesis } from '../../hooks/useSpeaking';
+import { VoiceRecorder } from './VoiceRecorder';
 
 
 
@@ -322,6 +321,9 @@ export const Dictaphone: React.FC = () => {
     }
     return (
         <div className='Dictaphone' style={{ background: (isSpeaking ? 'blue' : (listening ? 'green' : 'grey')) }}>
+            <Debug isModeDebug={isModeDebug}>
+                <VoiceRecorder />
+            </Debug>
             <Instructions instructions={instructions} />
             {/* <RecordingComponent /> */}
             {/* <label>
