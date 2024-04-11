@@ -35,6 +35,7 @@ import RangeInput from './RangeInput';
 import { MediaRecorderRecordingService } from '../../services/RecordService';
 import { FinalTranscriptHistory } from '../../types/FinalTranscriptHistory';
 import { VoiceRecorder } from './VoiceRecorder';
+import { Logger } from '../LogAndDebugComponents/Logger';
 
 
 
@@ -377,6 +378,8 @@ export const Dictaphone: React.FC = () => {
             <div id='footer' style={{ display: 'flex' }}>
                 <a href="https://github.com/ofer-shaham/voice-recognition-chrome">source code</a>
             </div>
+
+            <Logger messages={logMessages} setMessages={setLogMessages} />
         </div>
     )
 }
