@@ -7,12 +7,12 @@ import { Logger } from './components/LogAndDebugComponents/Logger';
 
 
 function App() {
-  const [errors, setErrors] = useState<any[]>([]);
+  const [logMessages, setLogMessages] = useState<any[]>([]);
 
 
   useEffect(() => {
     console.log('init app');
-    setErrors([])
+    setLogMessages([])
   }, [])
 
 
@@ -41,7 +41,7 @@ function App() {
         <button onClick={handleMicAccess}>Grant microphone access</button>
 
       )}
-      <Logger errors={errors} setErrors={setErrors} />
+      <Logger messages={logMessages} setMessages={setLogMessages} />
 
     </div>
 
