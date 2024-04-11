@@ -61,7 +61,7 @@ export const Dictaphone: React.FC = () => {
     const listeningRef = useRef(false)
     const availableVoicesCode = useMemo<string[] | null>(() => availableVoices.map(r => r.lang), [availableVoices])
     // const [recordingService, setRecordingService] = useState<RecordingService | null>(null);
-    const [isRecording, setIsRecording] = useState(true);
+    const [isRecording, setIsRecording] = useState(false);
 
     const newRecordingService = useRef<MediaRecorderRecordingService | null>(null)
 
@@ -372,12 +372,13 @@ export const Dictaphone: React.FC = () => {
                     </TranslationBox>
 
 
+
                 </div>
             </div>
 
             <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} onfreeSpeak={onfreeSpeak} onEndedCB={onAudioEndedCB} onBeforePlayCB={onAudioBeforePlayCB} />
             <RangeInput delayBetweenWords={delayBetweenWords} setdelayBetweenWords={setdelayBetweenWords} />
-         
+
             <div id='footer' style={{ display: 'flex' }}>
                 <a href="https://github.com/ofer-shaham/voice-recognition-chrome">source code</a>
             </div>
