@@ -182,8 +182,7 @@ export const Dictaphone: React.FC = () => {
     }, [availableVoices])
 
     useEffect(() => {
-        if (isMobile) { console.info('finally arrive', { finalTranscript }) };
-        setFinalTranscriptProxy(finalTranscript);
+        setFinalTranscriptProxy(() => finalTranscript);
         console.log('setFinalTranscriptProxy', { finalTranscript })
     }, [finalTranscript, setFinalTranscriptProxy])
 
