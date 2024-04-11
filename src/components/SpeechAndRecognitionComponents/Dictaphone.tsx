@@ -41,7 +41,7 @@ import { VoiceRecorder } from './VoiceRecorder';
 
 export const Dictaphone: React.FC = () => {
     const [fromLang, setFromLang] = useState('he-IL')
-    const [toLang, setToLang] = useState('ar-AE')
+    const [toLang, setToLang] = useState(isMobile ? 'ar-AE' : 'ru-RU')
     const [translation, setTranslation] = useState('')
     const [finalTranscriptHistory, setFinalTranscriptHistory] = useState<FinalTranscriptHistory[]>([])
     // const isSpeaking = useSpeechSynthesis()
