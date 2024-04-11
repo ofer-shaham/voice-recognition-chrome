@@ -27,7 +27,6 @@ import TranscriptOptions from './TranscriptOptions';
 import TranscriptLive from './TranscriptLive';
 import StartAndStopButtons from './StartAndStopButtons';
 import DebugModeSwitch from '../LogAndDebugComponents/DebugModeSwitch';
-import { SpeakLog } from '../LogAndDebugComponents/SpeakLog';
 import { freeSpeak } from '../../utils/freeSpeak';
 import Debug from '../LogAndDebugComponents/Debug';
 import { getLangCodeOnMobile } from '../../utils/getLangCodeOnMobile';
@@ -323,16 +322,7 @@ export const Dictaphone: React.FC = () => {
                 <VoiceRecorder />
             </Debug>
             <Instructions instructions={instructions} />
-            {/* <RecordingComponent /> */}
-            {/* <label>
-                run non-stop:
-                <input
-                    type="checkbox"
-                    checked={isNonStop}
-                    onChange={() => setIsNonStop(prev => !prev)}
-                />
-            </label> */}
-            <SpeakLog setIsSpeaking={setIsSpeaking} isSpeaking={isSpeaking} />
+
             <p>Is Speaking: {isSpeaking ? 'Yes' : 'No'}</p>
             <Debug isModeDebug={isModeDebug}>
                 <div id="read_only_flags" >
