@@ -15,15 +15,15 @@ export class MediaRecorderRecordingService implements RecordingService {
     constructor(audioContext: AudioContext) {
         this.audioContext = audioContext;
     }
-
+    private  handleDataAvailable = (event: BlobEvent) => {
+        this.recordedChunks.push(event.data);
+      }
     startRecording(): void {
         navigator.mediaDevices.getUserMedia({ audio: true })
             .then((stream: MediaStream) => {
                 this.mediaStreamSource = this.audioContext.createMediaStreamSource(stream);
                 this.mediaRecorder = new MediaRecorder(stream);
-                this.mediaRecorder.addEventListener('dataavailable', (event: BlobEvent) => {
-                    this.recordedChunks.push(event.data);
-                });
+          this.mediaRecorder.addEventListener('dataavailable', this.handleDataAvailable);
                 this.mediaRecorder.start();
             })
             .catch((error: any) => {
@@ -59,7 +59,7 @@ export class MediaRecorderRecordingService implements RecordingService {
 
     cancelRecording(): void {
         if (this.mediaRecorder) {
-            this.mediaRecorder.removeEventListener('dataavailable', () => { }); // Remove dataavailable event listener
+        this.mediaRecorder.removeEventListener("dataavailable",this.handleDataAvailable); 
             this.mediaRecorder.stop();
         }
 
