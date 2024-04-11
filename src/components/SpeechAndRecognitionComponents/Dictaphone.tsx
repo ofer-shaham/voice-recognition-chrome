@@ -277,7 +277,7 @@ export const Dictaphone: React.FC = () => {
         return () => {
             console.log('doTranslate')
         }
-    }, [finalTranscriptProxy, fromLang, toLang, finalTranscriptHistory, setFinalTranscriptHistory, handleStopRecording, isRecording])
+    }, [finalTranscriptProxy, fromLang, toLang, finalTranscriptHistory, handleStopRecording, isRecording])
 
     /**
      * listening will be forced by the speaking effect
