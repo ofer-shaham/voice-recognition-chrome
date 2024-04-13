@@ -43,7 +43,6 @@ export const Dictaphone: React.FC = () => {
     const [toLang, setToLang] = useState(isMobile ? 'ar-AE' : 'ru-RU')
     const [translation, setTranslation] = useState('')
     const [finalTranscriptHistory, setFinalTranscriptHistory] = useState<FinalTranscriptHistory[]>([])
-    // const isSpeaking = useSpeechSynthesis()
     const [isSpeaking, setIsSpeaking] = useState(false)
 
     const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
@@ -85,17 +84,6 @@ export const Dictaphone: React.FC = () => {
                 console.log(`from ${fromCode} to ${toCode}`)
             }
         },
-        // {
-        //     command: '(‏) (please) speak english',
-        //     callback: () => {
-        //         ;
-        //         const langCode = mapLanguageToCode('english')
-        //         setFromLang(langCode);
-        //         setToLang(langCode);
-        //         setTranslation('')
-        //     },
-        //     matchInterim: true
-        // },
         {
             command: '(‏) (please) speak :language',
             callback: (language: string) => {
@@ -107,30 +95,7 @@ export const Dictaphone: React.FC = () => {
                 console.log('match :languge')
             },
             matchInterim: true
-        },
-        // {
-        //     command: '(‏)speak english',
-        //     callback: () => {
-        //         const langCode = mapLanguageToCode('english')
-        //         setFromLang(langCode);
-        //         setToLang(langCode);
-        //         setTranslation('')
-        //         console.log('matchInterim')
-        //     },
-        //     matchInterim: true
-        // },
-        // {
-        //     command: ['up', 'down', 'left', 'right'],
-        //     callback: (command) => console.info(`Best matching command: ${command}`),
-        //     isFuzzyMatch: true,
-        //     fuzzyMatchingThreshold: 0.8,
-        //     bestMatchOnly: true
-        // },
-        // {
-        //     command: ['שמאל', 'ימין', 'למעלה', 'למטה'],
-        //     callback: (command) => console.info(`Best matching command: ${command}`),
-        //     matchInterim: true
-        // }
+        }
     ], [])
 
     const { finalTranscript,
@@ -375,9 +340,6 @@ export const Dictaphone: React.FC = () => {
                         <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setToLang={setToLang} selectedVoice={selectedVoice}
                             setSelectedVoice={setSelectedVoice} />
                     </TranslationBox>
-
-
-
                 </div>
             </div>
 
