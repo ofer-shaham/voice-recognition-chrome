@@ -357,12 +357,10 @@ export const Dictaphone: React.FC = () => {
 
             <DebugModeSwitch isModeDebug={isModeDebug} setIsModeDebug={setIsModeDebug} />
             <TranscriptLive finalTranscript={finalTranscript} interimTranscript={interimTranscript} transcript={transcript} isModeDebug={isModeDebug} />
-
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                 <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
                     <TranslationBox setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang}
-                        text={transcript || (finalTranscriptHistory.length ?
-                            finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : '')} onfreeSpeakOnly={flaggedFreeSpeak}></TranslationBox>
+                        text={transcript || prevFinalTranscriptProxy.current} onfreeSpeakOnly={flaggedFreeSpeak}></TranslationBox>
                     <TranslationBox setText={setTranslation} setLanguage={setToLang} language={toLang}
                         text={translation || ''}
                         onfreeSpeakOnly={onfreeSpeakOnly} >
