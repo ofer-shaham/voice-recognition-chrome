@@ -1,42 +1,38 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Todo from './components/LogAndDebugComponents/mdPresenter';
 
 import './styles/App.css';
 import { Dictaphone } from './components/SpeechAndRecognitionComponents/Dictaphone';
 
 
+
 function App() {
-
-
-
-  const handleMicAccess = async () => {
+  const [microphoneAccess, setMicrophoneAccess] = useState(false);
+  const checkMicrophoneAccess = async () => {
     try {
-
-      // await freeSpeak(instructions.welcome.test)
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      setMicrophoneAccess(true);
     } catch (error) {
-      console.error('Error getting user media:', error);
-      alert('Error getting user media')
+      console.log('Microphone access denied:', error);
     }
   };
+
+  useEffect(() => {
+    checkMicrophoneAccess();
+  }, []);
+
   return (
-    <div>
-
-
-      {true ? (
-        <div className="App">
-
-          {/* <VoiceRecorder stream={stream} /> */}
-
+    <>
+      {microphoneAccess ? (
+        <div className="App"> 
+          <Todo url="https://raw.githubusercontent.com/ofer-shaham/voice-recognition-chrome/main/README.md" />
           <Dictaphone />
-          <Todo url="plans.md" />
         </div>
       ) : (
-        <button onClick={handleMicAccess}>Grant microphone access</button>
-
+        <button onClick={checkMicrophoneAccess}>Grant microphone access</button>
       )}
-
-    </div>
-
+    </>
   )
 }
+
 export default App;
