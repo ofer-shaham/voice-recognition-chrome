@@ -52,17 +52,19 @@ export const Dictaphone: React.FC = () => {
     const [finalTranscriptProxy, setFinalTranscriptProxy] = useState('');
     const [isModeDebug, setIsModeDebug] = useState(false)
     const [delayBetweenWords, setdelayBetweenWords] = useState(INITIAL_DELAY_BETWEEN_WORDS)
-    const [allowRecording, setAllowRecording] = useState(true);
+    const [allowRecording, setAllowRecording] = useState(false);
 
     const [logMessages, setLogMessages] = useState<any[]>([]);
     const availableVoices = useAvailableVoices();
 
     const { startRecording, cancelRecording, stopRecording, isRecording } = useRecording(allowRecording)
     const listeningRef = useRef(false)
-    const allowRecordingRef = useRef(true)
+    const allowRecordingRef = useRef(!isMobile)
+    const renderCountRef = useRef(0)
+
     const prevFinalTranscriptProxyRef = useRef('')
 
-
+    renderCountRef.current += 1;
 
 
     const availableVoicesCode = useMemo<string[] | null>(() => availableVoices.map(r => r.lang), [availableVoices])
@@ -209,9 +211,7 @@ export const Dictaphone: React.FC = () => {
 
     //store finalTranscriptProxy prev value 
     useEffect(() => {
-        return () => {
-            prevFinalTranscriptProxyRef.current = finalTranscriptProxy
-        }
+        if (finalTranscriptProxy) { prevFinalTranscriptProxyRef.current = finalTranscriptProxy }
     }, [finalTranscriptProxy])
 
     /*
@@ -332,6 +332,7 @@ export const Dictaphone: React.FC = () => {
 
             <p>Is Speaking: {isSpeaking ? 'Yes' : 'No'}</p>
             <Debug isModeDebug={isModeDebug}>
+                <p>render count: {renderCountRef.current}</p>
                 <div id="read_only_flags" >
                     <p>is Microphone Available: {isMicrophoneAvailable ? 'yes' : 'no'}</p>
                     <p>listening: {listening ? 'yes' : 'no'}</p>
