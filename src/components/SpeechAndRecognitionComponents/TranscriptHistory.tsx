@@ -27,8 +27,10 @@ const TranscriptHistory: React.FC<TranscriptHistoryProps> = ({ finalTranscriptHi
                                         style={{ width: '100%', padding: '5px' }}
                                         onClick={() => onfreeSpeakOnly(r.finalTranscriptProxy, r.fromLang)}
                                     >
-                                        <span style={{ flex: 1, textAlign: 'left' }}>[{r.fromLang}]</span>
-                                        <span style={{ flex: 2 }}>{r.finalTranscriptProxy}</span>
+                                        <div style={{ display: 'flex' }}>
+                                            <span style={{ flex: '20%', textAlign: 'right' }}>[{r.fromLang}]</span>
+                                            <span style={{ flex: '80%' }}>{r.finalTranscriptProxy}</span>
+                                        </div>
                                     </button>
                                 </td>
                                 <td style={{ background: 'green', display: 'flex', justifyContent: 'center' }}>
@@ -36,8 +38,10 @@ const TranscriptHistory: React.FC<TranscriptHistoryProps> = ({ finalTranscriptHi
                                         style={{ width: '100%', padding: '5px' }}
                                         onClick={() => onfreeSpeakOnly(r.translation, r.toLang)}
                                     >
-                                        <span style={{ flex: 1, textAlign: 'left' }}>[{r.toLang}]</span>
-                                        <span style={{ flex: 2 }}>{r.translation}</span>
+                                        <div style={{ display: 'flex' }}>
+                                            <span style={{ flex: '20%', textAlign: 'right' }}>[{r.toLang}]</span>
+                                            <span style={{ flex: '80%' }}>{r.translation}</span>
+                                        </div>
                                     </button>
                                 </td>
                                 <td style={{ background: 'blue', width: '10%' }}>
