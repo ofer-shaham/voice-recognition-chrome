@@ -60,9 +60,9 @@ export const Dictaphone: React.FC = () => {
     const { startRecording, cancelRecording, stopRecording, isRecording } = useRecording(allowRecording)
     const listeningRef = useRef(false)
     const allowRecordingRef = useRef(true)
-    const prevFinalTranscriptProxy = useRef('')
+    const prevFinalTranscriptProxyRef = useRef('')
 
-    allowRecordingRef.current = allowRecording
+
 
 
     const availableVoicesCode = useMemo<string[] | null>(() => availableVoices.map(r => r.lang), [availableVoices])
@@ -140,8 +140,12 @@ export const Dictaphone: React.FC = () => {
     const listeningOptions = useMemo((): ListeningOptions => {
         return { language: fromLang, interimResults: isInterimResults, continuous: isContinuous }
     }, [fromLang, isContinuous, isInterimResults])
-    //workaround to avoid a change of listening state to trigger a speak useEffect 
+
+    /*
+    update all refs according to state:
+    */
     listeningRef.current = listening
+    allowRecordingRef.current = allowRecording
 
     const startListen = useCallback((): Promise<void> => {
         try {
@@ -200,12 +204,15 @@ export const Dictaphone: React.FC = () => {
 
         setFinalTranscriptProxy(() => finalTranscript);
         console.log('setFinalTranscriptProxy', { finalTranscript })
-        return () => {
-            prevFinalTranscriptProxy.current = finalTranscript
-        }
+
     }, [finalTranscript, setFinalTranscriptProxy])
 
-
+    //store finalTranscriptProxy prev value 
+    useEffect(() => {
+        return () => {
+            prevFinalTranscriptProxyRef.current = finalTranscriptProxy
+        }
+    }, [finalTranscriptProxy])
 
     /*
     force recycle of current transcript on mobile
@@ -360,7 +367,7 @@ export const Dictaphone: React.FC = () => {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                 <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
                     <TranslationBox setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang}
-                        text={transcript || prevFinalTranscriptProxy.current} onfreeSpeakOnly={flaggedFreeSpeak}></TranslationBox>
+                        text={transcript || prevFinalTranscriptProxyRef.current} onfreeSpeakOnly={flaggedFreeSpeak}></TranslationBox>
                     <TranslationBox setText={setTranslation} setLanguage={setToLang} language={toLang}
                         text={translation || ''}
                         onfreeSpeakOnly={onfreeSpeakOnly} >
