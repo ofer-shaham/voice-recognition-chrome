@@ -7,6 +7,8 @@ interface TranscriptOptionsProps {
     setIsInterimResults: React.Dispatch<React.SetStateAction<boolean>>;
     isContinuous: boolean;
     setIsContinuous: React.Dispatch<React.SetStateAction<boolean>>;
+    allowRecording: boolean;
+    setAllowRecording: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 const TranscriptOptions: React.FC<TranscriptOptionsProps> = ({
@@ -15,6 +17,8 @@ const TranscriptOptions: React.FC<TranscriptOptionsProps> = ({
     setIsInterimResults,
     isContinuous,
     setIsContinuous,
+    allowRecording,
+    setAllowRecording
 }) => {
     return (
         <Debug isModeDebug={isModeDebug}>
@@ -34,6 +38,14 @@ const TranscriptOptions: React.FC<TranscriptOptionsProps> = ({
                         type="checkbox"
                         checked={isContinuous}
                         onChange={() => setIsContinuous(!isContinuous)}
+                    />
+                </label>                <br />
+                <label>
+                    Recording:
+                    <input
+                        type="checkbox"
+                        checked={allowRecording}
+                        onChange={() => setAllowRecording(!allowRecording)}
                     />
                 </label>
                 <br />

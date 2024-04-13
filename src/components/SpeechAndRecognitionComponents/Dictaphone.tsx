@@ -59,7 +59,9 @@ export const Dictaphone: React.FC = () => {
 
     const { startRecording, cancelRecording, stopRecording, isRecording } = useRecording(allowRecording)
     const listeningRef = useRef(false)
-    const allowRecordingRef = useRef(false)
+    const allowRecordingRef = useRef(true)
+    const prevFinalTranscriptProxy = useRef('')
+
     allowRecordingRef.current = allowRecording
 
 
@@ -195,8 +197,12 @@ export const Dictaphone: React.FC = () => {
     }, [availableVoices])
 
     useEffect(() => {
+
         setFinalTranscriptProxy(() => finalTranscript);
         console.log('setFinalTranscriptProxy', { finalTranscript })
+        return () => {
+            prevFinalTranscriptProxy.current = finalTranscript
+        }
     }, [finalTranscript, setFinalTranscriptProxy])
 
 
@@ -300,10 +306,10 @@ export const Dictaphone: React.FC = () => {
         };
         speakIt();
 
-    }, [finalTranscriptHistory, availableVoicesCode,  onfreeSpeakOnly]);
+    }, [finalTranscriptHistory, availableVoicesCode, onfreeSpeakOnly]);
 
 
-     
+
     ////////////////////condition
     if (!browserSupportsSpeechRecognition) {
         alert('Your browser does not support speech recognition!')
@@ -345,6 +351,8 @@ export const Dictaphone: React.FC = () => {
                 setIsInterimResults={setIsInterimResults}
                 isContinuous={isContinuous}
                 setIsContinuous={setIsContinuous}
+                allowRecording={allowRecording}
+                setAllowRecording={setAllowRecording}
             />
 
             <DebugModeSwitch isModeDebug={isModeDebug} setIsModeDebug={setIsModeDebug} />
