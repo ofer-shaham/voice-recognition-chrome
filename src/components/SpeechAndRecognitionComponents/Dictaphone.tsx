@@ -32,7 +32,6 @@ import Debug from '../LogAndDebugComponents/Debug';
 import { getLangCodeOnMobile } from '../../utils/getLangCodeOnMobile';
 import '../../styles/Dictaphone.css'
 import RangeInput from './RangeInput';
-import { MediaRecorderRecordingService } from '../../services/RecordService';
 import { FinalTranscriptHistory } from '../../types/FinalTranscriptHistory';
 import { VoiceRecorder } from './VoiceRecorder';
 import { Logger } from '../LogAndDebugComponents/Logger';
@@ -53,42 +52,23 @@ export const Dictaphone: React.FC = () => {
     const [finalTranscriptProxy, setFinalTranscriptProxy] = useState('');
     const [isModeDebug, setIsModeDebug] = useState(false)
     const [delayBetweenWords, setdelayBetweenWords] = useState(INITIAL_DELAY_BETWEEN_WORDS)
-    const [logMessages, setLogMessages] = useState<any[]>([]);
+    const [allowRecording, setAllowRecording] = useState(true);
 
+    const [logMessages, setLogMessages] = useState<any[]>([]);
     const availableVoices = useAvailableVoices();
 
-
+    const { startRecording, cancelRecording, stopRecording, isRecording } = useRecording(allowRecording)
     const listeningRef = useRef(false)
-    const availableVoicesCode = useMemo<string[] | null>(() => availableVoices.map(r => r.lang), [availableVoices])
-    // const [recordingService, setRecordingService] = useState<RecordingService | null>(null);
-    const [isRecording, setIsRecording] = useState(false);
+    const allowRecordingRef = useRef(false)
+    allowRecordingRef.current = allowRecording
 
-    const newRecordingService = useRef<MediaRecorderRecordingService | null>(null)
+
+    const availableVoicesCode = useMemo<string[] | null>(() => availableVoices.map(r => r.lang), [availableVoices])
+
 
     const stopListen = useCallback((): Promise<void> => {
         return SpeechRecognition.stopListening().catch(e => console.error('stopListening', e));
     }, [])
-
-    // const stopListen = async () => {
-    //     if (listeningRef.current) {
-    //         return SpeechRecognition.stopListening().catch(e => console.error('stopListening', e));
-    //     }
-    // }
-
-    const handleStartRecording = useCallback(() => {
-        newRecordingService.current = new MediaRecorderRecordingService(new AudioContext());
-        newRecordingService.current.startRecording();
-        setIsRecording(() => true)
-    }, [])
-
-    const handleStopRecording = useCallback(async () => {
-        const encodedAudioString = await newRecordingService.current?.stopRecording();
-        console.info({ encodedAudioString })
-        setIsRecording(() => false)
-        if (encodedAudioString) return encodedAudioString
-        return ''
-    }, []);
-
 
 
     const commands = useMemo<Command[]>(() => [
@@ -163,13 +143,45 @@ export const Dictaphone: React.FC = () => {
 
     const startListen = useCallback((): Promise<void> => {
         try {
-            handleStartRecording()
             return SpeechRecognition.startListening(listeningOptions)
         } catch (e) {
             console.error(e);
             return Promise.reject(e)
         }
-    }, [listeningOptions, handleStartRecording])
+    }, [listeningOptions])
+
+
+
+    const startListenAndRecord = useCallback(() => {
+        startListen();
+        allowRecordingRef.current && startRecording()
+    }, [startRecording, startListen])
+
+
+
+    const stopListenAndRecord = useCallback(async () => {
+        listeningRef.current && await stopListen()
+        cancelRecording()
+    }, [stopListen, cancelRecording])
+
+
+    const flaggedFreeSpeak = useCallback(async (text: string, lang: string) => {
+        setIsSpeaking(() => true)
+        await freeSpeak(text, lang).catch(e => console.error(e.message))
+        setIsSpeaking(() => false)
+    }, [])
+
+
+    const onfreeSpeakOnly = useCallback(async (text: string, lang: string) => {
+        await stopListenAndRecord()
+        await flaggedFreeSpeak(text, lang)
+        startListenAndRecord()
+    }, [startListenAndRecord, stopListenAndRecord, flaggedFreeSpeak])
+
+
+
+
+
 
     /*
     * update devices' available voices
@@ -187,44 +199,7 @@ export const Dictaphone: React.FC = () => {
         console.log('setFinalTranscriptProxy', { finalTranscript })
     }, [finalTranscript, setFinalTranscriptProxy])
 
-    /**
-     * speak the last peece of history
-     * change state: isSpeaking
-     * 
-     */
-    useEffect(() => {
 
-        if (!finalTranscriptHistory.length) {
-            console.log('finalTranscriptHistory is empty')
-            return
-        };
-        const target = finalTranscriptHistory[finalTranscriptHistory.length - 1];
-
-        let targetText: string | null = null
-        let targetLang: string | null = null
-        //set target text and language
-        if (target.translation) {
-            targetText = target.translation
-            targetLang = target.toLang
-        } else {
-            targetText = target.finalTranscriptProxy
-            targetLang = target.fromLang
-        }
-
-        if (!targetText || !targetLang) return
-        if (!availableVoicesCode?.includes(getLangCodeOnMobile(targetLang, isMobile))) {
-            console.warn('there is no voice for lang:' + targetLang)
-        }
-
-
-        const speakIt = async () => {
-            await stopListen()
-            await flaggedFreeSpeak(targetText as string, targetLang as string).catch(e => console.error('freeSpeak', e));
-            await startListen().catch(e => console.error('startListen', e));
-            console.log()
-        };
-        speakIt();
-    }, [finalTranscriptHistory, availableVoicesCode, startListen, stopListen]);
 
     /*
     force recycle of current transcript on mobile
@@ -256,8 +231,7 @@ export const Dictaphone: React.FC = () => {
         async function appendToHistory() {
             const newFinalArrived = (finalTranscriptHistory.length ? finalTranscriptProxy !== finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : true)
 
-            let audioEncodedString = ''
-            audioEncodedString = await handleStopRecording().catch(e => { console.error(e); return e.message })
+            const audioEncodedString = await stopRecording()
             // console.info({ audioEncodedString: audioEncodedString?.length })
             if (newFinalArrived) {
                 if (fromLang !== toLang) {
@@ -277,7 +251,7 @@ export const Dictaphone: React.FC = () => {
             console.log('doTranslate')
         }
     },
-        [finalTranscriptProxy, fromLang, toLang, finalTranscriptHistory, handleStopRecording])
+        [finalTranscriptProxy, fromLang, toLang, finalTranscriptHistory, stopRecording])
 
     /**
      * listening will be forced by the speaking effect
@@ -289,30 +263,53 @@ export const Dictaphone: React.FC = () => {
     }, [isSpeaking, listening, startListen,
     ]);
 
+
+
+
+    /**
+        * speak the last peece of history
+        * change state: isSpeaking
+        * 
+        */
+    useEffect(() => {
+        if (!finalTranscriptHistory.length) {
+            console.log('finalTranscriptHistory is empty')
+
+            return
+        };
+        const target = finalTranscriptHistory[finalTranscriptHistory.length - 1];
+
+        let targetText: string | null = null
+        let targetLang: string | null = null
+        //set target text and language
+        if (target.translation) {
+            targetText = target.translation
+            targetLang = target.toLang
+        } else {
+            targetText = target.finalTranscriptProxy
+            targetLang = target.fromLang
+        }
+
+        if (!targetText || !targetLang) return
+        if (!availableVoicesCode?.includes(getLangCodeOnMobile(targetLang, isMobile))) {
+            console.warn('there is no voice for lang:' + targetLang)
+        }
+
+        const speakIt = async () => {
+            await onfreeSpeakOnly(targetText as string, targetLang as string).catch(e => console.error('freeSpeak', e));
+        };
+        speakIt();
+
+    }, [finalTranscriptHistory, availableVoicesCode,  onfreeSpeakOnly]);
+
+
+     
+    ////////////////////condition
     if (!browserSupportsSpeechRecognition) {
         alert('Your browser does not support speech recognition!')
         return null
     }
 
-    const onAudioEndedCB = () => {
-        startListen()
-    }
-    const stopListenAndRecordBeforePlayback = async () => {
-        listening && await stopListen()
-        isRecording && newRecordingService?.current?.cancelRecording();
-    }
-
-    const onfreeSpeak = async (text: string, lang: string) => {
-        await stopListenAndRecordBeforePlayback()
-        await flaggedFreeSpeak(text, lang)
-        onAudioEndedCB()
-    }
-
-    const flaggedFreeSpeak = async (text: string, lang: string) => {
-        setIsSpeaking(() => true)
-        await freeSpeak(text, lang).catch(e => console.error(e.message))
-        setIsSpeaking(() => false)
-    }
     return (
         <div className='Dictaphone' style={{ background: (isSpeaking ? 'blue' : (listening ? 'green' : 'grey')) }}>
             <Debug isModeDebug={isModeDebug}>
@@ -339,7 +336,7 @@ export const Dictaphone: React.FC = () => {
                 setToLang={setToLang}
                 setTranslation={setTranslation}
                 handleStopListening={stopListen}
-                setIsRecording={setIsRecording}
+                setIsRecording={setAllowRecording}
                 isRecording={isRecording}
             />
             <TranscriptOptions
@@ -357,10 +354,10 @@ export const Dictaphone: React.FC = () => {
                 <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
                     <TranslationBox setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang}
                         text={transcript || (finalTranscriptHistory.length ?
-                            finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : '')} onfreeSpeak={flaggedFreeSpeak}></TranslationBox>
+                            finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : '')} onfreeSpeakOnly={flaggedFreeSpeak}></TranslationBox>
                     <TranslationBox setText={setTranslation} setLanguage={setToLang} language={toLang}
                         text={translation || ''}
-                        onfreeSpeak={onfreeSpeak} >
+                        onfreeSpeakOnly={onfreeSpeakOnly} >
                         <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setToLang={setToLang} selectedVoice={selectedVoice}
                             setSelectedVoice={setSelectedVoice} />
                     </TranslationBox>
@@ -370,7 +367,7 @@ export const Dictaphone: React.FC = () => {
                 </div>
             </div>
 
-            <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} onfreeSpeak={onfreeSpeak} onEndedCB={onAudioEndedCB} onBeforePlayCB={stopListenAndRecordBeforePlayback} />
+            <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} onfreeSpeakOnly={onfreeSpeakOnly} onEndPlayback={startListenAndRecord} onBeforePlayback={stopListenAndRecord} />
             <RangeInput delayBetweenWords={delayBetweenWords} setdelayBetweenWords={setdelayBetweenWords} />
 
             <div id='footer' style={{ display: 'flex' }}>

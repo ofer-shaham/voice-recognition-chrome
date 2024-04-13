@@ -3,13 +3,13 @@ import { FinalTranscriptHistory } from '../../types/FinalTranscriptHistory';
 
 type TranscriptHistoryProps = {
     finalTranscriptHistory: FinalTranscriptHistory[];
-    onfreeSpeak: (text: string, lang: string) => void;
-    onBeforePlayCB: () => void;
-    onEndedCB: () => void;
+    onfreeSpeakOnly: (text: string, lang: string) => void;
+    onBeforePlayback: () => void;
+    onEndPlayback: () => void;
 
 };
 
-const TranscriptHistory: React.FC<TranscriptHistoryProps> = ({ finalTranscriptHistory, onfreeSpeak, onBeforePlayCB, onEndedCB }) => {
+const TranscriptHistory: React.FC<TranscriptHistoryProps> = ({ finalTranscriptHistory, onfreeSpeakOnly, onBeforePlayback, onEndPlayback }) => {
     const LIMIT_ARR_CUT_FINAL = 10; // Define your desired limit for displaying transcript history
 
     return (
@@ -25,7 +25,7 @@ const TranscriptHistory: React.FC<TranscriptHistoryProps> = ({ finalTranscriptHi
                                 <td style={{ background: 'red', display: 'flex', justifyContent: 'center' }}>
                                     <button
                                         style={{ width: '100%', padding: '5px' }}
-                                        onClick={() => onfreeSpeak(r.finalTranscriptProxy, r.fromLang)}
+                                        onClick={() => onfreeSpeakOnly(r.finalTranscriptProxy, r.fromLang)}
                                     >
                                         <span style={{ flex: 1, textAlign: 'left' }}>[{r.fromLang}]</span>
                                         <span style={{ flex: 2 }}>{r.finalTranscriptProxy}</span>
@@ -34,7 +34,7 @@ const TranscriptHistory: React.FC<TranscriptHistoryProps> = ({ finalTranscriptHi
                                 <td style={{ background: 'green', display: 'flex', justifyContent: 'center' }}>
                                     <button
                                         style={{ width: '100%', padding: '5px' }}
-                                        onClick={() => onfreeSpeak(r.translation, r.toLang)}
+                                        onClick={() => onfreeSpeakOnly(r.translation, r.toLang)}
                                     >
                                         <span style={{ flex: 1, textAlign: 'left' }}>[{r.toLang}]</span>
                                         <span style={{ flex: 2 }}>{r.translation}</span>
@@ -43,8 +43,8 @@ const TranscriptHistory: React.FC<TranscriptHistoryProps> = ({ finalTranscriptHi
                                 <td style={{ background: 'blue', width: '10%' }}>
                                     {r.audioData && (!isBase64(r.audioData) ?
                                         <p>{r.audioData}</p>
-                                        : <audio controls src={`data:audio/webm;base64,${r.audioData}`} onPlay={onBeforePlayCB}
-                                            onEnded={onEndedCB} />)}
+                                        : <audio controls src={`data:audio/webm;base64,${r.audioData}`} onPlay={onBeforePlayback}
+                                            onEnded={onEndPlayback} />)}
                                 </td>
                             </tr>
                         ))}

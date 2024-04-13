@@ -4,13 +4,13 @@ import '../../styles/TranslationBox.css';
 type TranslationProps = {
   language: string;
   text: string;
-  onfreeSpeak: (text: string, lang: string) => void;
+  onfreeSpeakOnly: (text: string, lang: string) => void;
   setLanguage: Dispatch<SetStateAction<string>>;
   setText: Dispatch<SetStateAction<string>>;
   children?: ReactElement;
 };
 
-const TranslationBox: React.FC<TranslationProps> = ({ language, text, onfreeSpeak, setLanguage, setText, children }) => {
+const TranslationBox: React.FC<TranslationProps> = ({ language, text, onfreeSpeakOnly, setLanguage, setText, children }) => {
   // Update the language when the prop changes from the parent component
   useEffect(() => {
     setLanguage(language);
@@ -34,7 +34,7 @@ const TranslationBox: React.FC<TranslationProps> = ({ language, text, onfreeSpea
       </div>
 
       <div style={{ width: '100%' }}>
-        <button onClick={() => onfreeSpeak(text, language)}>speak</button>
+        <button onClick={() => onfreeSpeakOnly(text, language)}>speak</button>
       </div>
 
     </div>
