@@ -63,13 +63,20 @@ export const Logger: React.FC<LoggerProps> = ({ messages, setMessages }) => {
 
 
     return (
-        <div>
-             {[...messages].map((message, index) => (
-                <div key={message.id} style={{ color: getColor(message.type) }}>
-                    <p>{messages.length-index}-{message.type}: {JSON.stringify(message.message)}</p>
-                </div>
-            ))}
-        </div>
+        <div style={{
+            display: 'flex',
+            flexDirection: 'column',
+            width: '100%',
+            alignItems: 'flex-start'
+        }}>
+            {
+                [...messages].map((message, index) => (
+                    <div key={message.id} style={{ color: getColor(message.type) }}>
+                        <p>{messages.length - index}-{message.type}: {JSON.stringify(message.message)}</p>
+                    </div>
+                ))
+            }
+        </div >
     );
 };
 
