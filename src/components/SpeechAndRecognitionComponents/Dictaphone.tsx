@@ -271,9 +271,9 @@ export const Dictaphone: React.FC = () => {
      */
     useEffect(() => {
         if (!isSpeaking && !listening) {
-            startListen();
+            startListenAndRecord();
         }
-    }, [isSpeaking, listening, startListen,
+    }, [isSpeaking, listening, startListenAndRecord,
     ]);
 
 
