@@ -14,7 +14,7 @@ const TranscriptHistory: React.FC<TranscriptHistoryProps> = ({ finalTranscriptHi
 
     return (
         <div>
-            <p>finalTranscriptHistory</p>
+            <p>conversation history:</p>
             <table style={{ width: '100%' }}>
                 <tbody>
                     {finalTranscriptHistory
