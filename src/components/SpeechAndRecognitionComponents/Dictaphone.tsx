@@ -36,7 +36,7 @@ import { MediaRecorderRecordingService } from '../../services/RecordService';
 import { FinalTranscriptHistory } from '../../types/FinalTranscriptHistory';
 import { VoiceRecorder } from './VoiceRecorder';
 import { Logger } from '../LogAndDebugComponents/Logger';
-
+import { useRecording } from '../../hooks/useRecording';
 
 
 export const Dictaphone: React.FC = () => {
