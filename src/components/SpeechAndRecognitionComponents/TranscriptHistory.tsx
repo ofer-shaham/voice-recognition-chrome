@@ -66,7 +66,7 @@ const TranscriptHistory: React.FC<TranscriptHistoryProps> = ({
                       </div>
                     </button>
                   </td>
-                  <td style={{ background: 'blue', width: '10%' }}>
+                  <td style={{ background: 'blue', width: '10%', maxWidth: '10%' }}>
                     {r.audioData && (!isBase64(r.audioData) ? (
                       <p>{r.audioData}</p>
                     ) : (
