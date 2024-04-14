@@ -1,4 +1,5 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import { LOG_RECORDS_LIMIT } from "../../consts/config";
 
 type MessageType = "error" | "log" | "info" | "warn";
 
@@ -14,6 +15,8 @@ type LoggerProps = {
 };
 
 export const Logger: React.FC<LoggerProps> = ({ messages, setMessages }) => {
+    const [messagesCount, setMessagesCount] = useState(0);
+
     useEffect(() => {
         const originalConsoleError = console.error;
         const originalConsoleLog = console.log;
@@ -21,33 +24,40 @@ export const Logger: React.FC<LoggerProps> = ({ messages, setMessages }) => {
         const originalConsoleWarn = console.warn;
 
         console.error = (...args: any[]) => {
+            setMessagesCount(prev => prev + 1)
             setMessages((prevMessages) => [
                 { id: getRandom(), type: "error", message: args },
-                ...prevMessages,
+                ...prevMessages.slice(0, LOG_RECORDS_LIMIT), // Keep only the last LOG_RECORDS_LIMIT messages
             ]);
             originalConsoleError(...args);
         };
 
         console.log = (...args: any[]) => {
+            setMessagesCount(prev => prev + 1)
+
             setMessages((prevMessages) => [
                 { id: getRandom(), type: "log", message: args },
-                ...prevMessages,
+                ...prevMessages.slice(0, LOG_RECORDS_LIMIT), // Keep only the last LOG_RECORDS_LIMIT messages
             ]);
             originalConsoleLog(...args);
         };
 
         console.info = (...args: any[]) => {
+            setMessagesCount(prev => prev + 1)
+
             setMessages((prevMessages) => [
                 { id: getRandom(), type: "info", message: args },
-                ...prevMessages,
+                ...prevMessages.slice(0, LOG_RECORDS_LIMIT), // Keep only the last LOG_RECORDS_LIMIT messages
             ]);
             originalConsoleInfo(...args);
         };
 
         console.warn = (...args: any[]) => {
+            setMessagesCount(prev => prev + 1)
+
             setMessages((prevMessages) => [
                 { id: getRandom(), type: "warn", message: args },
-                ...prevMessages,
+                ...prevMessages.slice(0, LOG_RECORDS_LIMIT), // Keep only the last LOG_RECORDS_LIMIT messages
             ]);
             originalConsoleWarn(...args);
         };
@@ -60,23 +70,25 @@ export const Logger: React.FC<LoggerProps> = ({ messages, setMessages }) => {
         };
     }, [setMessages]);
 
-
-
     return (
-        <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            width: '100%',
-            alignItems: 'flex-start'
-        }}>
-            {
-                [...messages].map((message, index) => (
-                    <div key={message.id} style={{ color: getColor(message.type) }}>
-                        <p>{messages.length - index}-{message.type}: {JSON.stringify(message.message)}</p>
-                    </div>
-                ))
-            }
-        </div >
+        <div
+            style={{
+                display: "flex",
+                flexDirection: "column",
+                width: "100%",
+                alignItems: "flex-start",
+            }}
+        >
+            <p>log records: {messagesCount}</p>
+            {[...messages].map((message, index) => (
+                <div key={message.id} style={{ color: getColor(message.type) }}>
+                    <p>
+                        {messagesCount - index}-{message.type}:{" "}
+                        {JSON.stringify(message.message)}
+                    </p>
+                </div>
+            ))}
+        </div>
     );
 };
 
