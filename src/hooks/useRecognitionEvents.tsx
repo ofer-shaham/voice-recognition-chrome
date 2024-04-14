@@ -7,6 +7,7 @@ export const useRecognitionEvents = (SpeechRecognition: SpeechRecognition) => {
 
 
     useEffect(() => {
+        console.log('useRecognitionEvents')
         const recognition = SpeechRecognition.getRecognition()
         if (!recognition) { console.error('no recognition'); return }
         const onError = (event: SpeechRecognitionErrorEvent): void => {
@@ -45,6 +46,6 @@ export const useRecognitionEvents = (SpeechRecognition: SpeechRecognition) => {
             recognition.removeEventListener('start', handleEvent2);
             recognition.removeEventListener('end', handleEvent2);
         }
-    }, [])
+    }, [SpeechRecognition])
 
 }
