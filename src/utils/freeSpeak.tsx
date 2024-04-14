@@ -12,12 +12,7 @@ export const freeSpeak = (text: string, toLang: string = 'en-US'): Promise<void>
         } else { utterance.voice = voice; }
         utterance.lang = toLang; //.replace('_', '-'); //TODO: may need to replace between _ ,-
 
-        utterance.addEventListener("error", (event: SpeechSynthesisErrorEvent) => {
-            console.error(
-                `1. An error has occurred with the speech synthesis: ${event.error}`,
-                event);
-            reject(event.error)
-        });
+
         // utterance.onstart = function (ev) { setIsSpeaking(true) }
         utterance.onerror = function (event) {
             console.error(
