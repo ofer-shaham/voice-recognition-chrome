@@ -52,14 +52,14 @@ export const Dictaphone: React.FC = () => {
     const [finalTranscriptProxy, setFinalTranscriptProxy] = useState('');
     const [isModeDebug, setIsModeDebug] = useState(false)
     const [delayBetweenWords, setdelayBetweenWords] = useState(INITIAL_DELAY_BETWEEN_WORDS)
-    const [allowRecording, setAllowRecording] = useState(false);
+    const [allowRecording, setAllowRecording] = useState(!isMobile);
 
     const [logMessages, setLogMessages] = useState<any[]>([]);
     const availableVoices = useAvailableVoices();
 
     const { startRecording, cancelRecording, stopRecording, isRecording } = useRecording(allowRecording)
     const listeningRef = useRef(false)
-    const allowRecordingRef = useRef(!isMobile)
+    const allowRecordingRef = useRef(allowRecording)
     const renderCountRef = useRef(0)
 
     const prevFinalTranscriptProxyRef = useRef('')
@@ -69,11 +69,10 @@ export const Dictaphone: React.FC = () => {
     const availableVoicesCode = useMemo<string[] | null>(() => availableVoices.map(r => r.lang), [availableVoices])
     useRecognitionEvents(SpeechRecognition)
 
-
-    const stopListen = useCallback((): Promise<void> => {
+    const abortListen = useCallback((): Promise<void> => {
         console.log('SpeechRecognition.getRecognition', SpeechRecognition.getRecognition())
 
-        return SpeechRecognition.stopListening().catch(e => console.error('stopListening', e));
+        return SpeechRecognition.abortListening().catch(e => console.error('abortListening', e));
     }, [])
 
 
@@ -107,6 +106,7 @@ export const Dictaphone: React.FC = () => {
         listening,
         resetTranscript, isMicrophoneAvailable,
         browserSupportsSpeechRecognition } = useSpeechRecognition({ commands })
+
     const listeningOptions = useMemo((): ListeningOptions => {
         return { language: fromLang, interimResults: isInterimResults, continuous: isContinuous }
     }, [fromLang, isContinuous, isInterimResults])
@@ -139,9 +139,9 @@ export const Dictaphone: React.FC = () => {
 
 
     const stopListenAndRecord = useCallback(async () => {
-        listeningRef.current && await stopListen()
+        listeningRef.current && await abortListen()
         cancelRecording()
-    }, [stopListen, cancelRecording])
+    }, [abortListen, cancelRecording])
 
 
     const flaggedFreeSpeak = useCallback(async (text: string, lang: string) => {
@@ -320,7 +320,7 @@ export const Dictaphone: React.FC = () => {
                 setFromLang={setFromLang}
                 setToLang={setToLang}
                 setTranslation={setTranslation}
-                handleStopListening={stopListen}
+                handleStopListening={abortListen}
                 setIsRecording={setAllowRecording}
                 isRecording={isRecording}
             />
