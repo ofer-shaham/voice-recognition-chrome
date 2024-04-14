@@ -5,9 +5,8 @@ import { Dictaphone } from './components/SpeechAndRecognitionComponents/Dictapho
 
 function App() {
   const [microphoneAccess, setMicrophoneAccess] = useState(false);
-  const [showDictaphone, setShowDictaphone] = useState(false);
   const [showMainComponent, setShowMainComponent] = useState(false);
-  const [countdown, setCountdown] = useState(5);
+  const [countdown, setCountdown] = useState(10);
 
   useEffect(() => {
     if (countdown > 0) {
@@ -35,12 +34,12 @@ function App() {
     checkMicrophoneAccess();
   }, []);
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowDictaphone(true);
-    }, 5000);
-    return () => clearTimeout(timer);
-  }, []);
+  // useEffect(() => {
+  //   const timer = setTimeout(() => {
+  //     setShowDictaphone(true);
+  //   }, 10000);
+  //   return () => clearTimeout(timer);
+  // }, []);
 
   return (
     <>
@@ -51,17 +50,15 @@ function App() {
             <div className="countdown">
               <h2>Countdown: {countdown}</h2>
               <Todo url="https://raw.githubusercontent.com/ofer-shaham/voice-recognition-chrome/main/README.md" />
-
+              <button className="main-button" onClick={handleClick}>
+                {showMainComponent ? 'Hide Main Component' : 'Show Main Component'}
+              </button>
             </div>
 
-          ) : (
-            <button className="main-button" onClick={handleClick}>
-              {showMainComponent ? 'Hide Main Component' : 'Show Main Component'}
-            </button>
-          )}
+          ) : null}
 
           {showMainComponent && <div className="main-component">
-            {showDictaphone && <Dictaphone />}
+            {<Dictaphone />}
           </div>}
 
 

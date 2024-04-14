@@ -37,3 +37,12 @@
 }
 
  
+
+ 
+
+.main-button {
+  background-color: grey;
+  color: white;
+  font-size: 20px;
+  padding: 10px 20px;
+}
