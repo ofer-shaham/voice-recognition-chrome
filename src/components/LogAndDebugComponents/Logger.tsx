@@ -16,6 +16,8 @@ type LoggerProps = {
 
 export const Logger: React.FC<LoggerProps> = ({ messages, setMessages }) => {
     const [messagesCount, setMessagesCount] = useState(0);
+    const [showLogsHistory, setShowLogsHistory] = useState(false); // New state variable
+
 
     useEffect(() => {
         const originalConsoleError = console.error;
@@ -70,25 +72,41 @@ export const Logger: React.FC<LoggerProps> = ({ messages, setMessages }) => {
         };
     }, [setMessages]);
 
+    const handleLogsClick = () => {
+        setShowLogsHistory(!showLogsHistory); // Toggle the value of showLogsHistory
+    };
+
     return (
-        <div
-            style={{
-                display: "flex",
-                flexDirection: "column",
-                width: "100%",
-                alignItems: "flex-start",
-            }}
-        >
-            <p>log records: {messagesCount}</p>
-            {[...messages].map((message, index) => (
-                <div key={message.id} style={{ color: getColor(message.type) }}>
-                    <p>
-                        {messagesCount - index}-{message.type}:{" "}
-                        {JSON.stringify(message.message)}
-                    </p>
+        <>
+            <button className="logs-button" onClick={handleLogsClick}>
+                {showLogsHistory ? 'Hide Logs' : 'Show Logs'}
+            </button>
+
+            {showLogsHistory && (
+                <div className="logs-history">
+                    {/* Render your logs history component here */}
+                    <div
+                        style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            width: "100%",
+                            alignItems: "flex-start",
+                        }}
+                    >
+                        <p>log records: {messagesCount}</p>
+                        {[...messages].map((message, index) => (
+                            <div key={message.id} style={{ color: getColor(message.type) }}>
+                                <p>
+                                    {messagesCount - index}-{message.type}:{" "}
+                                    {JSON.stringify(message.message)}
+                                </p>
+                            </div>
+                        ))}
+                    </div>
                 </div>
-            ))}
-        </div>
+            )}
+
+        </>
     );
 };
 
