@@ -72,7 +72,7 @@ export const Dictaphone: React.FC = () => {
     const abortListen = useCallback((): Promise<void> => {
         console.log('SpeechRecognition.getRecognition', SpeechRecognition.getRecognition())
 
-        return SpeechRecognition.abortListening().catch(e => console.error('abortListening', e));
+        return SpeechRecognition.stopListening().catch(e => console.error('stopListening', e));
     }, [])
 
 
