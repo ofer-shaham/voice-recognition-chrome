@@ -34,18 +34,10 @@ function App() {
     checkMicrophoneAccess();
   }, []);
 
-  // useEffect(() => {
-  //   const timer = setTimeout(() => {
-  //     setShowDictaphone(true);
-  //   }, 10000);
-  //   return () => clearTimeout(timer);
-  // }, []);
-
   return (
     <>
       {microphoneAccess ? (
         <div className="App">
-
           {countdown > 0 ? (
             <div className="countdown">
               <h2>Countdown: {countdown}</h2>
@@ -55,14 +47,9 @@ function App() {
               </button>
             </div>
 
-          ) : null}
-
-          {showMainComponent && <div className="main-component">
+          ) : <div className="main-component">
             {<Dictaphone />}
           </div>}
-
-
-
         </div>
       ) : (
         <button onClick={checkMicrophoneAccess}>Grant microphone access</button>
