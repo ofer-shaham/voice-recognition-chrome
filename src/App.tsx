@@ -1,61 +1,21 @@
-import React, { useEffect, useState } from 'react';
-import Todo from './components/LogAndDebugComponents/mdPresenter';
-import './styles/App.css';
-import { Dictaphone } from './components/SpeechAndRecognitionComponents/Dictaphone';
+import React, { useState } from 'react';
+import { MODE_STAGE } from './consts/config';
+import ExampleKit from './components/stage/react-speech-recognition-loop-demo';
+import AppNormal from './AppNormal';
 
-function App() {
-  const [microphoneAccess, setMicrophoneAccess] = useState(false);
-  const [showMainComponent, setShowMainComponent] = useState(false);
-  const [countdown, setCountdown] = useState(10);
+const App: React.FC = () => {
+  const [showExampleKit, setShowExampleKit] = useState<boolean>(MODE_STAGE);
 
-  useEffect(() => {
-    if (countdown > 0) {
-      const timer = setTimeout(() => {
-        setCountdown(countdown - 1);
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [countdown]);
-
-  const handleClick = () => {
-    setShowMainComponent(!showMainComponent);
+  const toggleComponent = () => {
+    setShowExampleKit(!showExampleKit);
   };
-
-  const checkMicrophoneAccess = async () => {
-    try {
-      await navigator.mediaDevices.getUserMedia({ audio: true });
-      setMicrophoneAccess(true);
-    } catch (error) {
-      console.log('Microphone access denied:', error);
-    }
-  };
-
-  useEffect(() => {
-    checkMicrophoneAccess();
-  }, []);
 
   return (
-    <>
-      {microphoneAccess ? (
-        <div className="App">
-          {countdown > 0 ? (
-            <div className="countdown">
-              <h2>Countdown: {countdown}</h2>
-              <Todo url="https://raw.githubusercontent.com/ofer-shaham/voice-recognition-chrome/main/README.md" />
-              <button className="main-button" onClick={handleClick}>
-                {showMainComponent ? 'Hide Main Component' : 'Show Main Component'}
-              </button>
-            </div>
-
-          ) : <div className="main-component">
-            {<Dictaphone />}
-          </div>}
-        </div>
-      ) : (
-        <button onClick={checkMicrophoneAccess}>Grant microphone access</button>
-      )}
-    </>
+    <div>
+      <button onClick={toggleComponent}>Toggle Component</button>
+      {showExampleKit ? <ExampleKit /> : <AppNormal />}
+    </div>
   );
-}
+};
 
 export default App;

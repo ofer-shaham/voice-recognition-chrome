@@ -10,6 +10,8 @@ export const useRecognitionEvents = (SpeechRecognition: SpeechRecognition) => {
         console.log('useRecognitionEvents')
         const recognition = SpeechRecognition.getRecognition()
         if (!recognition) { console.error('no recognition'); return }
+
+
         const onError = (event: SpeechRecognitionErrorEvent): void => {
             console.error({ status: 'error', errorCode: event.error });
         };
@@ -47,5 +49,5 @@ export const useRecognitionEvents = (SpeechRecognition: SpeechRecognition) => {
             recognition.removeEventListener('end', handleEvent2);
         }
     }, [SpeechRecognition])
-
+ 
 }

@@ -10,3 +10,5 @@ export const instructions = {
     "translate_from_en_to_ru": { test: 'please translate from english to russian', explain: "say 'translate from english to russian' - for making the application recognize speech in hebrew and speak out the russian translation" },
     "translate_from_he_to_ar": { test: 'please translate from hebrew to arabic', explain: "say 'translate from hebrew to arabic' - for making the application recognize speech in hebrew and speak out the arabic translation" },
 }
+
+export const MODE_STAGE = true
