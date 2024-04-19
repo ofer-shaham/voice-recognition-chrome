@@ -72,17 +72,6 @@ const ExampleKit = () => {
     }, [listeningOptions]);
 
 
-    // const startListen = useCallback((): Promise<void> => {
-    //     try {
-
-    //         return SpeechRecognition.startListening(listeningOptions)
-    //     } catch (e) {
-    //         console.error(e);
-    //         return Promise.reject(e)
-    //     }
-    // }, [listeningOptions])
-
-
     /*
     * update devices' available voices
     */
@@ -94,34 +83,6 @@ const ExampleKit = () => {
         }
     }, [availableVoices])
 
-    // useEffect(() => {
-    //     const recognition = SpeechRecognition.getRecognition();
-
-    //     const onEnd = (eventData: Event) => {
-    //         console.log(`----------------onend---------------`, eventData.type, eventData);
-    //         if (!isContinuous) {
-    //             SpeechRecognition.startListening({ continuous: isContinuous, interimResults: isInterimResults });
-    //         }
-    //     };
-    //     const onStart = (eventData: Event) => {
-    //         console.log(`----------------start---------------`, eventData.type, eventData);
-
-    //     };
-    //     const onError = (eventData: Event) => {
-    //         console.log(`===================error---------------`, eventData.type, eventData);
-
-    //     };
-
-    //     recognition?.addEventListener('end', onEnd);
-    //     recognition?.addEventListener('start', onStart);
-    //     recognition?.addEventListener('error', onError);
-
-    //     return () => {
-    //         recognition?.removeEventListener('end', onEnd);
-    //         recognition?.removeEventListener('start', onStart);
-    //         recognition?.removeEventListener('error', onError);
-    //     };
-    // }, [isContinuous, isInterimResults]);
 
 
 
