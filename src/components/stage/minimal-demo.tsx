@@ -158,7 +158,7 @@ transcript translation
             // setClearTranscriptOnListen(() => false)
             setTranscribing(() => false)
             // setTimeout(async () => {
-            console.log('speak: __/' + text + '\__')
+            console.log('speak: __/' + text + '\\__')
             await freeSpeak(text, lang).catch(e => console.error(e.message))
             // handleStartListening()
             setTranscribing(true)
