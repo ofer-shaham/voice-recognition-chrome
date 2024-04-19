@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { MODE_STAGE } from './consts/config';
-import ExampleKit from './components/stage/react-speech-recognition-loop-demo';
+import ExampleKit from './components/stage/minimal-demo';
 import AppNormal from './AppNormal';
 
 const App: React.FC = () => {

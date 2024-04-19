@@ -186,7 +186,7 @@ export const Dictaphone: React.FC = () => {
     }, [finalTranscriptProxy])
 
     /*
-    force recycle of current transcript on mobile
+    force recycle of current transcript 
     */
     useEffect(() => {
         const delay = delayBetweenWords; // Delay in milliseconds

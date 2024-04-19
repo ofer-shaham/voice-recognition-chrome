@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useState } from 'react';
 import SpeechRecognition, { useSpeechRecognition } from 'react-speech-recognition';
 import { useRecognitionEvents } from '../../hooks/useRecognitionEvents';
 import { Logger } from '../LogAndDebugComponents/Logger';
+import RangeInput from '../SpeechAndRecognitionComponents/RangeInput';
+import { INITIAL_DELAY_BETWEEN_WORDS } from '../../consts/config';
 
 const ExampleKit = () => {
     const {
@@ -14,6 +16,9 @@ const ExampleKit = () => {
     const [continuous, setContinuous] = useState(true);
     const [interimResults, setInterimResults] = useState(false);
     const [language, setLanguage] = useState('en-US');
+    const [delayBetweenWords, setdelayBetweenWords] = useState(INITIAL_DELAY_BETWEEN_WORDS)
+    const [finalTranscriptProxy, setFinalTranscriptProxy] = useState('');
+
 
     // Set events handlers
     useRecognitionEvents(SpeechRecognition);
@@ -47,6 +52,24 @@ const ExampleKit = () => {
         };
     }, [continuous, interimResults]);
 
+    /*
+    force recycle of current transcript 
+    */
+    useEffect(() => {
+        const delay = delayBetweenWords; // Delay in milliseconds
+        let timerId: NodeJS.Timeout | null = null;
+
+        if (transcript) {
+            timerId = setTimeout(() => {
+                setFinalTranscriptProxy(transcript)
+                resetTranscript();
+            }, delay);
+        }
+
+        return () => {
+            timerId && clearTimeout(timerId);
+        };
+    }, [transcript, resetTranscript, delayBetweenWords]);
 
 
     const handleStartListening = useCallback(() => {
@@ -115,6 +138,9 @@ const ExampleKit = () => {
                 Reset
             </button>
             <p style={{ color: 'purple' }}>{transcript}</p>
+            <p style={{ color: 'darkgreen' }}>{finalTranscriptProxy}</p>
+            
+            <RangeInput delayBetweenWords={delayBetweenWords} setdelayBetweenWords={setdelayBetweenWords} />
             <Logger messages={logMessages} setMessages={setLogMessages} />
         </div>
     );
