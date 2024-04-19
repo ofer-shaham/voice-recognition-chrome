@@ -14,9 +14,9 @@ export const freeSpeak = (text: string, toLang: string = 'en-US'): Promise<void>
 
 
         // utterance.onstart = function (ev) { setIsSpeaking(true) }
-        utterance.onerror = function (event) {
+        utterance.onerror = function (event: SpeechSynthesisErrorEvent) {
             console.error(
-                `2. An error has occurred with the speech synthesis: ${event.error}`,
+                `2. An error has occurred with the speech synthesis: ${event.error}`, { event }, { utterance }, { speechSynthesis }
             );
             reject(event.error)
         }
