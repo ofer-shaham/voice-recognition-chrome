@@ -2,13 +2,14 @@ import { useEffect } from "react";
 import SpeechRecognition from 'react-speech-recognition'
 
 
-export const useRecognitionEvents = (SpeechRecognition: SpeechRecognition) => {
+export const useRecognitionEvents = (SpeechRecognition: SpeechRecognition, onEndHandler?:(eventData: Event) => void) => {
 
 
 
     useEffect(() => {
         console.log('useRecognitionEvents')
         const recognition = SpeechRecognition.getRecognition()
+        
         if (!recognition) { console.error('no recognition'); return }
 
 
@@ -33,7 +34,7 @@ export const useRecognitionEvents = (SpeechRecognition: SpeechRecognition) => {
         recognition.addEventListener('result', handleEvent);
         recognition.addEventListener('nomatch', handleEvent);
         recognition.addEventListener('start', handleEvent2);
-        recognition.addEventListener('end', handleEvent2);
+        recognition.addEventListener('end', onEndHandler||handleEvent2);
         return () => {
             // @ts-ignore: refer to the top `wrong SpeechRecognition-related types` comments
             recognition.removeEventListener('error', onError);
@@ -46,8 +47,8 @@ export const useRecognitionEvents = (SpeechRecognition: SpeechRecognition) => {
             recognition.removeEventListener('result', handleEvent);
             recognition.removeEventListener('nomatch', handleEvent);
             recognition.removeEventListener('start', handleEvent2);
-            recognition.removeEventListener('end', handleEvent2);
+            recognition.removeEventListener('end', onEndHandler||handleEvent2);
         }
-    }, [SpeechRecognition])
+    }, [SpeechRecognition,onEndHandler])
  
 }

@@ -1,9 +1,9 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SpeechRecognition, { ListeningOptions, useSpeechRecognition } from 'react-speech-recognition';
 import { useRecognitionEvents } from '../../hooks/useRecognitionEvents';
 import { Logger } from '../LogAndDebugComponents/Logger';
 import RangeInput from '../SpeechAndRecognitionComponents/RangeInput';
-import { INITIAL_DELAY_BETWEEN_WORDS } from '../../consts/config';
+import { INITIAL_DELAY_BETWEEN_WORDS, MAX_DELAY_FOR_NOT_LISTENING } from '../../consts/config';
 import { translate } from '../../utils/translate';
 import { isMobile } from '../../services/isMobile';
 import { freeSpeak } from '../../utils/freeSpeak';
@@ -11,24 +11,39 @@ import { useAvailableVoices } from '../../hooks/useAvailableVoices';
 import { populateAvailableVoices } from '../../utils/getVoice';
 import { mapLanguageToCode } from '../../utils/mapLanguageToCode';
 import { Command } from '../../types/speechRecognition';
+import VoicesDropdownSelect from '../SpeechAndRecognitionComponents/voicesDropdownSelector';
+import TranslationBox from '../SpeechAndRecognitionComponents/TranslationBox';
+
+
 
 const ExampleKit = () => {
+    const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
+    const [selectedFromLang, setSelectedFromLang] = useState<SpeechSynthesisVoice | null>(null);
+
+
     const [transcribing, setTranscribing] = useState(true);
-    const [clearTranscriptOnListen, setClearTranscriptOnListen] = useState(true);
+    const [clearTranscriptOnListen, setClearTranscriptOnListen] = useState(false);
 
     const [logMessages, setLogMessages] = useState<any[]>([]);
-    const [isContinuous, setIsContinuous] = useState(true);
+    const [isContinuous, setIsContinuous] = useState(false);
 
     const [isInterimResults, setIsInterimResults] = useState(false);
 
 
     const [fromLang, setFromLang] = useState('he-IL')
 
-    const [toLang, setToLang] = useState(isMobile ? 'ar-AE' : 'ru-RU')
+    const [toLang, setToLang] = useState(isMobile ? 'ar-EG' : 'ru-RU')
     const [delayBetweenWords, setdelayBetweenWords] = useState(INITIAL_DELAY_BETWEEN_WORDS)
     const [finalTranscriptProxy, setFinalTranscriptProxy] = useState('');
     const [translation, setTranslation] = useState('')
     const availableVoices = useAvailableVoices();
+
+    const [isUserTouchedScreen, setIsUserTouchedScreen] = useState(false);
+    const [isSpeaking, setIsSpeaking] = useState(false)
+
+
+
+
     const commands = useMemo<Command[]>(() => [
         {
             command: '(‏) (please) translate (from) * to *',
@@ -61,7 +76,9 @@ const ExampleKit = () => {
         browserSupportsSpeechRecognition
     } = useSpeechRecognition({ clearTranscriptOnListen, commands, transcribing });
     // Set events handlers
-    useRecognitionEvents(SpeechRecognition);
+
+
+
 
     const listeningOptions = useMemo((): ListeningOptions => {
         return { language: fromLang, interimResults: isInterimResults, continuous: isContinuous }
@@ -71,7 +88,34 @@ const ExampleKit = () => {
         return SpeechRecognition.startListening(listeningOptions);
     }, [listeningOptions]);
 
+    const onEndHandler = useCallback(
+        (eventData: Event) => {
+            console.log(`event occurred:`, eventData.type, eventData);
+            handleStartListening()
+        }
+        , [handleStartListening])
+    const listeningRef = useRef(listening)
+    const isSpeakingRef = useRef(isSpeaking)
 
+    listeningRef.current = listening
+    isSpeakingRef.current = isSpeaking
+
+    useRecognitionEvents(SpeechRecognition, onEndHandler);
+
+    const flaggedFreeSpeak = useCallback(async (text: string, lang: string) => {
+        setTranscribing(() => false)
+        setIsSpeaking(() => true)
+        await freeSpeak(text, lang).catch(e => console.error(e.message))
+        setIsSpeaking(() => false)
+        setTranscribing(true)
+    }, [])
+
+    const onfreeSpeakOnly = useCallback(async (text: string, lang: string) => {
+        //   await stopListenAndRecord()
+           await flaggedFreeSpeak(text, lang)
+        //   startListenAndRecord()
+       }, [  flaggedFreeSpeak])
+       
     /*
     * update devices' available voices
     */
@@ -83,6 +127,17 @@ const ExampleKit = () => {
         }
     }, [availableVoices])
 
+    useEffect(() => {
+        const handleTouchStart = () => {
+            setIsUserTouchedScreen(true);
+        };
+
+        document.addEventListener('touchstart', handleTouchStart);
+
+        return () => {
+            document.removeEventListener('touchstart', handleTouchStart);
+        };
+    }, []);
 
 
 
@@ -113,32 +168,23 @@ transcript translation
     }, [finalTranscriptProxy, fromLang, toLang]);
 
     useEffect(() => {
-        const speakTranslation = async (text: string, lang: string) => {
-
-            // await SpeechRecognition.stopListening().catch(e => console.error('stopListening', e));
-            // setClearTranscriptOnListen(() => false)
-            setTranscribing(() => false)
-            // setTimeout(async () => {
+        const speakTranslation = (text: string, lang: string) => {
             console.log('speak: __/' + text + '\\__')
-            await freeSpeak(text, lang).catch(e => console.error(e.message))
-            // handleStartListening()
-            setTranscribing(true)
-            // setClearTranscriptOnListen(true)
-            // })
-
-
+            flaggedFreeSpeak(text, lang)
         }
-        if (translation) {
 
+        if (translation) {
             speakTranslation(translation, toLang)
         }
-    }, [translation, toLang, handleStartListening]);
+    }, [translation, toLang, handleStartListening, flaggedFreeSpeak]);
 
 
 
 
     useEffect(() => {
-        handleStartListening()
+        console.log('init listening')
+        setTimeout(handleStartListening)
+
     }, [handleStartListening])
 
 
@@ -166,14 +212,31 @@ transcript translation
 
 
     useEffect(() => {
-        handleStartListening()
+        const timoutId = setTimeout(() => {
+            if (!listeningRef.current && !isSpeakingRef.current) {
+                handleStartListening()
+            }
+        }, MAX_DELAY_FOR_NOT_LISTENING);
+
+        return () => {
+            clearTimeout(timoutId)
+        }
+
     }, [handleStartListening])
 
     if (!browserSupportsSpeechRecognition) {
         return <span style={{ color: 'red' }}>Browser doesn't support speech recognition.</span>;
     }
+
+
+
+
+
+
     return (
         <div>
+            <p>User touched screen: {isUserTouchedScreen ? 'Yes' : 'No'}</p>
+
             <p style={{ color: 'blue' }}>listening: {listening ? 'on' : 'off'}</p>
             <div>
                 <label htmlFor="transcribing">transcribing:</label>
@@ -224,20 +287,24 @@ transcript translation
                     {/* Add more language options here */}
                 </select>
             </div>
-            <button
-                style={{ backgroundColor: 'green', color: 'white' }}
-                disabled={listening}
-                onClick={handleStartListening}
-            >
-                Start
-            </button>
-            <button
-                style={{ backgroundColor: 'red', color: 'white' }}
-                disabled={!listening}
-                onClick={SpeechRecognition.stopListening}
-            >
-                Stop
-            </button>
+            {!listening ?
+                <button
+                    style={{ backgroundColor: 'green', color: 'white' }}
+                    disabled={listening}
+                    onClick={handleStartListening}
+                >
+                    Start
+                </button> :
+                <button
+                    style={{ backgroundColor: 'red', color: 'white' }}
+                    disabled={!listening}
+                    onClick={SpeechRecognition.stopListening}
+                >
+                    Stop
+                </button>
+
+            }
+
             <button
                 style={{ backgroundColor: 'orange', color: 'white' }}
                 onClick={resetTranscript}
@@ -250,6 +317,21 @@ transcript translation
             <p style={{ color: 'darkgreen' }}>{finalTranscriptProxy}</p>
 
             <RangeInput delayBetweenWords={delayBetweenWords} setdelayBetweenWords={setdelayBetweenWords} />
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+                <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
+                    <TranslationBox setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang}
+                        text={finalTranscriptProxy} onfreeSpeakOnly={flaggedFreeSpeak}>
+                        <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={fromLang} setToLang={setFromLang} selectedVoice={selectedFromLang}
+                            setSelectedVoice={setSelectedFromLang} />
+                    </TranslationBox>
+                    <TranslationBox setText={setTranslation} setLanguage={setToLang} language={toLang}
+                        text={translation || ''}
+                        onfreeSpeakOnly={onfreeSpeakOnly} >
+                        <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setToLang={setToLang} selectedVoice={selectedVoice}
+                            setSelectedVoice={setSelectedVoice} />
+                    </TranslationBox>
+                </div>
+            </div>
             <Logger messages={logMessages} setMessages={setLogMessages} />
         </div>
     );

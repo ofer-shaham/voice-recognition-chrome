@@ -4,7 +4,7 @@ import { MAX_DELAY_BETWEEN_WORDS } from '../../consts/config';
 interface RangeInputProps {
     delayBetweenWords: number;
     setdelayBetweenWords: (value: number) => void;
- }
+}
 
 const RangeInput: React.FC<RangeInputProps> = ({
     delayBetweenWords,
@@ -18,23 +18,24 @@ const RangeInput: React.FC<RangeInputProps> = ({
     };
 
     return (
-        <div>
+        <div style={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+          <div style={{ marginRight: '10px' }}>
             <label htmlFor="rangeInput">delayBetweenWords:</label>
             <input
-                type="range"
-                id="rangeInput"
-                name="delayBetweenWords"
-                min="0"
-                max={MAX_DELAY_BETWEEN_WORDS}
-                step="1"
-                value={delayBetweenWords}
-                onChange={handleChange}
+              type="range"
+              id="rangeInput"
+              name="delayBetweenWords"
+              min="0"
+              max={MAX_DELAY_BETWEEN_WORDS}
+              step="1"
+              value={delayBetweenWords}
+              onChange={handleChange}
             />
-            <br />
-            <p>{delayBetweenWords}</p>
-            {/* <p>{Math.floor((prevTranscriptTime[1] - prevTranscriptTime[0]) / 1000)}</p> */}
+          </div>
+          <p style={{ marginLeft: '10px' }}>{delayBetweenWords}</p>
+          {/* <p>{Math.floor((prevTranscriptTime[1] - prevTranscriptTime[0]) / 1000)}</p> */}
         </div>
-    );
+      );
 };
 
 export default RangeInput;
