@@ -33,13 +33,14 @@ import { getLangCodeOnMobile } from '../../utils/getLangCodeOnMobile';
 import '../../styles/Dictaphone.css'
 import RangeInput from './RangeInput';
 import { FinalTranscriptHistory } from '../../types/FinalTranscriptHistory';
-import { VoiceRecorder } from './VoiceRecorder';
-import { Logger } from '../LogAndDebugComponents/Logger';
+import VoiceRecorder from './VoiceRecorder';
+import Logger from '../LogAndDebugComponents/Logger';
 import { useRecording } from '../../hooks/useRecording';
 import { useRecognitionEvents } from '../../hooks/useRecognitionEvents';
+import React from 'react';
 
 
-export const Dictaphone: React.FC = () => {
+const Dictaphone: React.FC = () => {
     const [fromLang, setFromLang] = useState('he-IL')
     const [toLang, setToLang] = useState(isMobile ? 'ar-AE' : 'ru-RU')
     const [translation, setTranslation] = useState('')
@@ -360,3 +361,4 @@ export const Dictaphone: React.FC = () => {
         </div>
     )
 }
+export default React.memo(Dictaphone)

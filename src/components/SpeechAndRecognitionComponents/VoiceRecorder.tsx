@@ -1,6 +1,6 @@
 import React, { useRef, useEffect } from 'react';
 
-export const VoiceRecorder: React.FC = () => {
+const VoiceRecorder: React.FC = () => {
     const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
     useEffect(() => {
@@ -68,3 +68,5 @@ export const VoiceRecorder: React.FC = () => {
         </div>
     );
 };
+
+export default React.memo(VoiceRecorder)

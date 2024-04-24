@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SpeechRecognition, { ListeningOptions, useSpeechRecognition } from 'react-speech-recognition';
 import { useRecognitionEvents } from '../../hooks/useRecognitionEvents';
-import { Logger } from '../LogAndDebugComponents/Logger';
+import Logger from '../LogAndDebugComponents/Logger';
 import RangeInput from '../SpeechAndRecognitionComponents/RangeInput';
 import { INITIAL_DELAY_BETWEEN_WORDS, MAX_DELAY_FOR_NOT_LISTENING } from '../../consts/config';
 import { translate } from '../../utils/translate';
@@ -337,4 +337,4 @@ transcript translation
     );
 };
 
-export default ExampleKit;
+export default React.memo(ExampleKit);

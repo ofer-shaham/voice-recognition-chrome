@@ -14,7 +14,7 @@ type LoggerProps = {
     setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
 };
 
-export const Logger: React.FC<LoggerProps> = ({ messages, setMessages }) => {
+const Logger: React.FC<LoggerProps> = ({ messages, setMessages }) => {
     const [messagesCount, setMessagesCount] = useState(0);
     const [showLogsHistory, setShowLogsHistory] = useState(false); // New state variable
 
@@ -123,3 +123,5 @@ const getColor = (type: MessageType): string => {
 
     return typeToColor[type] || "inherit";
 };
+
+export default React.memo(Logger)

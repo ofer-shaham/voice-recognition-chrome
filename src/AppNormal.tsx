@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import Todo from './components/LogAndDebugComponents/mdPresenter';
 import './styles/App.css';
-import { Dictaphone } from './components/SpeechAndRecognitionComponents/Dictaphone';
+import Dictaphone from './components/SpeechAndRecognitionComponents/Dictaphone';
+import React from 'react';
 
-function AppNormal() {
+   const AppNormal: React.FC = () => {
+
   const [microphoneAccess, setMicrophoneAccess] = useState(false);
   const [showMainComponent, setShowMainComponent] = useState(false);
   const [countdown, setCountdown] = useState(10);
@@ -58,4 +60,4 @@ function AppNormal() {
   );
 }
 
-export default AppNormal;
+export default React.memo(AppNormal);

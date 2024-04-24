@@ -5,7 +5,7 @@ interface SpeakLogProps {
     isSpeaking: boolean;
 }
 
-export const SpeakLog: React.FC<SpeakLogProps> = ({ setIsSpeaking, isSpeaking }) => {
+const SpeakLog: React.FC<SpeakLogProps> = ({ setIsSpeaking, isSpeaking }) => {
     const [log, setLog] = useState<string[]>([]);
 
     useEffect(() => {
@@ -52,3 +52,4 @@ export const SpeakLog: React.FC<SpeakLogProps> = ({ setIsSpeaking, isSpeaking })
         </div>
     );
 };
+export default React.memo(SpeakLog)

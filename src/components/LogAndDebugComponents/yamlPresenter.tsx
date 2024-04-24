@@ -6,7 +6,7 @@ interface YamlProps {
     url: string; // URL of the YAML file
 }
 
-export const Yaml: React.FC<YamlProps> = ({ url }) => {
+const Yaml: React.FC<YamlProps> = ({ url }) => {
     const [yamlData, setYamlData] = useState<any>({}); // State to hold parsed YAML data
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -60,4 +60,4 @@ export const Yaml: React.FC<YamlProps> = ({ url }) => {
     );
 };
 
-export default Yaml;
+export default React.memo(Yaml);
