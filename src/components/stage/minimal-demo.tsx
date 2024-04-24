@@ -15,7 +15,6 @@ import VoicesDropdownSelect from '../SpeechAndRecognitionComponents/voicesDropdo
 import TranslationBox from '../SpeechAndRecognitionComponents/TranslationBox';
 import Debug from '../LogAndDebugComponents/Debug';
 import DebugModeSwitch from '../LogAndDebugComponents/DebugModeSwitch';
-import { FullScreen, useFullScreenHandle } from "react-full-screen";
 
 import '../../styles/minimal-demo.css'
 
@@ -24,7 +23,6 @@ const ExampleKit = () => {
     const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
     const [selectedFromLang, setSelectedFromLang] = useState<SpeechSynthesisVoice | null>(null);
     const [isModeDebug, setIsModeDebug] = useState(false)
-    const handle = useFullScreenHandle();
 
 
     const [transcribing, setTranscribing] = useState(true);
@@ -46,10 +44,10 @@ const ExampleKit = () => {
 
     const [isUserTouchedScreen, setIsUserTouchedScreen] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false)
+    const [isModeConversation, setIsModeConversation] = useState(false)
 
 
 
-    const screen1 = useFullScreenHandle();
 
 
     const commands = useMemo<Command[]>(() => [
@@ -89,13 +87,6 @@ const ExampleKit = () => {
     } = useSpeechRecognition({ clearTranscriptOnListen, commands, transcribing });
     // Set events handlers
 
-    const reportChange = useCallback((state: any, handle: any) => {
-        if (handle === screen1) {
-            console.log('Screen 1 went to', state, handle);
-        }
-        console.log('zzzzz')
-
-    }, [screen1]);
 
 
 
@@ -117,14 +108,32 @@ const ExampleKit = () => {
 
 
     useRecognitionEvents(SpeechRecognition, onEndHandler);
+    const switchBetweenToAndFromLangs = useCallback(() => {
+        const fromLangCopy = fromLang
+        setTranslation('')
+        setFinalTranscriptProxy('')
+        resetTranscript();
+
+        setFromLang(toLang);
+        setToLang(fromLangCopy)
+    }, [fromLang, toLang, resetTranscript])
 
     const flaggedFreeSpeak = useCallback(async (text: string, lang: string) => {
         setTranscribing(() => false)
         setIsSpeaking(() => true)
         await freeSpeak(text, lang).catch(e => console.error(e.message))
+
         setIsSpeaking(() => false)
         setTranscribing(true)
-    }, [])
+
+        setTimeout(() => {
+            if (isModeConversation) {
+                switchBetweenToAndFromLangs()
+            }
+        })
+
+    }, [isModeConversation, switchBetweenToAndFromLangs])
+
 
     const onfreeSpeakOnly = useCallback(async (text: string, lang: string) => {
         //   await stopListenAndRecord()
@@ -250,21 +259,31 @@ transcript translation
 
     return (
         <div>
+            <button
+                type="button"
+                onClick={() => setIsModeConversation(prev => !prev)}
+                style={{ background: isModeConversation ? 'blue' : 'green' }}
+            >
+                {isModeConversation ? 'conversation' : 'single talker'}
+            </button>
+            <button
+                type="button"
+                onClick={() => setIsUserTouchedScreen(prev => !prev)}
+                style={{ background: isUserTouchedScreen ? 'green' : 'red' }}
+            >
+                {isModeConversation ? 'User touched screen:' : 'User did not touch screen:'}
+            </button>
             <DebugModeSwitch isModeDebug={isModeDebug} setIsModeDebug={setIsModeDebug} />
             <p>User touched screen: {isUserTouchedScreen ? 'Yes' : 'No'}</p>
 
-            <button onClick={handle.enter}>
-                Enter fullscreen
-            </button>
-            <FullScreen handle={screen1} onChange={reportChange}>
-                {
-                    transcript ?
-                        <p style={{ color: 'purple' }}>{transcript}</p> :
-                        <p style={{ color: 'black' }}>{finalTranscriptProxy}</p>
 
-                }  {isSpeaking ? <p style={{ color: 'green' }}>{translation}</p> : <p style={{ color: 'black' }}>{translation}</p>
-                }
-            </FullScreen>
+            {
+                transcript ?
+                    <p style={{ color: 'purple' }}>{transcript}</p> :
+                    <p style={{ color: 'black' }}>{finalTranscriptProxy}</p>
+
+            }  {isSpeaking ? <p style={{ color: 'green' }}>{translation}</p> : <p style={{ color: 'black' }}>{translation}</p>
+            }
             <Debug isModeDebug={isModeDebug}>
 
 
