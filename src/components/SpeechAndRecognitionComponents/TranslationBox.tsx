@@ -8,9 +8,11 @@ type TranslationProps = {
   setLanguage: Dispatch<SetStateAction<string>>;
   setText: Dispatch<SetStateAction<string>>;
   children?: ReactElement;
+  isActiveTalking: boolean;
+
 };
 
-const TranslationBox: React.FC<TranslationProps> = ({ language, text, onfreeSpeakOnly, setLanguage, setText, children }) => {
+const TranslationBox: React.FC<TranslationProps> = ({ language, text, onfreeSpeakOnly, setLanguage, setText, children, isActiveTalking }) => {
   // Update the language when the prop changes from the parent component
   useEffect(() => {
     setLanguage(language);
@@ -30,7 +32,8 @@ const TranslationBox: React.FC<TranslationProps> = ({ language, text, onfreeSpea
       <input type="text" value={language} onChange={handleLanguageChange} style={{ width: '100%' }} />
 
       <div className="translation-row">
-        <input type="text" value={text} onChange={(ev) => { setText(ev.target.value) }} style={{ width: '100%' }} />
+        <input type="text" value={text} onChange={(ev) => { setText(ev.target.value) }}     style={{ width: '100%', color: isActiveTalking ? 'red' : 'white' }}
+ />
       </div>
 
       <div style={{ width: '100%' }}>

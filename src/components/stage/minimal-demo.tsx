@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import SpeechRecognition, { ListeningOptions, useSpeechRecognition } from 'react-speech-recognition';
 import { useRecognitionEvents } from '../../hooks/useRecognitionEvents';
 import Logger from '../LogAndDebugComponents/Logger';
@@ -13,12 +13,18 @@ import { mapLanguageToCode } from '../../utils/mapLanguageToCode';
 import { Command } from '../../types/speechRecognition';
 import VoicesDropdownSelect from '../SpeechAndRecognitionComponents/voicesDropdownSelector';
 import TranslationBox from '../SpeechAndRecognitionComponents/TranslationBox';
+import Debug from '../LogAndDebugComponents/Debug';
+import DebugModeSwitch from '../LogAndDebugComponents/DebugModeSwitch';
+import { FullScreen, useFullScreenHandle } from "react-full-screen";
 
+import '../../styles/minimal-demo.css'
 
 
 const ExampleKit = () => {
     const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
     const [selectedFromLang, setSelectedFromLang] = useState<SpeechSynthesisVoice | null>(null);
+    const [isModeDebug, setIsModeDebug] = useState(false)
+    const handle = useFullScreenHandle();
 
 
     const [transcribing, setTranscribing] = useState(true);
@@ -43,6 +49,8 @@ const ExampleKit = () => {
 
 
 
+    const screen1 = useFullScreenHandle();
+
 
     const commands = useMemo<Command[]>(() => [
         {
@@ -51,7 +59,9 @@ const ExampleKit = () => {
                 const fromCode = mapLanguageToCode(fromLang)
                 const toCode = mapLanguageToCode(toLang)
                 setFromLang(fromCode); setToLang(toCode);
-                console.log(`from ${fromCode} to ${toCode}`)
+                console.log(`from ${fromCode} to ${toCode}`);
+                setFinalTranscriptProxy('')
+
             }
         },
         {
@@ -62,11 +72,13 @@ const ExampleKit = () => {
                 setFromLang(langCode);
                 setToLang(langCode);
                 setTranslation('')
+                setFinalTranscriptProxy('')
                 console.log('match :languge')
             },
             matchInterim: true
         }
     ], [])
+
 
     const {
 
@@ -77,6 +89,13 @@ const ExampleKit = () => {
     } = useSpeechRecognition({ clearTranscriptOnListen, commands, transcribing });
     // Set events handlers
 
+    const reportChange = useCallback((state: any, handle: any) => {
+        if (handle === screen1) {
+            console.log('Screen 1 went to', state, handle);
+        }
+        console.log('zzzzz')
+
+    }, [screen1]);
 
 
 
@@ -94,11 +113,8 @@ const ExampleKit = () => {
             handleStartListening()
         }
         , [handleStartListening])
-    const listeningRef = useRef(listening)
-    const isSpeakingRef = useRef(isSpeaking)
 
-    listeningRef.current = listening
-    isSpeakingRef.current = isSpeaking
+
 
     useRecognitionEvents(SpeechRecognition, onEndHandler);
 
@@ -112,10 +128,10 @@ const ExampleKit = () => {
 
     const onfreeSpeakOnly = useCallback(async (text: string, lang: string) => {
         //   await stopListenAndRecord()
-           await flaggedFreeSpeak(text, lang)
+        await flaggedFreeSpeak(text, lang)
         //   startListenAndRecord()
-       }, [  flaggedFreeSpeak])
-       
+    }, [flaggedFreeSpeak])
+
     /*
     * update devices' available voices
     */
@@ -209,20 +225,19 @@ transcript translation
     }, [transcript, resetTranscript, delayBetweenWords]);
 
 
-
-
     useEffect(() => {
+        if (listening || isSpeaking) { return; }
+
         const timoutId = setTimeout(() => {
-            if (!listeningRef.current && !isSpeakingRef.current) {
-                handleStartListening()
-            }
+            handleStartListening()
         }, MAX_DELAY_FOR_NOT_LISTENING);
 
         return () => {
             clearTimeout(timoutId)
         }
 
-    }, [handleStartListening])
+    }, [handleStartListening, listening, isSpeaking])
+
 
     if (!browserSupportsSpeechRecognition) {
         return <span style={{ color: 'red' }}>Browser doesn't support speech recognition.</span>;
@@ -235,104 +250,110 @@ transcript translation
 
     return (
         <div>
+            <DebugModeSwitch isModeDebug={isModeDebug} setIsModeDebug={setIsModeDebug} />
             <p>User touched screen: {isUserTouchedScreen ? 'Yes' : 'No'}</p>
 
-            <p style={{ color: 'blue' }}>listening: {listening ? 'on' : 'off'}</p>
-            <div>
-                <label htmlFor="transcribing">transcribing:</label>
-                <input
-                    id="transcribing"
-                    type="checkbox"
-                    checked={transcribing}
-                    onChange={(e) => setTranscribing(e.target.checked)}
-                />
-            </div>
-            <div>
-                <label htmlFor="clearTranscriptOnListen">clearTranscriptOnListen:</label>
-                <input
-                    id="clearTranscriptOnListen"
-                    type="checkbox"
-                    checked={clearTranscriptOnListen}
-                    onChange={(e) => setClearTranscriptOnListen(e.target.checked)}
-                />
-            </div>
-            <div>
-                <label htmlFor="continuous">Continuous:</label>
-                <input
-                    id="continuous"
-                    type="checkbox"
-                    checked={isContinuous}
-                    onChange={(e) => setIsContinuous(e.target.checked)}
-                />
-            </div>
-            <div>
-                <label htmlFor="interimResults">Interim Results:</label>
-                <input
-                    id="interimResults"
-                    type="checkbox"
-                    checked={isInterimResults}
-                    onChange={(e) => setIsInterimResults(e.target.checked)}
-                />
-            </div>
-            <div>
-                <label htmlFor="language">Language:</label>
-                <select
-                    id="language"
-                    value={fromLang}
-                    onChange={(e) => setFromLang(e.target.value)}
-                >
-                    <option value="en-US">English (US)</option>
-                    <option value="es-ES">Spanish</option>
-                    <option value="he-IL">Hebrew</option>
-                    {/* Add more language options here */}
-                </select>
-            </div>
-            {!listening ?
+            <button onClick={handle.enter}>
+                Enter fullscreen
+            </button>
+            <FullScreen handle={screen1} onChange={reportChange}>
+                {
+                    transcript ?
+                        <p style={{ color: 'purple' }}>{transcript}</p> :
+                        <p style={{ color: 'black' }}>{finalTranscriptProxy}</p>
+
+                }  {isSpeaking ? <p style={{ color: 'green' }}>{translation}</p> : <p style={{ color: 'black' }}>{translation}</p>
+                }
+            </FullScreen>
+            <Debug isModeDebug={isModeDebug}>
+
+
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+                    <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
+                        <TranslationBox isActiveTalking={!!transcript} setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang}
+                            text={transcript || finalTranscriptProxy} onfreeSpeakOnly={flaggedFreeSpeak}>
+                            <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={fromLang} setToLang={setFromLang} selectedVoice={selectedFromLang}
+                                setSelectedVoice={setSelectedFromLang} />
+                        </TranslationBox>
+                        <TranslationBox isActiveTalking={isSpeaking} setText={setTranslation} setLanguage={setToLang} language={toLang}
+                            text={translation || ''}
+                            onfreeSpeakOnly={onfreeSpeakOnly} >
+                            <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setToLang={setToLang} selectedVoice={selectedVoice}
+                                setSelectedVoice={setSelectedVoice} />
+                        </TranslationBox>
+                    </div>
+                </div>
+
+                <p style={{ color: 'blue' }}>listening: {listening ? 'on' : 'off'}</p>
+                <div>
+                    <label htmlFor="transcribing">transcribing:</label>
+                    <input
+                        id="transcribing"
+                        type="checkbox"
+                        checked={transcribing}
+                        onChange={(e) => setTranscribing(e.target.checked)}
+                    />
+                </div>
+                <div>
+                    <label htmlFor="clearTranscriptOnListen">clearTranscriptOnListen:</label>
+                    <input
+                        id="clearTranscriptOnListen"
+                        type="checkbox"
+                        checked={clearTranscriptOnListen}
+                        onChange={(e) => setClearTranscriptOnListen(e.target.checked)}
+                    />
+                </div>
+                <div>
+                    <label htmlFor="continuous">Continuous:</label>
+                    <input
+                        id="continuous"
+                        type="checkbox"
+                        checked={isContinuous}
+                        onChange={(e) => setIsContinuous(e.target.checked)}
+                    />
+                </div>
+                <div>
+                    <label htmlFor="interimResults">Interim Results:</label>
+                    <input
+                        id="interimResults"
+                        type="checkbox"
+                        checked={isInterimResults}
+                        onChange={(e) => setIsInterimResults(e.target.checked)}
+                    />
+                </div>
+
+                {!listening ?
+                    <button
+                        style={{ backgroundColor: 'green', color: 'white' }}
+                        disabled={listening}
+                        onClick={handleStartListening}
+                    >
+                        Start
+                    </button> :
+                    <button
+                        style={{ backgroundColor: 'red', color: 'white' }}
+                        disabled={!listening}
+                        onClick={SpeechRecognition.stopListening}
+                    >
+                        Stop
+                    </button>
+
+                }
+
                 <button
-                    style={{ backgroundColor: 'green', color: 'white' }}
-                    disabled={listening}
-                    onClick={handleStartListening}
+                    style={{ backgroundColor: 'orange', color: 'white' }}
+                    onClick={resetTranscript}
                 >
-                    Start
-                </button> :
-                <button
-                    style={{ backgroundColor: 'red', color: 'white' }}
-                    disabled={!listening}
-                    onClick={SpeechRecognition.stopListening}
-                >
-                    Stop
+                    Reset
                 </button>
 
-            }
 
-            <button
-                style={{ backgroundColor: 'orange', color: 'white' }}
-                onClick={resetTranscript}
-            >
-                Reset
-            </button>
-            <p style={{ color: 'darkred' }}>{translation}</p>
 
-            <p style={{ color: 'purple' }}>{transcript}</p>
-            <p style={{ color: 'darkgreen' }}>{finalTranscriptProxy}</p>
 
-            <RangeInput delayBetweenWords={delayBetweenWords} setdelayBetweenWords={setdelayBetweenWords} />
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-                <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
-                    <TranslationBox setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang}
-                        text={finalTranscriptProxy} onfreeSpeakOnly={flaggedFreeSpeak}>
-                        <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={fromLang} setToLang={setFromLang} selectedVoice={selectedFromLang}
-                            setSelectedVoice={setSelectedFromLang} />
-                    </TranslationBox>
-                    <TranslationBox setText={setTranslation} setLanguage={setToLang} language={toLang}
-                        text={translation || ''}
-                        onfreeSpeakOnly={onfreeSpeakOnly} >
-                        <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setToLang={setToLang} selectedVoice={selectedVoice}
-                            setSelectedVoice={setSelectedVoice} />
-                    </TranslationBox>
-                </div>
-            </div>
-            <Logger messages={logMessages} setMessages={setLogMessages} />
+                <RangeInput delayBetweenWords={delayBetweenWords} setdelayBetweenWords={setdelayBetweenWords} />
+
+                <Logger messages={logMessages} setMessages={setLogMessages} />
+            </Debug>
         </div>
     );
 };

@@ -340,10 +340,10 @@ const Dictaphone: React.FC = () => {
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                 <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
                     <TranslationBox setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang}
-                        text={transcript || prevFinalTranscriptProxyRef.current} onfreeSpeakOnly={flaggedFreeSpeak}></TranslationBox>
+                        text={transcript || prevFinalTranscriptProxyRef.current} onfreeSpeakOnly={flaggedFreeSpeak} isActiveTalking={listening}></TranslationBox>
                     <TranslationBox setText={setTranslation} setLanguage={setToLang} language={toLang}
                         text={translation || ''}
-                        onfreeSpeakOnly={onfreeSpeakOnly} >
+                        onfreeSpeakOnly={onfreeSpeakOnly} isActiveTalking={isSpeaking}>
                         <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setToLang={setToLang} selectedVoice={selectedVoice}
                             setSelectedVoice={setSelectedVoice} />
                     </TranslationBox>
