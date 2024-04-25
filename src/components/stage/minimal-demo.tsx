@@ -3,7 +3,7 @@ import SpeechRecognition, { ListeningOptions, useSpeechRecognition } from 'react
 import { useRecognitionEvents } from '../../hooks/useRecognitionEvents';
 import Logger from '../LogAndDebugComponents/Logger';
 import RangeInput from '../SpeechAndRecognitionComponents/RangeInput';
-import { INITIAL_DELAY_BETWEEN_WORDS, MAX_DELAY_FOR_NOT_LISTENING } from '../../consts/config';
+import { INITIAL_DELAY_BETWEEN_WORDS, MAX_DELAY_FOR_NOT_LISTENING, instructions } from '../../consts/config';
 import { translate } from '../../utils/translate';
 import { isMobile } from '../../services/isMobile';
 import { freeSpeak } from '../../utils/freeSpeak';
@@ -17,6 +17,7 @@ import Debug from '../LogAndDebugComponents/Debug';
 import DebugModeSwitch from '../LogAndDebugComponents/DebugModeSwitch';
 
 import '../../styles/minimal-demo.css'
+import Instructions from '../SpeechAndRecognitionComponents/Instructions';
 
 
 const ExampleKit = () => {
@@ -259,6 +260,7 @@ transcript translation
 
     return (
         <div>
+            <Instructions instructions={instructions}></Instructions>
             <button
                 type="button"
                 onClick={() => setIsModeConversation(prev => !prev)}
@@ -274,16 +276,20 @@ transcript translation
                 {isModeConversation ? 'User touched screen:' : 'User did not touch screen:'}
             </button>
             <DebugModeSwitch isModeDebug={isModeDebug} setIsModeDebug={setIsModeDebug} />
-            <p>User touched screen: {isUserTouchedScreen ? 'Yes' : 'No'}</p>
+ 
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+                <p style={{ color: 'purple', marginRight: '5px' }}>[{fromLang}]</p>
+                {
+                    transcript ?
+                        <p style={{ color: 'purple' }}>{transcript}</p> :
+                        <p style={{ color: 'black' }}>{finalTranscriptProxy}</p>
+                }
+            </div>
 
-
-            {
-                transcript ?
-                    <p style={{ color: 'purple' }}>{transcript}</p> :
-                    <p style={{ color: 'black' }}>{finalTranscriptProxy}</p>
-
-            }  {isSpeaking ? <p style={{ color: 'green' }}>{translation}</p> : <p style={{ color: 'black' }}>{translation}</p>
-            }
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+                <p>[{toLang}]</p>
+                <p style={{ color: isSpeaking ? 'green' : 'black', marginLeft: '5px' }}>{translation}</p>
+            </div>
             <Debug isModeDebug={isModeDebug}>
 
 
