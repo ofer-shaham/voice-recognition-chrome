@@ -1,7 +1,13 @@
 .my-component {
-    background: #fff;
-  }
-  
-  .fullscreen-enabled .my-component {
-    background: #000;
-  }
+  background: #fff;
+}
+
+.fullscreen-enabled .my-component {
+  background: #000;
+}
+
+.container {
+  padding: 11px;
+  margin: 11px;
+  background:rgb(80, 80, 80)
+}

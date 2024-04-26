@@ -1,5 +1,7 @@
 .debug {
-    border-color: brown;
+    border-color: red;
+    border-width: 11px;
+    border-style: solid;
 }
 
 table {

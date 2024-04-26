@@ -263,13 +263,8 @@ transcript translation
         return <span style={{ color: 'red' }}>Browser doesn't support speech recognition.</span>;
     }
 
-
-
-
-
-
     return (
-        <div>
+        <div className='container' style={{ background: (isSpeaking ? 'darkblue' : (listening ? 'darkgreen' : 'darkgrey')) }}>
             <Instructions instructions={instructions}></Instructions>
             <button
                 type="button"
