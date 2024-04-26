@@ -203,7 +203,7 @@ transcript translation
         if (finalTranscriptProxy) {
             appendToHistory()
         }
-    }, [finalTranscriptProxy, fromLang, toLang]);
+    }, [finalTranscriptProxy, fromLang, toLang, willAddToHistory]);
 
     useEffect(() => {
         const speakTranslation = (text: string, lang: string) => {
