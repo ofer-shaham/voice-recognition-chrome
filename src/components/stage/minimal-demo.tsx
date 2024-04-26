@@ -3,7 +3,7 @@ import SpeechRecognition, { ListeningOptions, useSpeechRecognition } from 'react
 import { useRecognitionEvents } from '../../hooks/useRecognitionEvents';
 import Logger from '../LogAndDebugComponents/Logger';
 import RangeInput from '../SpeechAndRecognitionComponents/RangeInput';
-import { INITIAL_DELAY_BETWEEN_WORDS, MAX_DELAY_FOR_NOT_LISTENING, instructions } from '../../consts/config';
+import { INITIAL_DELAY_BETWEEN_WORDS, instructions } from '../../consts/config';
 import { translate } from '../../utils/translate';
 import { isMobile } from '../../services/isMobile';
 import { freeSpeak } from '../../utils/freeSpeak';
@@ -21,7 +21,11 @@ import Instructions from '../SpeechAndRecognitionComponents/Instructions';
 import { FinalTranscriptHistory } from '../../types/FinalTranscriptHistory';
 import TranscriptHistory from '../SpeechAndRecognitionComponents/TranscriptHistory';
 
-
+/**
+ * NOTE:
+ * - use transcribing as a listening indicator
+ * 
+ */
 const ExampleKit = () => {
     const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
     const [selectedFromLang, setSelectedFromLang] = useState<SpeechSynthesisVoice | null>(null);
@@ -41,7 +45,7 @@ const ExampleKit = () => {
 
     const [toLang, setToLang] = useState(isMobile ? 'ar-EG' : 'ru-RU')
     const [delayBetweenWords, setdelayBetweenWords] = useState(INITIAL_DELAY_BETWEEN_WORDS)
-    const [maxDelayForNotListening, setMaxDelayForNotListening] = useState(MAX_DELAY_FOR_NOT_LISTENING)
+    // const [maxDelayForNotListening, setMaxDelayForNotListening] = useState(MAX_DELAY_FOR_NOT_LISTENING)
 
 
 
@@ -53,11 +57,11 @@ const ExampleKit = () => {
     const [isSpeaking, setIsSpeaking] = useState(false)
     const [isModeConversation, setIsModeConversation] = useState(false)
 
-    const [showTranslationHistory, setShowTranslationHistory] = useState(false)
+    const [showTranslationHistory, setShowTranslationHistory] = useState(true)
     // const [willAddToHistory, setWillAddToHistory] = useState(false)
     const [finalTranscriptHistory, setFinalTranscriptHistory] = useState<FinalTranscriptHistory[]>([])
 
-    const [isSimultaneousTranslation, setIsSimultaneousTranslation] = useState(false)
+    const [isSimultaneousTranslation, setIsSimultaneousTranslation] = useState(true)
 
     const willAddToHistory = useMemo(() => {
         return showTranslationHistory
@@ -120,7 +124,6 @@ const ExampleKit = () => {
 
 
 
-    useRecognitionEvents(SpeechRecognition, onEndHandler);
     const switchBetweenToAndFromLangs = useCallback(() => {
         const fromLangCopy = fromLang
         setTranslation('')
@@ -139,11 +142,11 @@ const ExampleKit = () => {
         setIsSpeaking(() => false)
         setTranscribing(true)
 
-        setTimeout(() => {
-            if (isModeConversation) {
-                switchBetweenToAndFromLangs()
-            }
-        })
+        //setTimeout(() => {
+        if (isModeConversation) {
+            switchBetweenToAndFromLangs()
+        }
+        // })
 
     }, [isModeConversation, switchBetweenToAndFromLangs])
 
@@ -171,9 +174,11 @@ const ExampleKit = () => {
         };
 
         document.addEventListener('touchstart', handleTouchStart);
+        document.addEventListener('click', handleTouchStart);
 
         return () => {
-            document.removeEventListener('touchstart', handleTouchStart);
+            document.removeEventListener('touchstart', handleTouchStart); document.removeEventListener('click', handleTouchStart);
+
         };
     }, []);
 
@@ -249,19 +254,20 @@ transcript translation
     }, [transcript, resetTranscript, delayBetweenWords]);
 
 
-    useEffect(() => {
-        if (listening || isSpeaking) { return; }
+    // useEffect(() => {
+    //     if (transcribing || isSpeaking) { console.log({ transcribing, isSpeaking }); return; }
 
-        const timoutId = setTimeout(() => {
-            handleStartListening()
-        }, maxDelayForNotListening);
+    //     const timoutId = setTimeout(() => {
+    //         handleStartListening()
+    //     }, maxDelayForNotListening);
 
-        return () => {
-            clearTimeout(timoutId)
-        }
+    //     return () => {
+    //         clearTimeout(timoutId)
+    //     }
 
-    }, [handleStartListening, listening, isSpeaking, maxDelayForNotListening])
+    // }, [handleStartListening, listening, isSpeaking, maxDelayForNotListening, transcribing])
 
+    useRecognitionEvents(SpeechRecognition, onEndHandler);
 
     //-----end useEffect
     if (!browserSupportsSpeechRecognition) {
@@ -270,7 +276,7 @@ transcript translation
 
     return (
         <div className='container1' style={{ background: (isSpeaking ? 'darkblue' : (listening ? 'darkgreen' : 'darkgrey')) }}>
-            <div className='container2' style={{ background: 'grey' }}>
+            <div style={{ background: 'grey' }}>
                 <Instructions instructions={instructions}></Instructions>
                 <button
                     type="button"
@@ -302,7 +308,7 @@ transcript translation
                 </button>
                 <DebugModeSwitch isModeDebug={isModeDebug} setIsModeDebug={setIsModeDebug} />
 
-                <div style={{ display: 'flex', alignItems: 'center' }}>
+                <div className='flex-items' style={{ display: 'flex', alignItems: 'center' }}>
                     <p style={{ color: 'purple', marginRight: '5px' }}>[{fromLang}]</p>
                     {
                         transcript ?
@@ -403,7 +409,7 @@ transcript translation
                     <Logger messages={logMessages} setMessages={setLogMessages} />
                 </Debug>
                 <RangeInput value={delayBetweenWords} setValue={setdelayBetweenWords} title='delayBetweenWords' />
-                <RangeInput value={maxDelayForNotListening} setValue={setMaxDelayForNotListening} title='maxDelayForNotListening' />
+                {/* <RangeInput value={maxDelayForNotListening} setValue={setMaxDelayForNotListening} title='maxDelayForNotListening' /> */}
                 <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} onfreeSpeakOnly={onfreeSpeakOnly} onEndPlayback={
                     () => { console.log('implement startListenAndRecord') }
                     //startListenAndRecord
