@@ -269,147 +269,148 @@ transcript translation
     }
 
     return (
-        <div className='container' style={{ background: (isSpeaking ? 'darkblue' : (listening ? 'darkgreen' : 'darkgrey')) }}>
-            <Instructions instructions={instructions}></Instructions>
-            <button
-                type="button"
-                onClick={() => setIsModeConversation(prev => !prev)}
-                style={{ background: isModeConversation ? 'blue' : 'green' }}
-            >
-                {isModeConversation ? 'conversation' : 'single talker'}
-            </button>
-            <button
-                type="button"
-                onClick={() => setShowTranslationHistory(prev => !prev)}
-                style={{ background: showTranslationHistory ? 'blue' : 'green' }}
-            >
-                showTranslationHistory {showTranslationHistory ? 'yes' : 'no'}
-            </button>
-            <button
-                type="button"
-                onClick={() => setIsSimultaneousTranslation(prev => !prev)}
-                style={{ background: isSimultaneousTranslation ? 'blue' : 'green' }}
-            >
-                isSimultaneousTranslation {isSimultaneousTranslation ? 'yes' : 'no'}
-            </button>
-            <button
-                type="button"
-                onClick={() => setIsUserTouchedScreen(true)}
-                style={{ background: isUserTouchedScreen ? 'green' : 'red' }}
-            >
-                {isModeConversation ? 'User touched screen:' : 'User did not touch screen:'}
-            </button>
-            <DebugModeSwitch isModeDebug={isModeDebug} setIsModeDebug={setIsModeDebug} />
+        <div className='container1' style={{ background: (isSpeaking ? 'darkblue' : (listening ? 'darkgreen' : 'darkgrey')) }}>
+            <div className='container2' style={{ background: 'grey' }}>
+                <Instructions instructions={instructions}></Instructions>
+                <button
+                    type="button"
+                    onClick={() => setIsModeConversation(prev => !prev)}
+                    style={{ background: isModeConversation ? 'blue' : 'green' }}
+                >
+                    {isModeConversation ? 'conversation' : 'single talker'}
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setShowTranslationHistory(prev => !prev)}
+                    style={{ background: showTranslationHistory ? 'blue' : 'green' }}
+                >
+                    showTranslationHistory {showTranslationHistory ? 'yes' : 'no'}
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setIsSimultaneousTranslation(prev => !prev)}
+                    style={{ background: isSimultaneousTranslation ? 'blue' : 'green' }}
+                >
+                    isSimultaneousTranslation {isSimultaneousTranslation ? 'yes' : 'no'}
+                </button>
+                <button
+                    type="button"
+                    onClick={() => setIsUserTouchedScreen(true)}
+                    style={{ background: isUserTouchedScreen ? 'green' : 'red' }}
+                >
+                    {isModeConversation ? 'User touched screen:' : 'User did not touch screen:'}
+                </button>
+                <DebugModeSwitch isModeDebug={isModeDebug} setIsModeDebug={setIsModeDebug} />
 
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-                <p style={{ color: 'purple', marginRight: '5px' }}>[{fromLang}]</p>
-                {
-                    transcript ?
-                        <p style={{ color: 'purple' }}>{transcript}</p> :
-                        <p style={{ color: 'black' }}>{finalTranscriptProxy}</p>
-                }
-            </div>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <p style={{ color: 'purple', marginRight: '5px' }}>[{fromLang}]</p>
+                    {
+                        transcript ?
+                            <p style={{ color: 'purple' }}>{transcript}</p> :
+                            <p style={{ color: 'black' }}>{finalTranscriptProxy}</p>
+                    }
+                </div>
 
-            <div style={{ display: 'flex', alignItems: 'center' }}>
-                <p>[{toLang}]</p>
-                <p style={{ color: isSpeaking ? 'green' : 'black', marginLeft: '5px' }}>{translation}</p>
-            </div>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <p>[{toLang}]</p>
+                    <p style={{ color: isSpeaking ? 'green' : 'black', marginLeft: '5px' }}>{translation}</p>
+                </div>
 
-            <Debug isModeDebug={isModeDebug}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-                    <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
-                        <TranslationBox isActiveTalking={!!transcript} setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang}
-                            text={transcript || finalTranscriptProxy} onfreeSpeakOnly={flaggedFreeSpeak}>
-                            <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={fromLang} setToLang={setFromLang} selectedVoice={selectedFromLang}
-                                setSelectedVoice={setSelectedFromLang} />
-                        </TranslationBox>
-                        <TranslationBox isActiveTalking={isSpeaking} setText={setTranslation} setLanguage={setToLang} language={toLang}
-                            text={translation || ''}
-                            onfreeSpeakOnly={onfreeSpeakOnly} >
-                            <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setToLang={setToLang} selectedVoice={selectedVoice}
-                                setSelectedVoice={setSelectedVoice} />
-                        </TranslationBox>
+                <Debug isModeDebug={isModeDebug}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+                        <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
+                            <TranslationBox isActiveTalking={!!transcript} setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang}
+                                text={transcript || finalTranscriptProxy} onfreeSpeakOnly={flaggedFreeSpeak}>
+                                <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={fromLang} setToLang={setFromLang} selectedVoice={selectedFromLang}
+                                    setSelectedVoice={setSelectedFromLang} />
+                            </TranslationBox>
+                            <TranslationBox isActiveTalking={isSpeaking} setText={setTranslation} setLanguage={setToLang} language={toLang}
+                                text={translation || ''}
+                                onfreeSpeakOnly={onfreeSpeakOnly} >
+                                <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setToLang={setToLang} selectedVoice={selectedVoice}
+                                    setSelectedVoice={setSelectedVoice} />
+                            </TranslationBox>
+                        </div>
                     </div>
-                </div>
 
-                <p style={{ color: 'blue' }}>listening: {listening ? 'on' : 'off'}</p>
-                <div>
-                    <label htmlFor="transcribing">transcribing:</label>
-                    <input
-                        id="transcribing"
-                        type="checkbox"
-                        checked={transcribing}
-                        onChange={(e) => setTranscribing(e.target.checked)}
-                    />
-                </div>
-                <div>
-                    <label htmlFor="clearTranscriptOnListen">clearTranscriptOnListen:</label>
-                    <input
-                        id="clearTranscriptOnListen"
-                        type="checkbox"
-                        checked={clearTranscriptOnListen}
-                        onChange={(e) => setClearTranscriptOnListen(e.target.checked)}
-                    />
-                </div>
-                <div>
-                    <label htmlFor="continuous">Continuous:</label>
-                    <input
-                        id="continuous"
-                        type="checkbox"
-                        checked={isContinuous}
-                        onChange={(e) => setIsContinuous(e.target.checked)}
-                    />
-                </div>
-                <div>
-                    <label htmlFor="interimResults">Interim Results:</label>
-                    <input
-                        id="interimResults"
-                        type="checkbox"
-                        checked={isInterimResults}
-                        onChange={(e) => setIsInterimResults(e.target.checked)}
-                    />
-                </div>
+                    <p style={{ color: 'blue' }}>listening: {listening ? 'on' : 'off'}</p>
+                    <div>
+                        <label htmlFor="transcribing">transcribing:</label>
+                        <input
+                            id="transcribing"
+                            type="checkbox"
+                            checked={transcribing}
+                            onChange={(e) => setTranscribing(e.target.checked)}
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="clearTranscriptOnListen">clearTranscriptOnListen:</label>
+                        <input
+                            id="clearTranscriptOnListen"
+                            type="checkbox"
+                            checked={clearTranscriptOnListen}
+                            onChange={(e) => setClearTranscriptOnListen(e.target.checked)}
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="continuous">Continuous:</label>
+                        <input
+                            id="continuous"
+                            type="checkbox"
+                            checked={isContinuous}
+                            onChange={(e) => setIsContinuous(e.target.checked)}
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="interimResults">Interim Results:</label>
+                        <input
+                            id="interimResults"
+                            type="checkbox"
+                            checked={isInterimResults}
+                            onChange={(e) => setIsInterimResults(e.target.checked)}
+                        />
+                    </div>
 
-                {!listening ?
+                    {!listening ?
+                        <button
+                            style={{ backgroundColor: 'green', color: 'white' }}
+                            disabled={listening}
+                            onClick={handleStartListening}
+                        >
+                            Start
+                        </button> :
+                        <button
+                            style={{ backgroundColor: 'red', color: 'white' }}
+                            disabled={!listening}
+                            onClick={SpeechRecognition.stopListening}
+                        >
+                            Stop
+                        </button>
+
+                    }
+
                     <button
-                        style={{ backgroundColor: 'green', color: 'white' }}
-                        disabled={listening}
-                        onClick={handleStartListening}
+                        style={{ backgroundColor: 'orange', color: 'white' }}
+                        onClick={resetTranscript}
                     >
-                        Start
-                    </button> :
-                    <button
-                        style={{ backgroundColor: 'red', color: 'white' }}
-                        disabled={!listening}
-                        onClick={SpeechRecognition.stopListening}
-                    >
-                        Stop
+                        Reset
                     </button>
 
-                }
-
-                <button
-                    style={{ backgroundColor: 'orange', color: 'white' }}
-                    onClick={resetTranscript}
-                >
-                    Reset
-                </button>
 
 
 
 
-
-                <Logger messages={logMessages} setMessages={setLogMessages} />
-            </Debug>
-            <RangeInput value={delayBetweenWords} setValue={setdelayBetweenWords} title='delayBetweenWords' />
-            <RangeInput value={maxDelayForNotListening} setValue={setMaxDelayForNotListening} title='maxDelayForNotListening' />
-            <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} onfreeSpeakOnly={onfreeSpeakOnly} onEndPlayback={
-                () => { console.log('implement startListenAndRecord') }
-                //startListenAndRecord
-            } onBeforePlayback={() => {
-                console.log('implement stopListenAndRecord')
-            }} />
-        </div>
+                    <Logger messages={logMessages} setMessages={setLogMessages} />
+                </Debug>
+                <RangeInput value={delayBetweenWords} setValue={setdelayBetweenWords} title='delayBetweenWords' />
+                <RangeInput value={maxDelayForNotListening} setValue={setMaxDelayForNotListening} title='maxDelayForNotListening' />
+                <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} onfreeSpeakOnly={onfreeSpeakOnly} onEndPlayback={
+                    () => { console.log('implement startListenAndRecord') }
+                    //startListenAndRecord
+                } onBeforePlayback={() => {
+                    console.log('implement stopListenAndRecord')
+                }} />
+            </div></div>
     );
 };
 
