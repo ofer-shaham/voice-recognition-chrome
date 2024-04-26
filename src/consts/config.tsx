@@ -13,4 +13,4 @@ export const instructions = {
 
 export const MODE_STAGE = true
 
-export const MAX_DELAY_FOR_NOT_LISTENING = 2000
+export const MAX_DELAY_FOR_NOT_LISTENING = 0
