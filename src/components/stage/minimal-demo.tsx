@@ -41,6 +41,10 @@ const ExampleKit = () => {
 
     const [toLang, setToLang] = useState(isMobile ? 'ar-EG' : 'ru-RU')
     const [delayBetweenWords, setdelayBetweenWords] = useState(INITIAL_DELAY_BETWEEN_WORDS)
+    const [maxDelayForNotListening, setMaxDelayForNotListening] = useState(MAX_DELAY_FOR_NOT_LISTENING)
+
+
+
     const [finalTranscriptProxy, setFinalTranscriptProxy] = useState('');
     const [translation, setTranslation] = useState('')
     const availableVoices = useAvailableVoices();
@@ -250,13 +254,13 @@ transcript translation
 
         const timoutId = setTimeout(() => {
             handleStartListening()
-        }, MAX_DELAY_FOR_NOT_LISTENING);
+        }, maxDelayForNotListening);
 
         return () => {
             clearTimeout(timoutId)
         }
 
-    }, [handleStartListening, listening, isSpeaking])
+    }, [handleStartListening, listening, isSpeaking, maxDelayForNotListening])
 
 
     //-----end useEffect
@@ -390,11 +394,15 @@ transcript translation
                 >
                     Reset
                 </button>
-                
-                <RangeInput delayBetweenWords={delayBetweenWords} setdelayBetweenWords={setdelayBetweenWords} />
+
+
+
+
 
                 <Logger messages={logMessages} setMessages={setLogMessages} />
             </Debug>
+            <RangeInput value={delayBetweenWords} setValue={setdelayBetweenWords} title='delayBetweenWords' />
+            <RangeInput value={maxDelayForNotListening} setValue={setMaxDelayForNotListening} title='maxDelayForNotListening' />
             <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} onfreeSpeakOnly={onfreeSpeakOnly} onEndPlayback={
                 () => { console.log('implement startListenAndRecord') }
                 //startListenAndRecord
