@@ -275,7 +275,7 @@ transcript translation
     }
 
     return (
-        <div className='container1' style={{ background: (isSpeaking ? 'darkblue' : (listening ? 'darkgreen' : 'darkgrey')) }}>
+        <div className='container' style={{ background: (isSpeaking ? 'darkblue' : (listening ? 'darkgreen' : 'darkgrey')) }}>
             <div style={{ background: 'grey' }}>
                 <Instructions instructions={instructions}></Instructions>
                 <button
