@@ -144,9 +144,9 @@ const ExampleKit = () => {
     }, [isModeConversation, switchBetweenToAndFromLangs])
 
 
-    const onfreeSpeakOnly = useCallback(async (text: string, lang: string) => {
+    const onfreeSpeakOnly = useCallback((text: string, lang: string) => {
         //   await stopListenAndRecord()
-        await flaggedFreeSpeak(text, lang)
+        flaggedFreeSpeak(text, lang)
         //   startListenAndRecord()
     }, [flaggedFreeSpeak])
 
@@ -259,6 +259,7 @@ transcript translation
     }, [handleStartListening, listening, isSpeaking])
 
 
+    //-----end useEffect
     if (!browserSupportsSpeechRecognition) {
         return <span style={{ color: 'red' }}>Browser doesn't support speech recognition.</span>;
     }
@@ -309,9 +310,8 @@ transcript translation
                 <p>[{toLang}]</p>
                 <p style={{ color: isSpeaking ? 'green' : 'black', marginLeft: '5px' }}>{translation}</p>
             </div>
+
             <Debug isModeDebug={isModeDebug}>
-
-
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                     <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
                         <TranslationBox isActiveTalking={!!transcript} setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang}
@@ -390,10 +390,7 @@ transcript translation
                 >
                     Reset
                 </button>
-
-
-
-
+                
                 <RangeInput delayBetweenWords={delayBetweenWords} setdelayBetweenWords={setdelayBetweenWords} />
 
                 <Logger messages={logMessages} setMessages={setLogMessages} />
