@@ -3,7 +3,7 @@ import SpeechRecognition, { ListeningOptions, useSpeechRecognition } from 'react
 import { useRecognitionEvents } from '../../hooks/useRecognitionEvents';
 import Logger from '../LogAndDebugComponents/Logger';
 import RangeInput from '../SpeechAndRecognitionComponents/RangeInput';
-import { INITIAL_DELAY_BETWEEN_WORDS, instructions } from '../../consts/config';
+import { INITIAL_DELAY_BETWEEN_WORDS, MAX_DELAY_FOR_NOT_LISTENING, instructions } from '../../consts/config';
 import { translate } from '../../utils/translate';
 import { isMobile } from '../../services/isMobile';
 import { freeSpeak } from '../../utils/freeSpeak';
@@ -45,7 +45,7 @@ const ExampleKit = () => {
 
     const [toLang, setToLang] = useState(isMobile ? 'ar-EG' : 'ru-RU')
     const [delayBetweenWords, setdelayBetweenWords] = useState(INITIAL_DELAY_BETWEEN_WORDS)
-    // const [maxDelayForNotListening, setMaxDelayForNotListening] = useState(MAX_DELAY_FOR_NOT_LISTENING)
+    const [maxDelayForNotListening, setMaxDelayForNotListening] = useState(MAX_DELAY_FOR_NOT_LISTENING)
 
 
 
@@ -117,7 +117,8 @@ const ExampleKit = () => {
 
     const onEndHandler = useCallback(
         (eventData: Event) => {
-            console.log(`event occurred:`, eventData.type, eventData);
+            // console.log(`event occurred:`, eventData.type, eventData);
+            console.info('start listen ofter speech ended')
             handleStartListening()
         }
         , [handleStartListening])
@@ -254,18 +255,19 @@ transcript translation
     }, [transcript, resetTranscript, delayBetweenWords]);
 
 
-    // useEffect(() => {
-    //     if (transcribing || isSpeaking) { console.log({ transcribing, isSpeaking }); return; }
+    useEffect(() => {
+        if (transcribing || isSpeaking) { console.log({ transcribing, isSpeaking }); return; }
 
-    //     const timoutId = setTimeout(() => {
-    //         handleStartListening()
-    //     }, maxDelayForNotListening);
+        const timoutId = setTimeout(() => {
+            console.info('start listen after delay')
+            handleStartListening()
+        }, maxDelayForNotListening);
 
-    //     return () => {
-    //         clearTimeout(timoutId)
-    //     }
+        return () => {
+            clearTimeout(timoutId)
+        }
 
-    // }, [handleStartListening, listening, isSpeaking, maxDelayForNotListening, transcribing])
+    }, [handleStartListening, listening, isSpeaking, maxDelayForNotListening, transcribing])
 
     useRecognitionEvents(SpeechRecognition, onEndHandler);
 
@@ -409,7 +411,7 @@ transcript translation
                     <Logger messages={logMessages} setMessages={setLogMessages} />
                 </Debug>
                 <RangeInput value={delayBetweenWords} setValue={setdelayBetweenWords} title='delayBetweenWords' />
-                {/* <RangeInput value={maxDelayForNotListening} setValue={setMaxDelayForNotListening} title='maxDelayForNotListening' /> */}
+                <RangeInput value={maxDelayForNotListening} setValue={setMaxDelayForNotListening} title='maxDelayForNotListening' />
                 <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} onfreeSpeakOnly={onfreeSpeakOnly} onEndPlayback={
                     () => { console.log('implement startListenAndRecord') }
                     //startListenAndRecord
