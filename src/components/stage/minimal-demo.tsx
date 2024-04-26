@@ -53,6 +53,7 @@ const ExampleKit = () => {
     // const [willAddToHistory, setWillAddToHistory] = useState(false)
     const [finalTranscriptHistory, setFinalTranscriptHistory] = useState<FinalTranscriptHistory[]>([])
 
+    const [isSimultaneousTranslation, setIsSimultaneousTranslation] = useState(false)
 
     const willAddToHistory = useMemo(() => {
         return showTranslationHistory
@@ -211,13 +212,10 @@ transcript translation
             flaggedFreeSpeak(text, lang)
         }
 
-        if (translation) {
+        if (isSimultaneousTranslation && translation) {
             speakTranslation(translation, toLang)
         }
-    }, [translation, toLang, handleStartListening, flaggedFreeSpeak]);
-
-
-
+    }, [translation, toLang, isSimultaneousTranslation, flaggedFreeSpeak]);
 
     useEffect(() => {
         console.log('init listening')
@@ -286,6 +284,13 @@ transcript translation
                 style={{ background: showTranslationHistory ? 'blue' : 'green' }}
             >
                 showTranslationHistory {showTranslationHistory ? 'yes' : 'no'}
+            </button>
+            <button
+                type="button"
+                onClick={() => setIsSimultaneousTranslation(prev => !prev)}
+                style={{ background: isSimultaneousTranslation ? 'blue' : 'green' }}
+            >
+                isSimultaneousTranslation {isSimultaneousTranslation ? 'yes' : 'no'}
             </button>
             <button
                 type="button"
