@@ -351,7 +351,7 @@ const Dictaphone: React.FC = () => {
             </div>
 
             <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} onfreeSpeakOnly={onfreeSpeakOnly} onEndPlayback={startListenAndRecord} onBeforePlayback={stopListenAndRecord} />
-            <RangeInput delayBetweenWords={delayBetweenWords} setdelayBetweenWords={setdelayBetweenWords} />
+            <RangeInput value={delayBetweenWords} setValue={setdelayBetweenWords} title='delayBetweenWords' />
 
             <div id='footer' style={{ display: 'flex' }}>
                 <a href="https://github.com/ofer-shaham/voice-recognition-chrome">source code</a>
