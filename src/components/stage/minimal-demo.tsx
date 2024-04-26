@@ -18,6 +18,8 @@ import DebugModeSwitch from '../LogAndDebugComponents/DebugModeSwitch';
 
 import '../../styles/minimal-demo.css'
 import Instructions from '../SpeechAndRecognitionComponents/Instructions';
+import { FinalTranscriptHistory } from '../../types/FinalTranscriptHistory';
+import TranscriptHistory from '../SpeechAndRecognitionComponents/TranscriptHistory';
 
 
 const ExampleKit = () => {
@@ -47,9 +49,14 @@ const ExampleKit = () => {
     const [isSpeaking, setIsSpeaking] = useState(false)
     const [isModeConversation, setIsModeConversation] = useState(false)
 
+    const [showTranslationHistory, setShowTranslationHistory] = useState(false)
+    // const [willAddToHistory, setWillAddToHistory] = useState(false)
+    const [finalTranscriptHistory, setFinalTranscriptHistory] = useState<FinalTranscriptHistory[]>([])
 
 
-
+    const willAddToHistory = useMemo(() => {
+        return showTranslationHistory
+    }, [showTranslationHistory])
 
     const commands = useMemo<Command[]>(() => [
         {
@@ -187,6 +194,11 @@ transcript translation
             if (translationResult) {
                 setTranslation(translationResult)
             }
+
+            if (willAddToHistory) {
+                setFinalTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscriptProxy: finalTranscriptProxy, translation: translationResult, fromLang: fromLang, toLang: toLang, audioData: '' }])
+            }
+
         }
         if (finalTranscriptProxy) {
             appendToHistory()
@@ -267,6 +279,13 @@ transcript translation
                 style={{ background: isModeConversation ? 'blue' : 'green' }}
             >
                 {isModeConversation ? 'conversation' : 'single talker'}
+            </button>
+            <button
+                type="button"
+                onClick={() => setShowTranslationHistory(prev => !prev)}
+                style={{ background: showTranslationHistory ? 'blue' : 'green' }}
+            >
+                showTranslationHistory {showTranslationHistory ? 'yes' : 'no'}
             </button>
             <button
                 type="button"
@@ -379,6 +398,12 @@ transcript translation
 
                 <Logger messages={logMessages} setMessages={setLogMessages} />
             </Debug>
+            <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} onfreeSpeakOnly={onfreeSpeakOnly} onEndPlayback={
+                () => { console.log('implement startListenAndRecord') }
+                //startListenAndRecord
+            } onBeforePlayback={() => {
+                console.log('implement stopListenAndRecord')
+            }} />
         </div>
     );
 };
