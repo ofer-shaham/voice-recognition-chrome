@@ -270,13 +270,13 @@ transcript translation
             </button>
             <button
                 type="button"
-                onClick={() => setIsUserTouchedScreen(prev => !prev)}
+                onClick={() => setIsUserTouchedScreen(true)}
                 style={{ background: isUserTouchedScreen ? 'green' : 'red' }}
             >
                 {isModeConversation ? 'User touched screen:' : 'User did not touch screen:'}
             </button>
             <DebugModeSwitch isModeDebug={isModeDebug} setIsModeDebug={setIsModeDebug} />
- 
+
             <div style={{ display: 'flex', alignItems: 'center' }}>
                 <p style={{ color: 'purple', marginRight: '5px' }}>[{fromLang}]</p>
                 {
