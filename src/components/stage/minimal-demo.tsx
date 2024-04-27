@@ -314,6 +314,15 @@ transcript translation
                 >
                     {isModeConversation ? 'User touched screen:' : 'User did not touch screen:'}
                 </button>
+                <div>
+                    <label htmlFor="continuous">Continuous:</label>
+                    <input
+                        id="continuous"
+                        type="checkbox"
+                        checked={isContinuous}
+                        onChange={(e) => setIsContinuous(e.target.checked)}
+                    />
+                </div>
                 <DebugModeSwitch isModeDebug={isModeDebug} setIsModeDebug={setIsModeDebug} />
 
                 <div className='flex-items' style={{ display: 'flex', alignItems: 'center' }}>
@@ -329,15 +338,7 @@ transcript translation
                     <p>[{toLang}]</p>
                     <p style={{ color: isSpeaking ? 'green' : 'black', marginLeft: '5px' }}>{translation}</p>
                 </div>
-                <div>
-                    <label htmlFor="continuous">Continuous:</label>
-                    <input
-                        id="continuous"
-                        type="checkbox"
-                        checked={isContinuous}
-                        onChange={(e) => setIsContinuous(e.target.checked)}
-                    />
-                </div>
+
                 <Debug isModeDebug={isModeDebug}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                         <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
