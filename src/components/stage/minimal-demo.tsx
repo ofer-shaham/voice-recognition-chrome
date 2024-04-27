@@ -20,6 +20,7 @@ import '../../styles/minimal-demo.css'
 import Instructions from '../SpeechAndRecognitionComponents/Instructions';
 import { FinalTranscriptHistory } from '../../types/FinalTranscriptHistory';
 import TranscriptHistory from '../SpeechAndRecognitionComponents/TranscriptHistory';
+// import { setMute, setUnmute } from '../../utils/microphone';
 
 /**
  * NOTE:
@@ -36,7 +37,7 @@ const ExampleKit = () => {
     const [clearTranscriptOnListen, setClearTranscriptOnListen] = useState(false);
 
     const [logMessages, setLogMessages] = useState<any[]>([]);
-    const [isContinuous, setIsContinuous] = useState(false);
+    const [isContinuous, setIsContinuous] = useState(true);
 
     const [isInterimResults, setIsInterimResults] = useState(false);
 
@@ -119,9 +120,11 @@ const ExampleKit = () => {
         (eventData: Event) => {
             // console.log(`event occurred:`, eventData.type, eventData);
             console.info('start listen ofter speech ended')
-            handleStartListening()
+            // handleStartListening()
         }
-        , [handleStartListening])
+        , [
+            // handleStartListening
+        ])
 
 
 
@@ -136,12 +139,15 @@ const ExampleKit = () => {
     }, [fromLang, toLang, resetTranscript])
 
     const flaggedFreeSpeak = useCallback(async (text: string, lang: string) => {
-        setTranscribing(() => false)
+        // setTranscribing(() => false)
+        // setMute()
         setIsSpeaking(() => true)
         await freeSpeak(text, lang).catch(e => console.error(e.message))
 
         setIsSpeaking(() => false)
-        setTranscribing(true)
+        // setTranscribing(true)
+        // setUnmute()
+
 
         //setTimeout(() => {
         if (isModeConversation) {
