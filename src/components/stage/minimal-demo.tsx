@@ -37,7 +37,7 @@ const ExampleKit = () => {
     const [clearTranscriptOnListen, setClearTranscriptOnListen] = useState(false);
 
     const [logMessages, setLogMessages] = useState<any[]>([]);
-    const [isContinuous, setIsContinuous] = useState(true);
+    const [isContinuous, setIsContinuous] = useState(false);
 
     const [isInterimResults, setIsInterimResults] = useState(false);
 
@@ -262,7 +262,7 @@ transcript translation
 
 
     useEffect(() => {
-        if (transcribing || isSpeaking) { console.log({ transcribing, isSpeaking }); return; }
+        if (listening || isSpeaking) { console.log({ listening, isSpeaking }); return; }
 
         const timoutId = setTimeout(() => {
             console.info('start listen after delay')
@@ -273,7 +273,7 @@ transcript translation
             clearTimeout(timoutId)
         }
 
-    }, [handleStartListening, listening, isSpeaking, maxDelayForNotListening, transcribing])
+    }, [handleStartListening, listening, isSpeaking, maxDelayForNotListening])
 
     useRecognitionEvents(SpeechRecognition, onEndHandler);
 
@@ -329,7 +329,15 @@ transcript translation
                     <p>[{toLang}]</p>
                     <p style={{ color: isSpeaking ? 'green' : 'black', marginLeft: '5px' }}>{translation}</p>
                 </div>
-
+                <div>
+                    <label htmlFor="continuous">Continuous:</label>
+                    <input
+                        id="continuous"
+                        type="checkbox"
+                        checked={isContinuous}
+                        onChange={(e) => setIsContinuous(e.target.checked)}
+                    />
+                </div>
                 <Debug isModeDebug={isModeDebug}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                         <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
@@ -366,15 +374,7 @@ transcript translation
                             onChange={(e) => setClearTranscriptOnListen(e.target.checked)}
                         />
                     </div>
-                    <div>
-                        <label htmlFor="continuous">Continuous:</label>
-                        <input
-                            id="continuous"
-                            type="checkbox"
-                            checked={isContinuous}
-                            onChange={(e) => setIsContinuous(e.target.checked)}
-                        />
-                    </div>
+
                     <div>
                         <label htmlFor="interimResults">Interim Results:</label>
                         <input
