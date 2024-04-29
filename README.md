@@ -4,5 +4,12 @@
 
 ```yaml
 - run e2e test on ci
+
+todo:
+- integrate redux
+- show only source/target text, hide all other buttons
+- add debug option as url param
+
+later:
 - support multiple translationBox
 ```
