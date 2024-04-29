@@ -10,37 +10,37 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import SpeechRecognition, {
     ListeningOptions, useSpeechRecognition, // SpeechRecognitionOptions 
 } from 'react-speech-recognition'
-import { Command } from "../../types/speechRecognition";
-import VoicesDropdownSelect from "./voicesDropdownSelector";
-import { isMobile } from '../../services/isMobile';
+import { Command } from "../types/speechRecognition";
+import VoicesDropdownSelect from "./SpeechAndRecognitionComponents/voicesDropdownSelector";
+import { isMobile } from '../services/isMobile';
 
-import TranscriptHistory from './TranscriptHistory';
-import TranslationBox from './TranslationBox';
+import TranscriptHistory from './SpeechAndRecognitionComponents/TranscriptHistory';
+import TranslationBox from './SpeechAndRecognitionComponents/TranslationBox';
 
-import { translate } from '../../utils/translate';
-import { mapLanguageToCode } from '../../utils/mapLanguageToCode';
-import { INITIAL_DELAY_BETWEEN_WORDS, instructions } from '../../consts/config';
-import { useAvailableVoices } from '../../hooks/useAvailableVoices';
-import { populateAvailableVoices } from '../../utils/getVoice';
-import Instructions from './Instructions';
-import TranscriptOptions from './TranscriptOptions';
-import TranscriptLive from './TranscriptLive';
-import StartAndStopButtons from './StartAndStopButtons';
-import DebugModeSwitch from '../LogAndDebugComponents/DebugModeSwitch';
-import { freeSpeak } from '../../utils/freeSpeak';
-import Debug from '../LogAndDebugComponents/Debug';
-import { getLangCodeOnMobile } from '../../utils/getLangCodeOnMobile';
-import '../../styles/Dictaphone.css'
-import RangeInput from './RangeInput';
-import { FinalTranscriptHistory } from '../../types/FinalTranscriptHistory';
-import VoiceRecorder from './VoiceRecorder';
-import Logger from '../LogAndDebugComponents/Logger';
-import { useRecording } from '../../hooks/useRecording';
-import { useRecognitionEvents } from '../../hooks/useRecognitionEvents';
+import { translate } from '../utils/translate';
+import { mapLanguageToCode } from '../utils/mapLanguageToCode';
+import { INITIAL_DELAY_BETWEEN_WORDS, instructions } from '../consts/config';
+import { useAvailableVoices } from '../hooks/useAvailableVoices';
+import { populateAvailableVoices } from '../utils/getVoice';
+import Instructions from './SpeechAndRecognitionComponents/Instructions';
+import TranscriptOptions from './SpeechAndRecognitionComponents/TranscriptOptions';
+import TranscriptLive from './SpeechAndRecognitionComponents/TranscriptLive';
+import StartAndStopButtons from './SpeechAndRecognitionComponents/StartAndStopButtons';
+import DebugModeSwitch from './LogAndDebugComponents/DebugModeSwitch';
+import { freeSpeak } from '../utils/freeSpeak';
+import Debug from './LogAndDebugComponents/Debug';
+import { getLangCodeOnMobile } from '../utils/getLangCodeOnMobile';
+import '../styles/Dictaphone.css'
+import RangeInput from './SpeechAndRecognitionComponents/RangeInput';
+import { FinalTranscriptHistory } from '../types/FinalTranscriptHistory';
+import VoiceRecorder from './SpeechAndRecognitionComponents/VoiceRecorder';
+import Logger from './LogAndDebugComponents/Logger';
+import { useRecording } from '../hooks/useRecording';
+import { useRecognitionEvents } from '../hooks/useRecognitionEvents';
 import React from 'react';
 
 
-const Dictaphone: React.FC = () => {
+const PcVer: React.FC = () => {
     const [fromLang, setFromLang] = useState('he-IL')
     const [toLang, setToLang] = useState(isMobile ? 'ar-AE' : 'ru-RU')
     const [translation, setTranslation] = useState('')
@@ -361,4 +361,4 @@ const Dictaphone: React.FC = () => {
         </div>
     )
 }
-export default React.memo(Dictaphone)
+export default React.memo(PcVer)

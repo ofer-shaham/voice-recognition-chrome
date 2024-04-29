@@ -1,25 +1,25 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import SpeechRecognition, { ListeningOptions, useSpeechRecognition } from 'react-speech-recognition';
-import { useRecognitionEvents } from '../../hooks/useRecognitionEvents';
-import Logger from '../LogAndDebugComponents/Logger';
-import RangeInput from '../SpeechAndRecognitionComponents/RangeInput';
-import { INITIAL_DELAY_BETWEEN_WORDS, MAX_DELAY_FOR_NOT_LISTENING, instructions } from '../../consts/config';
-import { translate } from '../../utils/translate';
-import { isMobile } from '../../services/isMobile';
-import { freeSpeak } from '../../utils/freeSpeak';
-import { useAvailableVoices } from '../../hooks/useAvailableVoices';
-import { populateAvailableVoices } from '../../utils/getVoice';
-import { mapLanguageToCode } from '../../utils/mapLanguageToCode';
-import { Command } from '../../types/speechRecognition';
-import VoicesDropdownSelect from '../SpeechAndRecognitionComponents/voicesDropdownSelector';
-import TranslationBox from '../SpeechAndRecognitionComponents/TranslationBox';
-import Debug from '../LogAndDebugComponents/Debug';
-import DebugModeSwitch from '../LogAndDebugComponents/DebugModeSwitch';
+import { useRecognitionEvents } from '../hooks/useRecognitionEvents';
+import Logger from './LogAndDebugComponents/Logger';
+import RangeInput from './SpeechAndRecognitionComponents/RangeInput';
+import { INITIAL_DELAY_BETWEEN_WORDS, MAX_DELAY_FOR_NOT_LISTENING, instructions } from '../consts/config';
+import { translate } from '../utils/translate';
+import { isMobile } from '../services/isMobile';
+import { freeSpeak } from '../utils/freeSpeak';
+import { useAvailableVoices } from '../hooks/useAvailableVoices';
+import { populateAvailableVoices } from '../utils/getVoice';
+import { mapLanguageToCode } from '../utils/mapLanguageToCode';
+import { Command } from '../types/speechRecognition';
+import VoicesDropdownSelect from './SpeechAndRecognitionComponents/voicesDropdownSelector';
+import TranslationBox from './SpeechAndRecognitionComponents/TranslationBox';
+import Debug from './LogAndDebugComponents/Debug';
+import DebugModeSwitch from './LogAndDebugComponents/DebugModeSwitch';
 
-import '../../styles/minimal-demo.css'
-import Instructions from '../SpeechAndRecognitionComponents/Instructions';
-import { FinalTranscriptHistory } from '../../types/FinalTranscriptHistory';
-import TranscriptHistory from '../SpeechAndRecognitionComponents/TranscriptHistory';
+import '../styles/minimal-demo.css'
+import Instructions from './SpeechAndRecognitionComponents/Instructions';
+import { FinalTranscriptHistory } from '../types/FinalTranscriptHistory';
+import TranscriptHistory from './SpeechAndRecognitionComponents/TranscriptHistory';
 // import { setMute, setUnmute } from '../../utils/microphone';
 
 /**
@@ -27,7 +27,7 @@ import TranscriptHistory from '../SpeechAndRecognitionComponents/TranscriptHisto
  * - use transcribing as a listening indicator
  * 
  */
-const ExampleKit = () => {
+const MobileVer = () => {
     const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
     const [selectedFromLang, setSelectedFromLang] = useState<SpeechSynthesisVoice | null>(null);
     const [isModeDebug, setIsModeDebug] = useState(false)
@@ -429,4 +429,4 @@ transcript translation
     );
 };
 
-export default React.memo(ExampleKit);
+export default React.memo(MobileVer);
