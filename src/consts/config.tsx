@@ -20,6 +20,4 @@ export const errorCode = {
     microphone_not_found_details: 'please connect a microphone device to continue',
     microphone_no_permission: 'microphone permission denied',
     microphone_no_permission_details: 'please enable microphone permission to continue',
-
-
 }
