@@ -2,8 +2,7 @@ import { useEffect, useState } from 'react';
 import Todo from './LogAndDebugComponents/mdPresenter';
 import '../styles/App.css';
 import React from 'react';
- import PcVer from './PcVer';
-import MobileVer from './MobileVer';
+
 import { errorCode } from '../consts/config';
 import ComponentSwitcher from './ComponentSwitcher'
 
