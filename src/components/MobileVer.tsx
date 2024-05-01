@@ -465,12 +465,15 @@ transcript translation
             </div>
 
             <DebugModeSwitch isModeDebug={isModeDebug} setIsModeDebug={setIsModeDebug} />
+            <Accordion title='history'>
+
             <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} onfreeSpeakOnly={onfreeSpeakOnly} onEndPlayback={
                 () => { console.log('implement startListenAndRecord') }
                 //startListenAndRecord
             } onBeforePlayback={() => {
                 console.log('implement stopListenAndRecord')
             }} />
+            </Accordion>
         </div>
     );
 };
