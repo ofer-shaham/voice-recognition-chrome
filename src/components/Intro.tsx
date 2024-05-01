@@ -4,7 +4,7 @@ import '../styles/App.css';
 import React from 'react';
 
 import { errorCode } from '../consts/config';
-import ComponentSwitcher from './ComponentSwitcher'
+import ComponentSwitcher from './General/ComponentSwitcher'
 // eslint-disable-next-line no-restricted-globals
 const hostname = location.hostname
 
