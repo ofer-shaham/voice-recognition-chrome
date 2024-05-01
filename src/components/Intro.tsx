@@ -5,12 +5,13 @@ import React from 'react';
 
 import { errorCode } from '../consts/config';
 import ComponentSwitcher from './ComponentSwitcher'
+// eslint-disable-next-line no-restricted-globals
+const hostname = location.hostname
 
 const Intro: React.FC = () => {
-
   const [microphoneAccess, setMicrophoneAccess] = useState(false);
   const [userClicked, setUserClicked] = useState(false);
-  const [countdown, setCountdown] = useState(10);
+  const [countdown, setCountdown] = useState(hostname === 'localhost' ? 3 : 0);
 
   useEffect(() => {
     if (!userClicked) return
@@ -57,7 +58,7 @@ const Intro: React.FC = () => {
             </div>
 
           ) : <div className="main-component">
-           <ComponentSwitcher />
+            <ComponentSwitcher />
           </div>}
         </div>
       ) : (
