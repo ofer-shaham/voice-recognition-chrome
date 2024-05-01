@@ -1,5 +1,5 @@
 import React, { ReactNode } from 'react';
-import './Debug.css'
+import '../../styles/Debug.css'
 type DebugProps = {
     children: ReactNode;
     isModeDebug: boolean;
