@@ -14,7 +14,6 @@ import { Command } from '../types/speechRecognition';
 import VoicesDropdownSelect from './SpeechAndRecognitionComponents/voicesDropdownSelector';
 import TranslationBox from './SpeechAndRecognitionComponents/TranslationBox';
 import Debug from './LogAndDebugComponents/Debug';
-import DebugModeSwitch from './LogAndDebugComponents/DebugModeSwitch';
 
 import '../styles/mobileVer.css'
 import Instructions from './SpeechAndRecognitionComponents/Instructions';
