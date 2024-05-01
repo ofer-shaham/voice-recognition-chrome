@@ -3,7 +3,7 @@ import SpeechRecognition, { ListeningOptions, useSpeechRecognition } from 'react
 import { useRecognitionEvents } from '../hooks/useRecognitionEvents';
 import Logger from './LogAndDebugComponents/Logger';
 import RangeInput from './SpeechAndRecognitionComponents/RangeInput';
-import { INITIAL_DELAY_BETWEEN_WORDS, MAX_DELAY_FOR_NOT_LISTENING, instructions } from '../consts/config';
+import { INITIAL_DELAY_BETWEEN_WORDS, MAX_DELAY_FOR_NOT_LISTENING, instructions, initialFromLang, initialToLang } from '../consts/config';
 import { translate } from '../utils/translate';
 import { isMobile } from '../services/isMobile';
 import { freeSpeak } from '../utils/freeSpeak';
