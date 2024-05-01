@@ -40,7 +40,7 @@ const MobileVer = () => {
     const [clearTranscriptOnListen, setClearTranscriptOnListen] = useState(false);
 
     const [logMessages, setLogMessages] = useState<any[]>([]);
-    const [isContinuous, setIsContinuous] = useState(false);
+    const [isContinuous, setIsContinuous] = useState(true);
 
     const [isInterimResults, setIsInterimResults] = useState(false);
 
@@ -351,19 +351,19 @@ transcript translation
                 </button> */}
 
                 <FullScreenMode>
-                <div className='flex-items' style={{ display: 'flex', alignItems: 'center' }}>
-                    <p style={{ color: 'purple', marginRight: '5px' }}>[{fromLang}]</p>
-                    {
-                        transcript ?
-                            <p style={{ color: 'purple' }}>{transcript}</p> :
-                            <p style={{ color: 'black' }}>{finalTranscriptProxy}</p>
-                    }
-                </div>
+                    <div className='flex-items' style={{ display: 'flex', alignItems: 'center' }}>
+                        <p style={{ color: 'purple', marginRight: '5px' }}>[{fromLang}]</p>
+                        {
+                            transcript ?
+                                <p style={{ color: 'purple' }}>{transcript}</p> :
+                                <p style={{ color: 'black' }}>{finalTranscriptProxy}</p>
+                        }
+                    </div>
 
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <p>[{toLang}]</p>
-                    <p style={{ color: isSpeaking ? 'green' : 'black', marginLeft: '5px' }}>{translation}</p>
-                </div>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                        <p>[{toLang}]</p>
+                        <p style={{ color: isSpeaking ? 'green' : 'black', marginLeft: '5px' }}>{translation}</p>
+                    </div>
                 </FullScreenMode>
 
                 <Accordion title={'translation'}  >
@@ -393,15 +393,8 @@ transcript translation
                     >
                         showTranslationHistory {showTranslationHistory ? 'yes' : 'no'}
                     </button>
-                    <div>
-                        <label htmlFor="continuous">Continuous:</label>
-                        <input
-                            id="continuous"
-                            type="checkbox"
-                            checked={isContinuous}
-                            onChange={(e) => setIsContinuous(e.target.checked)}
-                        />
-                    </div>
+
+
                     <RangeInput value={maxDelayForNotListening} setValue={setMaxDelayForNotListening} title='maxDelayForNotListening' />
 
 
@@ -469,16 +462,20 @@ transcript translation
                 <RangeInput value={delayBetweenWords} setValue={setdelayBetweenWords} title='delayBetweenWords' />
 
             </div>
-
+            <CheckBoxSwitch isModeValue={isContinuous}
+                setIsModeValue={setIsContinuous}
+                title='continuous'
+            />
             <CheckBoxSwitch isModeValue={isModeDebug} setIsModeValue={setIsModeDebug} title='Debug' />
+
             <Accordion title='history'>
 
-            <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} onfreeSpeakOnly={onfreeSpeakOnly} onEndPlayback={
-                () => { console.log('implement startListenAndRecord') }
-                //startListenAndRecord
-            } onBeforePlayback={() => {
-                console.log('implement stopListenAndRecord')
-            }} />
+                <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} onfreeSpeakOnly={onfreeSpeakOnly} onEndPlayback={
+                    () => { console.log('implement startListenAndRecord') }
+                    //startListenAndRecord
+                } onBeforePlayback={() => {
+                    console.log('implement stopListenAndRecord')
+                }} />
             </Accordion>
         </div>
     );
