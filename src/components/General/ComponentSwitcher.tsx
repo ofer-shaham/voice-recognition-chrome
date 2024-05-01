@@ -2,9 +2,9 @@ import React, { useState } from 'react';
 
 
 // import { isMobile } from './services/isMobile';
-import MobileVer from './MobileVer';
-import PcVer from './PcVer';
-import { isMobile } from '../services/isMobile';
+import MobileVer from '../MobileVer';
+import PcVer from '../PcVer';
+import { isMobile } from '../../services/isMobile';
 
 
 

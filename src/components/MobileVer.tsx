@@ -464,7 +464,7 @@ transcript translation
 
             </div>
 
-            <DebugModeSwitch isModeDebug={isModeDebug} setIsModeDebug={setIsModeDebug} />
+            <CheckBoxSwitch isModeValue={isModeDebug} setIsModeValue={setIsModeDebug} title='Debug' />
             <Accordion title='history'>
 
             <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} onfreeSpeakOnly={onfreeSpeakOnly} onEndPlayback={
