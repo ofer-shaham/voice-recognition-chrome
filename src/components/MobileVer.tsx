@@ -68,9 +68,8 @@ const MobileVer = () => {
     const [searchParams, setSearchParams] = useSearchParams()
 
     useEffect(() => {
-        const searchToLang = searchParams.get('to-lang') || ''
-        const searchFromLang = searchParams.get('from-lang') || ''
-
+        const searchToLang = searchParams.get('to-lang') || initialToLang
+        const searchFromLang = searchParams.get('from-lang') || initialFromLang
         setTimeout(
             () => {
                 if (searchToLang) {
@@ -87,12 +86,17 @@ const MobileVer = () => {
 
     }, [searchParams])
 
-
+    //update url based on change to source/target langs
     useEffect(() => {
-        setTimeout(() => {
-            setSearchParams({ 'from-lang': fromLang || '', 'to-lang': toLang || '' })
-        })
-
+        if (fromLang && toLang) {
+            setSearchParams({ 'from-lang': fromLang, 'to-lang': toLang })
+        }
+        else if (fromLang) {
+            setSearchParams({ 'from-lang': fromLang })
+        }
+        else if (toLang) {
+            setSearchParams({ 'to-lang': toLang })
+        }
     }, [toLang, fromLang, setSearchParams])
 
     const willAddToHistory = useMemo(() => {

@@ -21,3 +21,6 @@ export const errorCode = {
     microphone_no_permission: 'microphone permission denied',
     microphone_no_permission_details: 'please enable microphone permission to continue',
 }
+
+export const initialFromLang = 'he-IL'
+export const initialToLang = 'ru-RU'
