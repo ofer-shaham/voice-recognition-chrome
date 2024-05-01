@@ -349,7 +349,7 @@ transcript translation
                     {isModeConversation ? 'User touched screen:' : 'User did not touch screen:'}
                 </button> */}
 
-
+                <FullScreenMode>
                 <div className='flex-items' style={{ display: 'flex', alignItems: 'center' }}>
                     <p style={{ color: 'purple', marginRight: '5px' }}>[{fromLang}]</p>
                     {
@@ -363,6 +363,7 @@ transcript translation
                     <p>[{toLang}]</p>
                     <p style={{ color: isSpeaking ? 'green' : 'black', marginLeft: '5px' }}>{translation}</p>
                 </div>
+                </FullScreenMode>
 
                 <Accordion title={'translation'}  >
 

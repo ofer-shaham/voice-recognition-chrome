@@ -1,0 +1,9 @@
+.fullscreen-container {
+  border: 1px solid #ccc;
+  padding: 5px;
+}
+
+.fullscreen-container:fullscreen {
+  border: 2px solid #000;
+  padding: 10px;
+}
