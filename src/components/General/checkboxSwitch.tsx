@@ -10,7 +10,7 @@ const CheckBoxSwitch: React.FC<Props> = ({ isModeValue, setIsModeValue, title })
     return (
         <div id="configuration">
             <label>
-                {title} mode:
+             {title}
                 <input
                     type="checkbox"
                     checked={isModeValue}
