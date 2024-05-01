@@ -26,7 +26,6 @@ import Instructions from './SpeechAndRecognitionComponents/Instructions';
 import TranscriptOptions from './SpeechAndRecognitionComponents/TranscriptOptions';
 import TranscriptLive from './SpeechAndRecognitionComponents/TranscriptLive';
 import StartAndStopButtons from './SpeechAndRecognitionComponents/StartAndStopButtons';
-import DebugModeSwitch from './LogAndDebugComponents/DebugModeSwitch';
 import { freeSpeak } from '../utils/freeSpeak';
 import Debug from './LogAndDebugComponents/Debug';
 import { getLangCodeOnMobile } from '../utils/getLangCodeOnMobile';
@@ -38,6 +37,7 @@ import Logger from './LogAndDebugComponents/Logger';
 import { useRecording } from '../hooks/useRecording';
 import { useRecognitionEvents } from '../hooks/useRecognitionEvents';
 import React from 'react';
+import CheckBoxSwitch from './General/checkboxSwitch';
 
 
 const PcVer: React.FC = () => {
@@ -335,7 +335,7 @@ const PcVer: React.FC = () => {
                 setAllowRecording={setAllowRecording}
             />
 
-            <DebugModeSwitch isModeDebug={isModeDebug} setIsModeDebug={setIsModeDebug} />
+            <CheckBoxSwitch isModeValue={isModeDebug} setIsModeValue={setIsModeDebug} title='debug' />
             <TranscriptLive finalTranscript={finalTranscript} interimTranscript={interimTranscript} transcript={transcript} isModeDebug={isModeDebug} />
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                 <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>

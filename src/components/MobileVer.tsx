@@ -22,6 +22,8 @@ import { FinalTranscriptHistory } from '../types/FinalTranscriptHistory';
 import TranscriptHistory from './SpeechAndRecognitionComponents/TranscriptHistory';
 import { useSearchParams } from 'react-router-dom'
 import Accordion from './LogAndDebugComponents/Accordion';
+import CheckBoxSwitch from './General/checkboxSwitch';
+import FullScreenMode from './General/FullScreenWrapper';
 // import { setMute, setUnmute } from '../../utils/microphone';
 
 /**
