@@ -20,6 +20,7 @@ import '../styles/minimal-demo.css'
 import Instructions from './SpeechAndRecognitionComponents/Instructions';
 import { FinalTranscriptHistory } from '../types/FinalTranscriptHistory';
 import TranscriptHistory from './SpeechAndRecognitionComponents/TranscriptHistory';
+import { useSearchParams } from 'react-router-dom'
 // import { setMute, setUnmute } from '../../utils/microphone';
 
 /**
@@ -42,9 +43,9 @@ const MobileVer = () => {
     const [isInterimResults, setIsInterimResults] = useState(false);
 
 
-    const [fromLang, setFromLang] = useState('he-IL')
-
-    const [toLang, setToLang] = useState(isMobile ? 'ar-EG' : 'ru-RU')
+    const [fromLang, setFromLang] = useState('')
+   
+    const [toLang, setToLang] = useState('')
     const [delayBetweenWords, setdelayBetweenWords] = useState(INITIAL_DELAY_BETWEEN_WORDS)
     const [maxDelayForNotListening, setMaxDelayForNotListening] = useState(MAX_DELAY_FOR_NOT_LISTENING)
 
@@ -63,6 +64,35 @@ const MobileVer = () => {
     const [finalTranscriptHistory, setFinalTranscriptHistory] = useState<FinalTranscriptHistory[]>([])
 
     const [isSimultaneousTranslation, setIsSimultaneousTranslation] = useState(true)
+    const [searchParams, setSearchParams] = useSearchParams()
+
+    useEffect(() => {
+        const searchToLang = searchParams.get('to-lang') || ''
+        const searchFromLang = searchParams.get('from-lang') || ''
+
+        setTimeout(
+            () => {
+                if (searchToLang) {
+                    console.log(searchToLang)
+                    setToLang(searchToLang)
+                }
+           
+                if (searchFromLang) {
+                    console.log(searchFromLang)
+                    setFromLang(searchFromLang)
+                }
+            }
+        )
+
+    }, [searchParams])
+
+
+    useEffect(() => {
+        setTimeout(() => {
+            setSearchParams({ 'from-lang': fromLang || '','to-lang': toLang || '' })
+        })
+ 
+    }, [toLang, fromLang, setSearchParams])
 
     const willAddToHistory = useMemo(() => {
         return showTranslationHistory
