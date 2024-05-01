@@ -6,9 +6,12 @@
 - run e2e test on ci
 
 todo:
+- show only source/target text: wrap text and highlight border when activated
+- show currently spoken text as highlighted
 - integrate redux
-- show only source/target text, hide all other buttons
-- add debug option as url param
+
+done:
+- show only source/target text: hide all other buttons
 
 later:
 - support multiple translationBox
