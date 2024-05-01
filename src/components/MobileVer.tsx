@@ -16,11 +16,12 @@ import TranslationBox from './SpeechAndRecognitionComponents/TranslationBox';
 import Debug from './LogAndDebugComponents/Debug';
 import DebugModeSwitch from './LogAndDebugComponents/DebugModeSwitch';
 
-import '../styles/minimal-demo.css'
+import '../styles/mobileVer.css'
 import Instructions from './SpeechAndRecognitionComponents/Instructions';
 import { FinalTranscriptHistory } from '../types/FinalTranscriptHistory';
 import TranscriptHistory from './SpeechAndRecognitionComponents/TranscriptHistory';
 import { useSearchParams } from 'react-router-dom'
+import Accordion from './LogAndDebugComponents/Accordion';
 // import { setMute, setUnmute } from '../../utils/microphone';
 
 /**
@@ -44,7 +45,7 @@ const MobileVer = () => {
 
 
     const [fromLang, setFromLang] = useState('')
-   
+
     const [toLang, setToLang] = useState('')
     const [delayBetweenWords, setdelayBetweenWords] = useState(INITIAL_DELAY_BETWEEN_WORDS)
     const [maxDelayForNotListening, setMaxDelayForNotListening] = useState(MAX_DELAY_FOR_NOT_LISTENING)
@@ -55,7 +56,7 @@ const MobileVer = () => {
     const [translation, setTranslation] = useState('')
     const availableVoices = useAvailableVoices();
 
-    const [isUserTouchedScreen, setIsUserTouchedScreen] = useState(false);
+    // const [isUserTouchedScreen, setIsUserTouchedScreen] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false)
     const [isModeConversation, setIsModeConversation] = useState(false)
 
@@ -63,7 +64,7 @@ const MobileVer = () => {
     // const [willAddToHistory, setWillAddToHistory] = useState(false)
     const [finalTranscriptHistory, setFinalTranscriptHistory] = useState<FinalTranscriptHistory[]>([])
 
-    const [isSimultaneousTranslation, setIsSimultaneousTranslation] = useState(true)
+    // const [isSimultaneousTranslation, setIsSimultaneousTranslation] = useState(true)
     const [searchParams, setSearchParams] = useSearchParams()
 
     useEffect(() => {
@@ -76,7 +77,7 @@ const MobileVer = () => {
                     console.log(searchToLang)
                     setToLang(searchToLang)
                 }
-           
+
                 if (searchFromLang) {
                     console.log(searchFromLang)
                     setFromLang(searchFromLang)
@@ -89,9 +90,9 @@ const MobileVer = () => {
 
     useEffect(() => {
         setTimeout(() => {
-            setSearchParams({ 'from-lang': fromLang || '','to-lang': toLang || '' })
+            setSearchParams({ 'from-lang': fromLang || '', 'to-lang': toLang || '' })
         })
- 
+
     }, [toLang, fromLang, setSearchParams])
 
     const willAddToHistory = useMemo(() => {
@@ -207,14 +208,16 @@ const MobileVer = () => {
 
     useEffect(() => {
         const handleTouchStart = () => {
-            setIsUserTouchedScreen(true);
+            // setIsUserTouchedScreen(true);
+            console.info('user touched screen')
         };
 
         document.addEventListener('touchstart', handleTouchStart);
         document.addEventListener('click', handleTouchStart);
 
         return () => {
-            document.removeEventListener('touchstart', handleTouchStart); document.removeEventListener('click', handleTouchStart);
+            document.removeEventListener('touchstart', handleTouchStart);
+            document.removeEventListener('click', handleTouchStart);
 
         };
     }, []);
@@ -258,10 +261,10 @@ transcript translation
             flaggedFreeSpeak(text, lang)
         }
 
-        if (isSimultaneousTranslation && translation) {
+        if (translation) {
             speakTranslation(translation, toLang)
         }
-    }, [translation, toLang, isSimultaneousTranslation, flaggedFreeSpeak]);
+    }, [translation, toLang, flaggedFreeSpeak]);
 
     useEffect(() => {
         console.log('init listening')
@@ -315,7 +318,10 @@ transcript translation
     return (
         <div className='container' style={{ background: (isSpeaking ? 'darkblue' : (listening ? 'darkgreen' : 'darkgrey')) }}>
             <div style={{ background: 'grey' }}>
-                <Instructions instructions={instructions}></Instructions>
+                <Accordion title={'instructions'} >
+                    <Instructions instructions={instructions}></Instructions>
+                </Accordion>
+
                 <button
                     type="button"
                     onClick={() => setIsModeConversation(prev => !prev)}
@@ -323,37 +329,22 @@ transcript translation
                 >
                     {isModeConversation ? 'conversation' : 'single talker'}
                 </button>
-                <button
-                    type="button"
-                    onClick={() => setShowTranslationHistory(prev => !prev)}
-                    style={{ background: showTranslationHistory ? 'blue' : 'green' }}
-                >
-                    showTranslationHistory {showTranslationHistory ? 'yes' : 'no'}
-                </button>
-                <button
+
+                {/* <button
                     type="button"
                     onClick={() => setIsSimultaneousTranslation(prev => !prev)}
                     style={{ background: isSimultaneousTranslation ? 'blue' : 'green' }}
                 >
                     isSimultaneousTranslation {isSimultaneousTranslation ? 'yes' : 'no'}
-                </button>
-                <button
+                </button> */}
+                {/* <button
                     type="button"
                     onClick={() => setIsUserTouchedScreen(true)}
                     style={{ background: isUserTouchedScreen ? 'green' : 'red' }}
                 >
                     {isModeConversation ? 'User touched screen:' : 'User did not touch screen:'}
-                </button>
-                <div>
-                    <label htmlFor="continuous">Continuous:</label>
-                    <input
-                        id="continuous"
-                        type="checkbox"
-                        checked={isContinuous}
-                        onChange={(e) => setIsContinuous(e.target.checked)}
-                    />
-                </div>
-                <DebugModeSwitch isModeDebug={isModeDebug} setIsModeDebug={setIsModeDebug} />
+                </button> */}
+
 
                 <div className='flex-items' style={{ display: 'flex', alignItems: 'center' }}>
                     <p style={{ color: 'purple', marginRight: '5px' }}>[{fromLang}]</p>
@@ -369,7 +360,8 @@ transcript translation
                     <p style={{ color: isSpeaking ? 'green' : 'black', marginLeft: '5px' }}>{translation}</p>
                 </div>
 
-                <Debug isModeDebug={isModeDebug}>
+                <Accordion title={'translation'}  >
+
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                         <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
                             <TranslationBox isActiveTalking={!!transcript} setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang}
@@ -385,6 +377,27 @@ transcript translation
                             </TranslationBox>
                         </div>
                     </div>
+                </Accordion>
+
+                <Debug isModeDebug={isModeDebug}>
+                    <button
+                        type="button"
+                        onClick={() => setShowTranslationHistory(prev => !prev)}
+                        style={{ background: showTranslationHistory ? 'blue' : 'green' }}
+                    >
+                        showTranslationHistory {showTranslationHistory ? 'yes' : 'no'}
+                    </button>
+                    <div>
+                        <label htmlFor="continuous">Continuous:</label>
+                        <input
+                            id="continuous"
+                            type="checkbox"
+                            checked={isContinuous}
+                            onChange={(e) => setIsContinuous(e.target.checked)}
+                        />
+                    </div>
+                    <RangeInput value={maxDelayForNotListening} setValue={setMaxDelayForNotListening} title='maxDelayForNotListening' />
+
 
                     <p style={{ color: 'blue' }}>listening: {listening ? 'on' : 'off'}</p>
                     <div>
@@ -448,14 +461,17 @@ transcript translation
                     <Logger messages={logMessages} setMessages={setLogMessages} />
                 </Debug>
                 <RangeInput value={delayBetweenWords} setValue={setdelayBetweenWords} title='delayBetweenWords' />
-                <RangeInput value={maxDelayForNotListening} setValue={setMaxDelayForNotListening} title='maxDelayForNotListening' />
-                <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} onfreeSpeakOnly={onfreeSpeakOnly} onEndPlayback={
-                    () => { console.log('implement startListenAndRecord') }
-                    //startListenAndRecord
-                } onBeforePlayback={() => {
-                    console.log('implement stopListenAndRecord')
-                }} />
-            </div></div>
+
+            </div>
+
+            <DebugModeSwitch isModeDebug={isModeDebug} setIsModeDebug={setIsModeDebug} />
+            <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} onfreeSpeakOnly={onfreeSpeakOnly} onEndPlayback={
+                () => { console.log('implement startListenAndRecord') }
+                //startListenAndRecord
+            } onBeforePlayback={() => {
+                console.log('implement stopListenAndRecord')
+            }} />
+        </div>
     );
 };
 

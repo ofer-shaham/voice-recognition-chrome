@@ -13,8 +13,8 @@ const Accordion: React.FC<AccordionProps> = ({ title, children }) => {
   };
 
   return (
-    <div>
-      <button onClick={toggleAccordion}>{title}</button>
+    <div style={{width: '100%'}}>
+      <button style={{width: '100%'}} onClick={toggleAccordion}>{title}</button>
       {isExpanded && <div>{children}</div>}
     </div>
   );

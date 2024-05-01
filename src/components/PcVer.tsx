@@ -30,7 +30,7 @@ import DebugModeSwitch from './LogAndDebugComponents/DebugModeSwitch';
 import { freeSpeak } from '../utils/freeSpeak';
 import Debug from './LogAndDebugComponents/Debug';
 import { getLangCodeOnMobile } from '../utils/getLangCodeOnMobile';
-import '../styles/Dictaphone.css'
+import '../styles/pcVer.css'
 import RangeInput from './SpeechAndRecognitionComponents/RangeInput';
 import { FinalTranscriptHistory } from '../types/FinalTranscriptHistory';
 import VoiceRecorder from './SpeechAndRecognitionComponents/VoiceRecorder';
