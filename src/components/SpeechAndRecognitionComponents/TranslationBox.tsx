@@ -1,5 +1,7 @@
-import React, { Dispatch, ReactElement, SetStateAction, useEffect } from 'react';
+import React, { Dispatch, ReactElement, SetStateAction } from 'react';
 import '../../styles/TranslationBox.css';
+import { useDebouncedCallback } from 'use-debounce';
+import { DEBOUNCE_TEXT_DELAY } from '../../consts/config';
 
 type TranslationProps = {
   language: string;
@@ -13,15 +15,22 @@ type TranslationProps = {
 };
 
 const TranslationBox: React.FC<TranslationProps> = ({ language, text, onfreeSpeakOnly, setLanguage, setText, children, isActiveTalking }) => {
-  // Update the language when the prop changes from the parent component
-  useEffect(() => {
-    setLanguage(language);
-  }, [language, setLanguage]);
 
-  const handleLanguageChange = (ev: React.ChangeEvent<HTMLInputElement>) => {
-    // Update the language manually
-    setLanguage(ev.target.value);
-  };
+  const changeLanguage = useDebouncedCallback(
+    (value) => {
+      setLanguage(value);
+    },
+    DEBOUNCE_TEXT_DELAY
+  );
+
+  const changeText = useDebouncedCallback(
+    (value) => {
+      console.log(new Date().getSeconds())
+      setText(value);
+    },
+    DEBOUNCE_TEXT_DELAY
+  );
+
 
   return (
     <div className="translation-container" style={{ width: '100%' }}>
@@ -29,11 +38,14 @@ const TranslationBox: React.FC<TranslationProps> = ({ language, text, onfreeSpea
         {children}
       </div>
 
-      <input type="text" value={language} onChange={handleLanguageChange} style={{ width: '100%' }} />
+      <input type="text" defaultValue={language}
+        onChange={(e) => changeLanguage(e.target.value)}
+
+        style={{ width: '100%' }} />
 
       <div className="translation-row">
-        <input type="text" value={text} onChange={(ev) => { setText(ev.target.value) }}     style={{ width: '100%', color: isActiveTalking ? 'red' : 'white' }}
- />
+        <input type="text" defaultValue={text} onChange={(ev) => { changeText(ev.target.value) }} style={{ width: '100%', color: isActiveTalking ? 'red' : 'white' }}
+        />
       </div>
 
       <div style={{ width: '100%' }}>

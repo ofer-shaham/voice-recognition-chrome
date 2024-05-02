@@ -27,3 +27,4 @@ export const initialToLang = 'ru-RU'
 
 // eslint-disable-next-line no-restricted-globals
 export const MODE_DEV = location.hostname === 'localhost'
+export const DEBOUNCE_TEXT_DELAY = 1500

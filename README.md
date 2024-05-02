@@ -12,6 +12,7 @@ todo:
 
 done:
 - show only source/target text: hide all other buttons
+- delay translation when a new sentence is being typed
 
 later:
 - support multiple translationBox
