@@ -113,18 +113,21 @@ const MobileVer = () => {
                 setFromLang(fromCode); setToLang(toCode);
                 console.log(`from ${fromCode} to ${toCode}`);
                 setFinalTranscriptProxy('')
+                //experiment
+                setClearTranscriptOnListen(true)
 
             }
         },
         {
             command: '(‏) (please) speak :language',
             callback: (language: string) => {
-
                 const langCode = mapLanguageToCode(language)
                 setFromLang(langCode);
                 setToLang(langCode);
                 setTranslation('')
                 setFinalTranscriptProxy('')
+                 //experiment
+                setClearTranscriptOnListen(true)
                 console.log('match :languge')
             },
             matchInterim: true
@@ -133,7 +136,6 @@ const MobileVer = () => {
 
 
     const {
-
         transcript,
         listening,
         resetTranscript,
