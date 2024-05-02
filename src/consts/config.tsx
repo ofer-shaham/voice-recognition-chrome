@@ -24,3 +24,6 @@ export const errorCode = {
 
 export const initialFromLang = 'he-IL'
 export const initialToLang = 'ru-RU'
+
+// eslint-disable-next-line no-restricted-globals
+export const MODE_DEV = location.hostname === 'localhost'

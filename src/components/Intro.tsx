@@ -3,15 +3,15 @@ import Todo from './LogAndDebugComponents/mdPresenter';
 import '../styles/App.css';
 import React from 'react';
 
-import { errorCode } from '../consts/config';
+import { MODE_DEV, errorCode } from '../consts/config';
 import ComponentSwitcher from './General/ComponentSwitcher'
 // eslint-disable-next-line no-restricted-globals
-const hostname = location.hostname
 
+//show readme and countdown
 const Intro: React.FC = () => {
   const [microphoneAccess, setMicrophoneAccess] = useState(false);
   const [userClicked, setUserClicked] = useState(false);
-  const [countdown, setCountdown] = useState(hostname === 'localhost' ? 3 : 0);
+  const [countdown, setCountdown] = useState(MODE_DEV ? 3 : 0);
 
   useEffect(() => {
     if (!userClicked) return
