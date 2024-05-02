@@ -126,11 +126,19 @@ const MobileVer = () => {
                 setToLang(langCode);
                 setTranslation('')
                 setFinalTranscriptProxy('')
-                 //experiment
+                //experiment
                 setClearTranscriptOnListen(true)
                 console.log('match :languge')
             },
             matchInterim: true
+        },
+        {
+            command: 'clear clear',
+            callback: ({ resetTranscript }) => {
+                setTranslation('')
+                setFinalTranscriptProxy('');
+                resetTranscript()
+            }
         }
     ], [])
 
