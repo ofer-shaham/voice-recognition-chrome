@@ -344,7 +344,7 @@ const PcVer: React.FC = () => {
                     <TranslationBox setText={setTranslation} setLanguage={setToLang} language={toLang}
                         text={translation || ''}
                         onfreeSpeakOnly={onfreeSpeakOnly} isActiveTalking={isSpeaking}>
-                        <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setToLang={setToLang} selectedVoice={selectedVoice}
+                        <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setLang={setToLang} selectedVoice={selectedVoice}
                             setSelectedVoice={setSelectedVoice} />
                     </TranslationBox>
                 </div>
