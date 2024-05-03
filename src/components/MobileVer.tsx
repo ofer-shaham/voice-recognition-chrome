@@ -40,7 +40,7 @@ const MobileVer = () => {
     const [clearTranscriptOnListen, setClearTranscriptOnListen] = useState(false);
 
     const [logMessages, setLogMessages] = useState<any[]>([]);
-    const [isContinuous, setIsContinuous] = useState(true);
+    const [isContinuous, setIsContinuous] = useState(false);
 
     const [isInterimResults, setIsInterimResults] = useState(false);
 
