@@ -382,13 +382,13 @@ transcript translation
                         <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
                             <TranslationBox isActiveTalking={!!transcript} setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang}
                                 text={transcript || finalTranscriptProxy} onfreeSpeakOnly={flaggedFreeSpeak}>
-                                <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={fromLang} setToLang={setFromLang} selectedVoice={selectedFromLang}
+                                <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={fromLang} setLang={setFromLang} selectedVoice={selectedFromLang}
                                     setSelectedVoice={setSelectedFromLang} />
                             </TranslationBox>
                             <TranslationBox isActiveTalking={isSpeaking} setText={setTranslation} setLanguage={setToLang} language={toLang}
                                 text={translation || ''}
                                 onfreeSpeakOnly={onfreeSpeakOnly} >
-                                <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setToLang={setToLang} selectedVoice={selectedVoice}
+                                <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setLang={setToLang} selectedVoice={selectedVoice}
                                     setSelectedVoice={setSelectedVoice} />
                             </TranslationBox>
                         </div>
