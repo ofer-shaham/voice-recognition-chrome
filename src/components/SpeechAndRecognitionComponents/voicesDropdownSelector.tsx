@@ -6,15 +6,20 @@ import React, { useEffect } from 'react';
 //   lang: string;
 //   default: boolean;
 // }
+interface props {
+    voices: SpeechSynthesisVoice[];
+    toLang: string;
+    setLang: React.Dispatch<React.SetStateAction<string>>
+    ;
+    selectedVoice: SpeechSynthesisVoice | null;
+    setSelectedVoice: React.Dispatch<React.SetStateAction<SpeechSynthesisVoice | null>>
+    ;
+    isMobile: boolean
 
-const VoicesDropdownSelect = ({ voices, selectedVoice, setSelectedVoice, toLang, setToLang, isMobile }: {
-    voices: SpeechSynthesisVoice[],
-    toLang: string, setToLang: React.Dispatch<React.SetStateAction<string>>
-    , selectedVoice: SpeechSynthesisVoice | null, setSelectedVoice: React.Dispatch<React.SetStateAction<SpeechSynthesisVoice | null>>
-    , isMobile: boolean
 
-    
-}) => {
+}
+
+const VoicesDropdownSelect = ({ voices, selectedVoice, setSelectedVoice, toLang, setLang, isMobile }: props) => {
 
 
     useEffect(() => {
@@ -32,7 +37,7 @@ const VoicesDropdownSelect = ({ voices, selectedVoice, setSelectedVoice, toLang,
         if (selectedVoice) {
 
             setSelectedVoice(selectedVoice);
-            setToLang(selectedLang);
+            setLang(selectedLang);
         }
     };
     return (
