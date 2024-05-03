@@ -5,6 +5,7 @@ import React, { useState } from 'react';
 import MobileVer from '../MobileVer';
 import PcVer from '../PcVer';
 import { isMobile } from '../../services/isMobile';
+import { MODE_DEV } from '../../consts/config';
 
 
 
@@ -18,7 +19,7 @@ const ComponentSwitcher: React.FC = () => {
   return (
     <div>
       <button onClick={toggleComponent}>Toggle Component: {!showMobile ? 'Mobile':'Pc'}</button>
-      {!showMobile ? <MobileVer /> : <PcVer />}
+      {showMobile || MODE_DEV ? <MobileVer /> : <PcVer />}
     </div>
   );
 };
