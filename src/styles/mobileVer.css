@@ -22,32 +22,25 @@
  
 
  
-.speaking {
-  color: green;
-}
 
-.is-rtl {
-  direction: rtl;
-  text-align: right;
-} 
+
 
 .container {
   padding: 11px;
   margin: 11px;
-  background: rgb(80, 80, 80);
+  background: rgb(163, 38, 38);
   display: flex;
   flex-direction: column;
   height: 100vh;
 }
 
 .transcript {
-  font-size: calc(4vw - 10px);
+  font-size: calc(20vw - 40px);
   direction: ltr;
   text-align: left;
   color: purple;
   overflow: auto;
-  max-height: 40vh;
-
+  
 }
 
 .final-transcript,
@@ -59,4 +52,11 @@
   overflow: auto;
   max-height: 40vh;
 
+}
+.is-rtl {
+  direction: rtl;
+  text-align: right;
+} 
+.is-speaking {
+  color: green;
 }

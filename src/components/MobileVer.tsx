@@ -346,6 +346,7 @@ transcript translation
                     {isModeConversation ? 'conversation' : 'single talker'}
                 </button>
 
+                {/* show main text source/translation */}
                 <FullScreenMode>
                     <div>
                         <div className="button-container">
@@ -438,7 +439,6 @@ transcript translation
                         >
                             Stop
                         </button>
-
                     }
 
                     <button
@@ -447,11 +447,6 @@ transcript translation
                     >
                         Reset
                     </button>
-
-
-
-
-
                     <Logger messages={logMessages} setMessages={setLogMessages} />
                 </Debug>
                 <RangeInput value={delayBetweenWords} setValue={setdelayBetweenWords} title='delayBetweenWords' />
