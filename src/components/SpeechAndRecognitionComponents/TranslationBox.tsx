@@ -38,23 +38,21 @@ const TranslationBox: React.FC<TranslationProps> = ({ language, text, onfreeSpea
   useEffect(() => { setLanguage(selectedVoice?.lang || '') }, [selectedVoice, setLanguage])
 
   return (
-    <div className="translation-container" style={{ width: '100%' }}>
-      <div style={{ minHeight: '19px' }}>
+    <div className="translation-container">
+      <div className="voices-dropdown">
         <VoicesDropdownSelect voices={availableVoices} language={language} selectedVoice={selectedVoice}
           setSelectedVoice={setSelectedVoice} />
       </div>
 
       <input type="text" defaultValue={language}
-        onChange={(e) => changeLanguage(e.target.value)}
-        style={{ width: '100%' }} />
+        onChange={(e) => changeLanguage(e.target.value)} className="language-input" />
 
       <div className="translation-row">
-        <input type="text" defaultValue={text} onChange={(ev) => { changeText(ev.target.value) }} style={{ width: '100%', color: isActiveTalking ? 'red' : 'white' }}
-        />
+        <input type="text" defaultValue={text} onChange={(ev) => { changeText(ev.target.value) }} className={`translation-input ${isActiveTalking ? 'active' : ''}`} />
       </div>
 
-      <div style={{ width: '100%' }}>
-        <button onClick={() => onfreeSpeakOnly(text, language)}>speak</button>
+      <div>
+        <button onClick={() => onfreeSpeakOnly(text, language)} className="speak-button">speak</button>
       </div>
     </div>
   );

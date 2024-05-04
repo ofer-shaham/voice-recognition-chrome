@@ -1,4 +1,38 @@
-select#voiceSelect {
+.translation-container {
+    width: 50%;
+    max-width: 50%;
+    box-sizing: border-box;
+    padding: 10px;
+  }
+  
+  .voices-dropdown {
+    width: 100%;
+  }
+  
+  .select-voice {
+    /* Add your styles for select-voice here */
+  }
+  
+  .language-input {
+    width: 100%;
+    box-sizing: border-box;
+  }
+  
+  .translation-row {
+    width: 100%;
+    box-sizing: border-box;
+    margin-bottom: 10px;
+  }
+  
+  .translation-input {
+    width: 100%;
+    box-sizing: border-box;
+  }
+  
+  .speak-button {
+    width: 100%;
+  }
 
+  select#voiceSelect {
     width: 100%;
 }
