@@ -6,8 +6,6 @@
   background: #000;
 }
 
- 
-
 .button-container {
   display: flex;
   flex-direction: column;
@@ -18,12 +16,6 @@
   flex: 1;
   background-color: #8f749a;
 }
-
- 
-
- 
-
-
 
 .container {
   padding: 11px;
@@ -40,7 +32,6 @@
   text-align: left;
   color: purple;
   overflow: auto;
-  
 }
 
 .final-transcript,
@@ -51,12 +42,68 @@
   color: black;
   overflow: auto;
   max-height: 40vh;
-
 }
+
 .is-rtl {
   direction: rtl;
   text-align: right;
-} 
-.is-speaking {
-  color: green;
+}
+
+@media screen and (max-width: 767px) {
+
+  /* Apply styles for mobile devices */
+  .container {
+    background-color: lightblue;
+    padding: 20px;
+    margin: 0;
+    height: auto;
+  }
+
+  .transcript,
+  .final-transcript,
+  .translation {
+    font-size: 24px;
+    /* Adjust the font size as needed */
+    color: darkblue;
+  }
+}
+
+@media screen and (max-width: 767px) and (orientation: portrait) {
+
+  /* Apply styles for mobile devices with vertical screen */
+  /* Adjust the styles as per your requirements */
+  .container {
+    background-color: lightgreen;
+    padding: 10px;
+    margin: 5px;
+    height: auto;
+  }
+
+  .transcript,
+  .final-transcript,
+  .translation {
+    font-size: 14px;
+    /* Adjust the font size as needed */
+    color: darkgreen;
+  }
+}
+
+@media screen and (max-width: 767px) and (orientation: landscape) {
+
+  /* Apply styles for mobile devices with landscape screen */
+  /* Adjust the styles as per your requirements */
+  .container {
+    background-color: lightyellow;
+    padding: 15px;
+    margin: 10px;
+    height: auto;
+  }
+
+  .transcript,
+  .final-transcript,
+  .translation {
+    font-size: 18px;
+    /* Adjust the font size as needed */
+    color: darkorange;
+  }
 }
