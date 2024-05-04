@@ -52,7 +52,7 @@ const MobileVer = () => {
 
 
 
-    const [finalTranscriptProxy, setFinalTranscriptProxy] = useState('שלום מה נשמע');
+    const [finalTranscriptProxy, setFinalTranscriptProxy] = useState('');
     const [translation, setTranslation] = useState('')
     const availableVoices = useAvailableVoices();
 
