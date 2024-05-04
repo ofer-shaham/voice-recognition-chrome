@@ -82,7 +82,7 @@
   .transcript,
   .final-transcript,
   .translation {
-    font-size: 14px;
+    font-size: calc(20vw - 40px);
     /* Adjust the font size as needed */
     color: darkgreen;
   }
@@ -102,7 +102,7 @@
   .transcript,
   .final-transcript,
   .translation {
-    font-size: 18px;
+    font-size: 11px;
     /* Adjust the font size as needed */
     color: darkorange;
   }
