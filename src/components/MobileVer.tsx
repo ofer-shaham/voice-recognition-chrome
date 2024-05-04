@@ -370,16 +370,18 @@ transcript translation
                     </div>
                 </FullScreenMode>
 
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-                    <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
-                        <TranslationBox isActiveTalking={!!transcript} setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang}
-                            text={transcript || finalTranscriptProxy} onfreeSpeakOnly={flaggedFreeSpeak} availableVoices={availableVoices} selectedVoice={selectedFromVoice} setSelectedVoice={setSelectedFromVoice} />
+                <Accordion title={'switch language'} >
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+                        <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
+                            <TranslationBox isActiveTalking={!!transcript} setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang}
+                                text={transcript || finalTranscriptProxy} onfreeSpeakOnly={flaggedFreeSpeak} availableVoices={availableVoices} selectedVoice={selectedFromVoice} setSelectedVoice={setSelectedFromVoice} />
 
-                        <TranslationBox isActiveTalking={isSpeaking} setText={setTranslation} setLanguage={setToLang} language={toLang}
-                            text={translation || ''}
-                            onfreeSpeakOnly={onfreeSpeakOnly} availableVoices={availableVoices} selectedVoice={selectedToVoice} setSelectedVoice={setSelectedToVoice} />
+                            <TranslationBox isActiveTalking={isSpeaking} setText={setTranslation} setLanguage={setToLang} language={toLang}
+                                text={translation || ''}
+                                onfreeSpeakOnly={onfreeSpeakOnly} availableVoices={availableVoices} selectedVoice={selectedToVoice} setSelectedVoice={setSelectedToVoice} />
+                        </div>
                     </div>
-                </div>
+                </Accordion>
 
                 <Debug isModeDebug={isModeDebug}>
                     <button
