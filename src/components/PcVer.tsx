@@ -11,7 +11,6 @@ import SpeechRecognition, {
     ListeningOptions, useSpeechRecognition, // SpeechRecognitionOptions 
 } from 'react-speech-recognition'
 import { Command } from "../types/speechRecognition";
-import VoicesDropdownSelect from "./SpeechAndRecognitionComponents/voicesDropdownSelector";
 import { isMobile } from '../services/isMobile';
 
 import TranscriptHistory from './SpeechAndRecognitionComponents/TranscriptHistory';
@@ -47,7 +46,6 @@ const PcVer: React.FC = () => {
     const [finalTranscriptHistory, setFinalTranscriptHistory] = useState<FinalTranscriptHistory[]>([])
     const [isSpeaking, setIsSpeaking] = useState(false)
 
-    const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
     const [isInterimResults, setIsInterimResults] = useState(false)
     const [isContinuous, setIsContinuous] = useState(false)
     const [finalTranscriptProxy, setFinalTranscriptProxy] = useState('');
@@ -64,6 +62,8 @@ const PcVer: React.FC = () => {
     const renderCountRef = useRef(0)
 
     const prevFinalTranscriptProxyRef = useRef('')
+    const [selectedFromVoice, setSelectedFromVoice] = useState<SpeechSynthesisVoice | null>(null);
+    const [selectedToVoice, setSelectedToVoice] = useState<SpeechSynthesisVoice | null>(null);
 
     renderCountRef.current += 1;
 
@@ -339,14 +339,19 @@ const PcVer: React.FC = () => {
             <TranscriptLive finalTranscript={finalTranscript} interimTranscript={interimTranscript} transcript={transcript} isModeDebug={isModeDebug} />
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                 <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
-                    <TranslationBox setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang}
-                        text={transcript || prevFinalTranscriptProxyRef.current} onfreeSpeakOnly={flaggedFreeSpeak} isActiveTalking={listening}></TranslationBox>
-                    <TranslationBox setText={setTranslation} setLanguage={setToLang} language={toLang}
-                        text={translation || ''}
-                        onfreeSpeakOnly={onfreeSpeakOnly} isActiveTalking={isSpeaking}>
-                        <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setLang={setToLang} selectedVoice={selectedVoice}
-                            setSelectedVoice={setSelectedVoice} />
-                    </TranslationBox>
+                    <TranslationBox setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang} 
+                        text={transcript || prevFinalTranscriptProxyRef.current} onfreeSpeakOnly={flaggedFreeSpeak} isActiveTalking={listening} 
+                        availableVoices={availableVoices} selectedVoice={selectedFromVoice} setSelectedVoice={setSelectedFromVoice}   
+                    />
+                        
+                    <TranslationBox setText={setTranslation} setLanguage={setToLang} language={toLang} 
+                        text={translation || ''} onfreeSpeakOnly={onfreeSpeakOnly} isActiveTalking={isSpeaking}
+                    
+                        availableVoices={availableVoices}
+                        selectedVoice={selectedToVoice} setSelectedVoice={setSelectedToVoice}
+                    />
+                        
+                  
                 </div>
             </div>
 
