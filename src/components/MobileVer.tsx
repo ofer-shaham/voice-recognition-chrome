@@ -296,7 +296,7 @@ transcript translation
         const delay = delayBetweenWords; // Delay in milliseconds
         let timerId: NodeJS.Timeout | null = null;
 
-        if (transcript) {
+        if (transcript && transcript !== '-') {
             timerId = setTimeout(() => {
                 console.log({ finish: transcript })
                 setFinalTranscriptProxy(transcript)
