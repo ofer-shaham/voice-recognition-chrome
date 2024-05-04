@@ -23,6 +23,8 @@ import CheckBoxSwitch from './General/checkboxSwitch';
 import FullScreenMode from './General/FullScreenWrapper';
 import isRtl from '../utils/isRtl';
 import BugComponent from './LogAndDebugComponents/bug';
+import ScoreComponent from './Todo/score';
+import useLocalStorageScore from '../hooks/useLocalStorage';
 // import { setMute, setUnmute } from '../../utils/microphone';
 
 /**
@@ -69,6 +71,7 @@ const MobileVer = () => {
     const [searchParams, setSearchParams] = useSearchParams()
     const [selectedFromVoice, setSelectedFromVoice] = useState<SpeechSynthesisVoice | null>(null);
     const [selectedToVoice, setSelectedToVoice] = useState<SpeechSynthesisVoice | null>(null);
+    const [score, updateScore] = useLocalStorageScore();
 
     useEffect(() => {
         const searchToLang = searchParams.get('to-lang') || initialToLang
@@ -263,6 +266,7 @@ transcript translation
             }
 
             if (willAddToHistory) {
+                updateScore()
                 setFinalTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscriptProxy: finalTranscriptProxy, translation: translationResult, fromLang: fromLang, toLang: toLang, audioData: '' }])
             }
 
@@ -335,6 +339,8 @@ transcript translation
     return (
         <div className='container' style={{ background: (isSpeaking ? 'darkblue' : (listening ? 'darkgreen' : 'darkgrey')) }}>
             <div style={{ background: 'grey' }}>
+                {/* <ScoreComponent></ScoreComponent> */}
+                <h1>{score}</h1>
                 <Accordion title={'instructions'} >
                     <Instructions instructions={instructions}></Instructions>
                 </Accordion>
