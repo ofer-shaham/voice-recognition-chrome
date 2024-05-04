@@ -22,6 +22,7 @@ import Accordion from './LogAndDebugComponents/Accordion';
 import CheckBoxSwitch from './General/checkboxSwitch';
 import FullScreenMode from './General/FullScreenWrapper';
 import isRtl from '../utils/isRtl';
+import BugComponent from './LogAndDebugComponents/bug';
 // import { setMute, setUnmute } from '../../utils/microphone';
 
 /**
@@ -361,7 +362,7 @@ transcript translation
                         </div>
                         <div className="button-container">
                             <div>
-                                <button className={`button ${toLangClassName}`}>{toLang}</button>
+                                <button className={`button`}>{toLang}</button>
                             </div>
                             <div>
                                 <p className={`translation ${toLangClassName} ${isSpeaking ? 'is-speaking' : ''}`}>{translation}</p>
@@ -370,7 +371,7 @@ transcript translation
                     </div>
                 </FullScreenMode>
 
-                <Accordion title={'switch language'} >
+                <Accordion title={'switch language'}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                         <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
                             <TranslationBox isActiveTalking={!!transcript} setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang}
@@ -469,6 +470,7 @@ transcript translation
                     console.log('implement stopListenAndRecord')
                 }} />
             </Accordion>
+            <BugComponent />
         </div>
     );
 };
