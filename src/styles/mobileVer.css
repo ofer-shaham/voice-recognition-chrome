@@ -12,6 +12,46 @@
   background: rgb(80, 80, 80);
   /* display: flex; */
   /* width: 100%; */
- }
+}
 
- 
+.button-container {
+  display: flex;
+  flex-direction: column;
+}
+
+.button {
+  width: 100%;
+  flex: 1;
+  font-size: 48px;
+}
+
+.transcript {
+  font-size: 48px;
+  direction: ltr;
+  text-align: left;
+  color: purple;
+}
+
+.final-transcript {
+  font-size: 48px;
+  direction: ltr;
+  text-align: left;
+  color: black;
+}
+
+.translation {
+  font-size: 48px;
+  flex-grow: initial;
+  direction: ltr;
+  text-align: left;
+  color: black;
+}
+
+.speaking {
+  color: green;
+}
+
+.is-rtl {
+  direction: rtl;
+  text-align: right;
+}

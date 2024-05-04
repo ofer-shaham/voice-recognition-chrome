@@ -5,13 +5,11 @@ import Logger from './LogAndDebugComponents/Logger';
 import RangeInput from './SpeechAndRecognitionComponents/RangeInput';
 import { INITIAL_DELAY_BETWEEN_WORDS, MAX_DELAY_FOR_NOT_LISTENING, instructions, initialFromLang, initialToLang } from '../consts/config';
 import { translate } from '../utils/translate';
-import { isMobile } from '../services/isMobile';
 import { freeSpeak } from '../utils/freeSpeak';
 import { useAvailableVoices } from '../hooks/useAvailableVoices';
 import { populateAvailableVoices } from '../utils/getVoice';
 import { mapLanguageToCode } from '../utils/mapLanguageToCode';
 import { Command } from '../types/speechRecognition';
-import VoicesDropdownSelect from './SpeechAndRecognitionComponents/voicesDropdownSelector';
 import TranslationBox from './SpeechAndRecognitionComponents/TranslationBox';
 import Debug from './LogAndDebugComponents/Debug';
 
@@ -23,6 +21,7 @@ import { useSearchParams } from 'react-router-dom'
 import Accordion from './LogAndDebugComponents/Accordion';
 import CheckBoxSwitch from './General/checkboxSwitch';
 import FullScreenMode from './General/FullScreenWrapper';
+import isRtl from '../utils/isRtl';
 // import { setMute, setUnmute } from '../../utils/microphone';
 
 /**
@@ -31,10 +30,7 @@ import FullScreenMode from './General/FullScreenWrapper';
  * 
  */
 const MobileVer = () => {
-    const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
-    const [selectedFromLang, setSelectedFromLang] = useState<SpeechSynthesisVoice | null>(null);
     const [isModeDebug, setIsModeDebug] = useState(false)
-
 
     const [transcribing, setTranscribing] = useState(true);
     const [clearTranscriptOnListen, setClearTranscriptOnListen] = useState(false);
@@ -48,12 +44,15 @@ const MobileVer = () => {
     const [fromLang, setFromLang] = useState('')
 
     const [toLang, setToLang] = useState('')
+    const fromLangClassName = isRtl(fromLang) ? 'is-rtl' : '';
+    const toLangClassName = isRtl(toLang) ? 'is-rtl' : '';
+
     const [delayBetweenWords, setdelayBetweenWords] = useState(INITIAL_DELAY_BETWEEN_WORDS)
     const [maxDelayForNotListening, setMaxDelayForNotListening] = useState(MAX_DELAY_FOR_NOT_LISTENING)
 
 
 
-    const [finalTranscriptProxy, setFinalTranscriptProxy] = useState('');
+    const [finalTranscriptProxy, setFinalTranscriptProxy] = useState('שלום מה נשמע');
     const [translation, setTranslation] = useState('')
     const availableVoices = useAvailableVoices();
 
@@ -347,34 +346,57 @@ transcript translation
                     {isModeConversation ? 'conversation' : 'single talker'}
                 </button>
 
-                {/* <button
-                    type="button"
-                    onClick={() => setIsSimultaneousTranslation(prev => !prev)}
-                    style={{ background: isSimultaneousTranslation ? 'blue' : 'green' }}
-                >
-                    isSimultaneousTranslation {isSimultaneousTranslation ? 'yes' : 'no'}
-                </button> */}
-                {/* <button
-                    type="button"
-                    onClick={() => setIsUserTouchedScreen(true)}
-                    style={{ background: isUserTouchedScreen ? 'green' : 'red' }}
-                >
-                    {isModeConversation ? 'User touched screen:' : 'User did not touch screen:'}
-                </button> */}
-
                 <FullScreenMode>
-                    <div className='flex-items' style={{ display: 'flex', alignItems: 'center' }}>
-                        <p style={{ color: 'purple', marginRight: '5px' }}>[{fromLang}]</p>
-                        {
-                            transcript ?
-                                <p style={{ color: 'purple' }}>{transcript}</p> :
-                                <p style={{ color: 'black' }}>{finalTranscriptProxy}</p>
-                        }
-                    </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                        <p>[{toLang}]</p>
-                        <p style={{ color: isSpeaking ? 'green' : 'black', marginLeft: '5px' }}>{translation}</p>
+                    {/* <div>
+                        <div style={{ display: 'flex', flex: '1', flexDirection: 'column' }}>
+                            <button style={{ width: '100%', flex: '1' }}>{fromLang}</button>
+                        </div>
+                        <div>
+                            {transcript ? (
+                                <p style={{
+                                    color: 'purple', fontSize: '48px', direction: isRtl(fromLang) ? 'rtl' : 'ltr',
+                                    textAlign: isRtl(fromLang) ? 'right' : 'left'
+                                }}>{transcript}</p>
+                            ) : (
+                                <p style={{
+                                    color: 'black', fontSize: '48px', direction: isRtl(fromLang) ? 'rtl' : 'ltr',
+                                    textAlign: isRtl(fromLang) ? 'right' : 'left'
+                                }}>{finalTranscriptProxy}</p>
+                            )}
+                        </div>
+                        <div style={{ display: 'flex', flex: '1', flexDirection: 'column' }}>
+                            <div>
+                                <button style={{ width: '100%', flex: '1' }}>{toLang}</button>
+                            </div>
+                            <div>
+                                <p style={{
+                                    color: isSpeaking ? 'green' : 'black',
+                                    fontSize: '48px',
+                                    flexGrow: 'initial', direction: isRtl(toLang) ? 'rtl' : 'ltr',
+                                    textAlign: isRtl(toLang) ? 'right' : 'left'
+                                }}>{translation}</p>
+                            </div>
+                        </div>
+                    </div> */}
+                    <div>
+                        <div className="button-container">
+                            <button className={`button ${fromLangClassName}`}>{fromLang}</button>
+                        </div>
+                        <div>
+                            {transcript ? (
+                                <p className={`transcript ${fromLangClassName}`}>{transcript}</p>
+                            ) : (
+                                <p className={`final-transcript ${fromLangClassName}`}>{finalTranscriptProxy}</p>
+                            )}
+                        </div>
+                        <div className="button-container">
+                            <div>
+                                <button className={`button ${toLangClassName}`}>{toLang}</button>
+                            </div>
+                            <div>
+                                <p className={`translation ${toLangClassName} ${isSpeaking ? 'is-speaking' : ''}`}>{translation}</p>
+                            </div>
+                        </div>
                     </div>
                 </FullScreenMode>
 
