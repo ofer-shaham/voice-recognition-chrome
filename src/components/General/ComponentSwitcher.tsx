@@ -18,7 +18,8 @@ const ComponentSwitcher: React.FC = () => {
 
   return (
     <div>
-      <button onClick={toggleComponent}>Toggle Component: {!showMobile ? 'Mobile':'Pc'}</button>
+      {MODE_DEV && 
+        <button onClick={toggleComponent}>Toggle Component: {!showMobile ? 'Mobile' : 'Pc'}</button>}
       {showMobile || MODE_DEV ? <MobileVer /> : <PcVer />}
     </div>
   );
