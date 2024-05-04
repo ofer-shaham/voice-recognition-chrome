@@ -400,24 +400,16 @@ transcript translation
                     </div>
                 </FullScreenMode>
 
-                <Accordion title={'translation'}  >
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+                    <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
+                        <TranslationBox isActiveTalking={!!transcript} setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang}
+                            text={transcript || finalTranscriptProxy} onfreeSpeakOnly={flaggedFreeSpeak} availableVoices={availableVoices} selectedVoice={selectedFromVoice} setSelectedVoice={setSelectedFromVoice} />
 
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
-                        <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
-                            <TranslationBox isActiveTalking={!!transcript} setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang}
-                                text={transcript || finalTranscriptProxy} onfreeSpeakOnly={flaggedFreeSpeak}>
-                                <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={fromLang} setLang={setFromLang} selectedVoice={selectedFromLang}
-                                    setSelectedVoice={setSelectedFromLang} />
-                            </TranslationBox>
-                            <TranslationBox isActiveTalking={isSpeaking} setText={setTranslation} setLanguage={setToLang} language={toLang}
-                                text={translation || ''}
-                                onfreeSpeakOnly={onfreeSpeakOnly} >
-                                <VoicesDropdownSelect isMobile={isMobile} voices={availableVoices} toLang={toLang} setLang={setToLang} selectedVoice={selectedVoice}
-                                    setSelectedVoice={setSelectedVoice} />
-                            </TranslationBox>
-                        </div>
+                        <TranslationBox isActiveTalking={isSpeaking} setText={setTranslation} setLanguage={setToLang} language={toLang}
+                            text={translation || ''}
+                            onfreeSpeakOnly={onfreeSpeakOnly} availableVoices={availableVoices} selectedVoice={selectedToVoice} setSelectedVoice={setSelectedToVoice} />
                     </div>
-                </Accordion>
+                </div>
 
                 <Debug isModeDebug={isModeDebug}>
                     <button
