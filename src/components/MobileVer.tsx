@@ -23,7 +23,7 @@ import CheckBoxSwitch from './General/checkboxSwitch';
 import FullScreenMode from './General/FullScreenWrapper';
 import isRtl from '../utils/isRtl';
 import BugComponent from './LogAndDebugComponents/bug';
-import ScoreComponent from './Todo/score';
+// import ScoreComponent from './Todo/score';
 import useLocalStorageScore from '../hooks/useLocalStorage';
 // import { setMute, setUnmute } from '../../utils/microphone';
 
@@ -274,7 +274,7 @@ transcript translation
         if (finalTranscriptProxy) {
             appendToHistory()
         }
-    }, [finalTranscriptProxy, fromLang, toLang, willAddToHistory]);
+    }, [finalTranscriptProxy, fromLang, toLang, willAddToHistory, updateScore]);
 
     useEffect(() => {
         const speakTranslation = (text: string, lang: string) => {
