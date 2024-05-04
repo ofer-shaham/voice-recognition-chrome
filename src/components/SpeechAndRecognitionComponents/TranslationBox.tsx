@@ -35,7 +35,7 @@ const TranslationBox: React.FC<TranslationProps> = ({ language, text, onfreeSpea
     DEBOUNCE_TEXT_DELAY
   );
 
-  useEffect(()=>{setLanguage(selectedVoice?.lang || '')},[selectedVoice, setLanguage])
+  useEffect(() => { setLanguage(selectedVoice?.lang || '') }, [selectedVoice, setLanguage])
 
   return (
     <div className="translation-container" style={{ width: '100%' }}>
