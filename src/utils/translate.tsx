@@ -7,6 +7,6 @@ export const translate = ({ finalTranscriptProxy, fromLang, toLang }: { finalTra
             return y
         })
         .catch(err => {
-            console.error(err.message); return `error, ${err.message}`
+            console.error(err.message); return `translation error`
         })
 }
