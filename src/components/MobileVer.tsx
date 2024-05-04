@@ -42,8 +42,8 @@ const MobileVer = () => {
 
 
     const [fromLang, setFromLang] = useState('')
-
     const [toLang, setToLang] = useState('')
+
     const fromLangClassName = isRtl(fromLang) ? 'is-rtl' : '';
     const toLangClassName = isRtl(toLang) ? 'is-rtl' : '';
 
@@ -296,7 +296,7 @@ transcript translation
         const delay = delayBetweenWords; // Delay in milliseconds
         let timerId: NodeJS.Timeout | null = null;
 
-        if (transcript && transcript !== '-') {
+        if (transcript) {
             timerId = setTimeout(() => {
                 console.log({ finish: transcript })
                 setFinalTranscriptProxy(transcript)
