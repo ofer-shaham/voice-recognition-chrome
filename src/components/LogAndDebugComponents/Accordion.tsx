@@ -20,4 +20,4 @@ const Accordion: React.FC<AccordionProps> = ({ title, children }) => {
   );
 };
 
-export default Accordion;
+export default React.memo(Accordion);
