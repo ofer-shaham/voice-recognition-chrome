@@ -67,6 +67,8 @@ const MobileVer = () => {
 
     // const [isSimultaneousTranslation, setIsSimultaneousTranslation] = useState(true)
     const [searchParams, setSearchParams] = useSearchParams()
+    const [selectedFromVoice, setSelectedFromVoice] = useState<SpeechSynthesisVoice | null>(null);
+    const [selectedToVoice, setSelectedToVoice] = useState<SpeechSynthesisVoice | null>(null);
 
     useEffect(() => {
         const searchToLang = searchParams.get('to-lang') || initialToLang

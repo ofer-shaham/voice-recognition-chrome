@@ -2,6 +2,7 @@ import React, { Dispatch, ReactElement, SetStateAction } from 'react';
 import '../../styles/TranslationBox.css';
 import { useDebouncedCallback } from 'use-debounce';
 import { DEBOUNCE_TEXT_DELAY } from '../../consts/config';
+import VoicesDropdownSelect from './voicesDropdownSelector';
 
 type TranslationProps = {
   language: string;
@@ -11,10 +12,13 @@ type TranslationProps = {
   setText: Dispatch<SetStateAction<string>>;
   children?: ReactElement;
   isActiveTalking: boolean;
-
+  availableVoices: SpeechSynthesisVoice[];
+  selectedVoice: SpeechSynthesisVoice | null;
+  setSelectedVoice: Dispatch<SetStateAction<SpeechSynthesisVoice | null>>;
 };
 
-const TranslationBox: React.FC<TranslationProps> = ({ language, text, onfreeSpeakOnly, setLanguage, setText, children, isActiveTalking }) => {
+const TranslationBox: React.FC<TranslationProps> = ({ language, text, onfreeSpeakOnly, setLanguage, setText, isActiveTalking, availableVoices, selectedVoice, setSelectedVoice }) => {
+
 
   const changeLanguage = useDebouncedCallback(
     (value) => {
@@ -35,12 +39,12 @@ const TranslationBox: React.FC<TranslationProps> = ({ language, text, onfreeSpea
   return (
     <div className="translation-container" style={{ width: '100%' }}>
       <div style={{ minHeight: '19px' }}>
-        {children}
+        <VoicesDropdownSelect voices={availableVoices} language={language} selectedVoice={selectedVoice}
+          setSelectedVoice={setSelectedVoice} />
       </div>
 
       <input type="text" defaultValue={language}
         onChange={(e) => changeLanguage(e.target.value)}
-
         style={{ width: '100%' }} />
 
       <div className="translation-row">
@@ -51,9 +55,8 @@ const TranslationBox: React.FC<TranslationProps> = ({ language, text, onfreeSpea
       <div style={{ width: '100%' }}>
         <button onClick={() => onfreeSpeakOnly(text, language)}>speak</button>
       </div>
-
     </div>
   );
 };
 
-export default TranslationBox;
+export default React.memo(TranslationBox);
