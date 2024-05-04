@@ -450,18 +450,17 @@ transcript translation
                     >
                         Reset
                     </button>
+                    <CheckBoxSwitch isModeValue={isContinuous}
+                        setIsModeValue={setIsContinuous}
+                        title='continuous'
+                    />
                     <Logger messages={logMessages} setMessages={setLogMessages} />
+                    <RangeInput value={delayBetweenWords} setValue={setdelayBetweenWords} title='delayBetweenWords' />
                 </Debug>
-                <RangeInput value={delayBetweenWords} setValue={setdelayBetweenWords} title='delayBetweenWords' />
-
             </div>
-            <CheckBoxSwitch isModeValue={isContinuous}
-                setIsModeValue={setIsContinuous}
-                title='continuous'
-            />
-            <CheckBoxSwitch isModeValue={isModeDebug} setIsModeValue={setIsModeDebug} title='Debug' />
 
-            <Accordion title='history'>
+
+            {finalTranscriptHistory.length ? <Accordion title='history'>
 
                 <TranscriptHistory finalTranscriptHistory={finalTranscriptHistory} onfreeSpeakOnly={onfreeSpeakOnly} onEndPlayback={
                     () => { console.log('implement startListenAndRecord') }
@@ -469,8 +468,9 @@ transcript translation
                 } onBeforePlayback={() => {
                     console.log('implement stopListenAndRecord')
                 }} />
-            </Accordion>
+            </Accordion> : null}
             <BugComponent />
+            <CheckBoxSwitch isModeValue={isModeDebug} setIsModeValue={setIsModeDebug} title='Debug' />
         </div>
     );
 };
