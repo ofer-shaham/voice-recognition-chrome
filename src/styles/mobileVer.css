@@ -6,13 +6,7 @@
   background: #000;
 }
 
-.container {
-  padding: 11px;
-  margin: 11px;
-  background: rgb(80, 80, 80);
-  /* display: flex; */
-  /* width: 100%; */
-}
+ 
 
 .button-container {
   display: flex;
@@ -22,31 +16,12 @@
 .button {
   width: 100%;
   flex: 1;
-  font-size: 48px;
+  background-color: #8f749a;
 }
 
-.transcript {
-  font-size: 48px;
-  direction: ltr;
-  text-align: left;
-  color: purple;
-}
+ 
 
-.final-transcript {
-  font-size: 48px;
-  direction: ltr;
-  text-align: left;
-  color: black;
-}
-
-.translation {
-  font-size: 48px;
-  flex-grow: initial;
-  direction: ltr;
-  text-align: left;
-  color: black;
-}
-
+ 
 .speaking {
   color: green;
 }
@@ -54,4 +29,34 @@
 .is-rtl {
   direction: rtl;
   text-align: right;
+} 
+
+.container {
+  padding: 11px;
+  margin: 11px;
+  background: rgb(80, 80, 80);
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.transcript {
+  font-size: calc(4vw - 10px);
+  direction: ltr;
+  text-align: left;
+  color: purple;
+  overflow: auto;
+  max-height: 40vh;
+
+}
+
+.final-transcript,
+.translation {
+  font-size: calc(20vw - 40px);
+  direction: ltr;
+  text-align: left;
+  color: black;
+  overflow: auto;
+  max-height: 40vh;
+
 }

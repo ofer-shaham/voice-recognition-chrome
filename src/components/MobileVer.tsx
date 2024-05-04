@@ -347,40 +347,9 @@ transcript translation
                 </button>
 
                 <FullScreenMode>
-                    {/* <div>
-                        <div style={{ display: 'flex', flex: '1', flexDirection: 'column' }}>
-                            <button style={{ width: '100%', flex: '1' }}>{fromLang}</button>
-                        </div>
-                        <div>
-                            {transcript ? (
-                                <p style={{
-                                    color: 'purple', fontSize: '48px', direction: isRtl(fromLang) ? 'rtl' : 'ltr',
-                                    textAlign: isRtl(fromLang) ? 'right' : 'left'
-                                }}>{transcript}</p>
-                            ) : (
-                                <p style={{
-                                    color: 'black', fontSize: '48px', direction: isRtl(fromLang) ? 'rtl' : 'ltr',
-                                    textAlign: isRtl(fromLang) ? 'right' : 'left'
-                                }}>{finalTranscriptProxy}</p>
-                            )}
-                        </div>
-                        <div style={{ display: 'flex', flex: '1', flexDirection: 'column' }}>
-                            <div>
-                                <button style={{ width: '100%', flex: '1' }}>{toLang}</button>
-                            </div>
-                            <div>
-                                <p style={{
-                                    color: isSpeaking ? 'green' : 'black',
-                                    fontSize: '48px',
-                                    flexGrow: 'initial', direction: isRtl(toLang) ? 'rtl' : 'ltr',
-                                    textAlign: isRtl(toLang) ? 'right' : 'left'
-                                }}>{translation}</p>
-                            </div>
-                        </div>
-                    </div> */}
                     <div>
                         <div className="button-container">
-                            <button className={`button ${fromLangClassName}`}>{fromLang}</button>
+                            <button className={`button`}>{fromLang}</button>
                         </div>
                         <div>
                             {transcript ? (
