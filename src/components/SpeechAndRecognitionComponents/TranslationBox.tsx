@@ -1,4 +1,4 @@
-import React, { Dispatch, ReactElement, SetStateAction } from 'react';
+import React, { Dispatch, ReactElement, SetStateAction, useEffect } from 'react';
 import '../../styles/TranslationBox.css';
 import { useDebouncedCallback } from 'use-debounce';
 import { DEBOUNCE_TEXT_DELAY } from '../../consts/config';
@@ -35,6 +35,7 @@ const TranslationBox: React.FC<TranslationProps> = ({ language, text, onfreeSpea
     DEBOUNCE_TEXT_DELAY
   );
 
+  useEffect(()=>{setLanguage(selectedVoice?.lang || '')},[selectedVoice, setLanguage])
 
   return (
     <div className="translation-container" style={{ width: '100%' }}>
