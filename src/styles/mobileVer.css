@@ -27,7 +27,7 @@
 }
 
 .transcript {
-  font-size: calc(20vw - 40px);
+  font-size: calc(5vw);
   direction: ltr;
   text-align: left;
   color: purple;
@@ -36,12 +36,14 @@
 
 .final-transcript,
 .translation {
-  font-size: calc(20vw - 40px);
+  font-size: calc(5vw);
   direction: ltr;
   text-align: left;
   color: black;
   overflow: auto;
   max-height: 40vh;
+  margin-top: 0px;
+  margin-bottom: 0px;
 }
 
 .is-rtl {
@@ -62,9 +64,13 @@
   .transcript,
   .final-transcript,
   .translation {
-    font-size: 24px;
+    font-size: calc(5vw);
     /* Adjust the font size as needed */
     color: darkblue;
+    
+    margin-top: 0px;
+    margin-bottom: 0px;
+
   }
 }
 
@@ -82,9 +88,11 @@
   .transcript,
   .final-transcript,
   .translation {
-    font-size: calc(20vw - 40px);
+    font-size: calc(10vw);
     /* Adjust the font size as needed */
     color: darkgreen;
+    margin-top: 0px;
+    margin-bottom: 0px;
   }
 }
 
@@ -102,8 +110,10 @@
   .transcript,
   .final-transcript,
   .translation {
-    font-size: 11px;
+    font-size: calc(5vw);
     /* Adjust the font size as needed */
     color: darkorange;
+    margin-top: 0px;
+    margin-bottom: 0px;
   }
 }
