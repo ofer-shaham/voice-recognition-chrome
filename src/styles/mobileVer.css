@@ -117,3 +117,7 @@
     margin-bottom: 0px;
   }
 }
+
+.is-speaking {
+  color: green;
+}
