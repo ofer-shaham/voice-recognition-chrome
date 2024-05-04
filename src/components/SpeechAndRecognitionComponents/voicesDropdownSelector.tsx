@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { isMobile } from '../../services/isMobile';
 
 // export interface  SpeechSynthesisVoice as   Voice;
 // {
@@ -8,44 +9,34 @@ import React, { useEffect } from 'react';
 // }
 interface props {
     voices: SpeechSynthesisVoice[];
-    toLang: string;
-    setLang: React.Dispatch<React.SetStateAction<string>>
-    ;
+    language: string;
     selectedVoice: SpeechSynthesisVoice | null;
-    setSelectedVoice: React.Dispatch<React.SetStateAction<SpeechSynthesisVoice | null>>
-    ;
-    isMobile: boolean
-
-
+    setSelectedVoice: React.Dispatch<React.SetStateAction<SpeechSynthesisVoice | null>>;
 }
 
-const VoicesDropdownSelect = ({ voices, selectedVoice, setSelectedVoice, toLang, setLang, isMobile }: props) => {
-
-
+const VoicesDropdownSelect = ({ voices, selectedVoice, setSelectedVoice, language }: props) => {
+    const normalizeToLang = (isMobile ? language.replace('-', '_') : language)
+    
     useEffect(() => {
-        console.info('change language to ', toLang)
         if (!voices?.length) return;
-        const voice = voices.find(r => r.lang === (isMobile ? toLang.replace('-', '_') : toLang))
-        voice && setSelectedVoice(voice)
-
-
-    }, [voices, toLang, setSelectedVoice, isMobile])
+        console.info('change language to ', normalizeToLang)
+        const voice = voices.find(r => r.lang === normalizeToLang)
+        voice ? setSelectedVoice(voice) : console.error('error picking voice for lang: ', normalizeToLang)
+    }, [voices, normalizeToLang, setSelectedVoice])
 
     const handleVoiceSelect = (event: React.ChangeEvent<HTMLSelectElement>) => {
         const selectedLang = event.target.value;
         const selectedVoice = voices.find((voice) => voice.lang === selectedLang);
         if (selectedVoice) {
-
             setSelectedVoice(selectedVoice);
-            setLang(selectedLang);
         }
     };
+    
     return (
         <div className='select-voice'>
             <select id="voiceSelect"
                 value={selectedVoice?.lang}
-                onChange={handleVoiceSelect}
-            >
+                onChange={handleVoiceSelect}>
                 {voices.map((voice, index) => (
                     <option key={index} value={voice.lang}>
                         {voice.name} ({voice.lang}) {voice.default && '— DEFAULT'}
