@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SpeechRecognition, { ListeningOptions, useSpeechRecognition } from 'react-speech-recognition';
 import { useRecognitionEvents } from '../hooks/useRecognitionEvents';
 import Logger from './LogAndDebugComponents/Logger';
@@ -23,7 +23,7 @@ import CheckBoxSwitch from './General/checkboxSwitch';
 import FullScreenMode from './General/FullScreenWrapper';
 import isRtl from '../utils/isRtl';
 import BugComponent from './LogAndDebugComponents/bug';
-// import ScoreComponent from './Todo/score';
+
 import useLocalStorageScore from '../hooks/useLocalStorage';
 // import { setMute, setUnmute } from '../../utils/microphone';
 
@@ -72,6 +72,7 @@ const MobileVer = () => {
     const [selectedFromVoice, setSelectedFromVoice] = useState<SpeechSynthesisVoice | null>(null);
     const [selectedToVoice, setSelectedToVoice] = useState<SpeechSynthesisVoice | null>(null);
     const [score, updateScore] = useLocalStorageScore();
+    const scoreIncreaseRef=useRef(updateScore)
 
     useEffect(() => {
         const searchToLang = searchParams.get('to-lang') || initialToLang
@@ -266,7 +267,6 @@ transcript translation
             }
 
             if (willAddToHistory) {
-                updateScore()
                 setFinalTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscriptProxy: finalTranscriptProxy, translation: translationResult, fromLang: fromLang, toLang: toLang, audioData: '' }])
             }
 
@@ -274,7 +274,11 @@ transcript translation
         if (finalTranscriptProxy) {
             appendToHistory()
         }
-    }, [finalTranscriptProxy, fromLang, toLang, willAddToHistory, updateScore]);
+    }, [finalTranscriptProxy, fromLang, toLang, willAddToHistory,]);
+
+    useEffect(() => {
+        scoreIncreaseRef.current()
+    }, [ finalTranscriptProxy])
 
     useEffect(() => {
         const speakTranslation = (text: string, lang: string) => {
