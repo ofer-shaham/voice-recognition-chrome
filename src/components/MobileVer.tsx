@@ -71,7 +71,7 @@ const MobileVer = () => {
     const [searchParams, setSearchParams] = useSearchParams()
     const [selectedFromVoice, setSelectedFromVoice] = useState<SpeechSynthesisVoice | null>(null);
     const [selectedToVoice, setSelectedToVoice] = useState<SpeechSynthesisVoice | null>(null);
-    const [score, updateScore] = useLocalStorageScore({ key: 'score', defaultValue: 0 });
+    const [score, updateScore, resetScore] = useLocalStorageScore({ key: 'score', defaultValue: 0 });
     const scoreIncreaseRef = useRef(updateScore)
 
     useEffect(() => {
@@ -343,8 +343,8 @@ const MobileVer = () => {
     return (
         <div className='container' style={{ background: (isSpeaking ? 'darkblue' : (listening ? 'darkgreen' : 'darkgrey')) }}>
             <div style={{ background: 'grey' }}>
-       
-                <div className="centeredContainer">
+
+                <div className="centeredContainer" onClick={() => resetScore()}>
                     <h1>score: {score}</h1>
                 </div>
 

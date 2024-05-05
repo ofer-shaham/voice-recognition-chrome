@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-function getStorageValue(key:string, defaultValue:any) {
+function getStorageValue(key: string, defaultValue: any) {
     // getting stored value
     if (typeof window !== "undefined") {
         const saved = localStorage.getItem(key);
@@ -13,7 +13,7 @@ interface props {
     defaultValue: any;
 }
 
-const useLocalStorageScore = ({ key, defaultValue }: props): [any, () => void] => {
+const useLocalStorageScore = ({ key, defaultValue }: props): [any, () => void, () => void] => {
     const [value, setValue] = useState<any>(() => {
         return getStorageValue(key, defaultValue);
     });
@@ -22,13 +22,18 @@ const useLocalStorageScore = ({ key, defaultValue }: props): [any, () => void] =
     useEffect(() => {
         // storing input name
         localStorage.setItem(key, JSON.stringify(value));
-      }, [key, value]);
+    }, [key, value]);
 
-    const updateValue = () => {
-        setValue((prev:any) => prev + 1);
+    const increaseValue = (num?: number) => {
+
+        setValue((prev: any) => prev + 1);
+    };
+    const reset = () => {
+
+        setValue(0);
     };
 
-    return [value, updateValue];
+    return [value, increaseValue, reset];
 };
 
 export default useLocalStorageScore;
