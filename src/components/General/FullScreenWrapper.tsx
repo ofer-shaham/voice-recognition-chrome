@@ -13,7 +13,7 @@ const FullScreenWrapper: React.FC<FullScreenWrapperProps> = ({ children }) => {
 
     return (
         <div ref={elementRef}>
-            <button onClick={toggleFullscreen}>
+            <button style={{height:'35px'}} onClick={toggleFullscreen}>
                 {isFullscreen ? 'Exit Fullscreen' : 'Go Fullscreen'}
             </button>
             {children}
@@ -21,4 +21,4 @@ const FullScreenWrapper: React.FC<FullScreenWrapperProps> = ({ children }) => {
     );
 }
 
-export default FullScreenWrapper;
+export default FullScreenWrapper;   
