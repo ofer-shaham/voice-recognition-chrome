@@ -23,6 +23,7 @@ import CheckBoxSwitch from './General/checkboxSwitch';
 import FullScreenMode from './General/FullScreenWrapper';
 import isRtl from '../utils/isRtl';
 import BugComponent from './LogAndDebugComponents/bug';
+import Todo from './LogAndDebugComponents/mdPresenter';
 
 import useLocalStorageScore from '../hooks/useLocalStorage';
 // import { setMute, setUnmute } from '../../utils/microphone';

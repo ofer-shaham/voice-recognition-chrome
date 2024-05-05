@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { marked } from 'marked'; // Import marked for markdown processing
+import '../../styles/markdown-wrap.css'
 
 interface MarkdownProps {
     url: string; // URL of the markdown file
@@ -43,7 +44,10 @@ const Markdown: React.FC<MarkdownProps> = ({ url }) => {
         return <div>Error: {error}</div>;
     }
 
-    return <div dangerouslySetInnerHTML={{ __html: markdownContent }} />;
+
+    return (
+        <div className='markdown-wrap' style={{ backgroundColor: 'black', overflowWrap: 'break-word', textWrap: 'initial' }} dangerouslySetInnerHTML={{ __html: markdownContent }} />
+    );
 };
 
 export default Markdown;

@@ -10,8 +10,8 @@ type Message = {
 };
 
 type LoggerProps = {
-    messages: Message[];
     setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
+    messages: Message[];
 };
 
 const Logger: React.FC<LoggerProps> = ({ messages, setMessages }) => {
