@@ -385,7 +385,8 @@ const MobileVer = () => {
                     </div>
                 </FullScreenMode>
 
-                <Accordion title={'switch language'}>
+                <Accordion title={'switch language'}
+                    style={{  height: '60px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                         <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
                             <TranslationBox isActiveTalking={!!transcript} setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang}
@@ -483,6 +484,9 @@ const MobileVer = () => {
                     console.log('implement stopListenAndRecord')
                 }} />
             </Accordion> : null}
+            <Accordion title='show README'>
+                <Todo url="https://raw.githubusercontent.com/ofer-shaham/voice-recognition-chrome/main/README.md" />
+            </Accordion>
             <BugComponent />
             <CheckBoxSwitch isModeValue={isModeDebug} setIsModeValue={setIsModeDebug} title='Debug' />
         </div>
