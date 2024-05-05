@@ -121,3 +121,10 @@
 .is-speaking {
   color: green;
 }
+
+.centeredContainer {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+ 
+}

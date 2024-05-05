@@ -71,8 +71,8 @@ const MobileVer = () => {
     const [searchParams, setSearchParams] = useSearchParams()
     const [selectedFromVoice, setSelectedFromVoice] = useState<SpeechSynthesisVoice | null>(null);
     const [selectedToVoice, setSelectedToVoice] = useState<SpeechSynthesisVoice | null>(null);
-    const [score, updateScore] = useLocalStorageScore();
-    const scoreIncreaseRef=useRef(updateScore)
+    const [score, updateScore] = useLocalStorageScore({ key: 'score', defaultValue: 0 });
+    const scoreIncreaseRef = useRef(updateScore)
 
     useEffect(() => {
         const searchToLang = searchParams.get('to-lang') || initialToLang
@@ -246,7 +246,7 @@ const MobileVer = () => {
 
 
     /*
-transcript translation
+    transcript translation
     */
     useEffect(() => {
         async function appendToHistory() {
@@ -278,7 +278,7 @@ transcript translation
 
     useEffect(() => {
         scoreIncreaseRef.current()
-    }, [ finalTranscriptProxy])
+    }, [finalTranscriptProxy])
 
     useEffect(() => {
         const speakTranslation = (text: string, lang: string) => {
@@ -343,8 +343,11 @@ transcript translation
     return (
         <div className='container' style={{ background: (isSpeaking ? 'darkblue' : (listening ? 'darkgreen' : 'darkgrey')) }}>
             <div style={{ background: 'grey' }}>
-                {/* <ScoreComponent></ScoreComponent> */}
-                <h1>{score}</h1>
+       
+                <div className="centeredContainer">
+                    <h1>score: {score}</h1>
+                </div>
+
                 <Accordion title={'instructions'} >
                     <Instructions instructions={instructions}></Instructions>
                 </Accordion>
