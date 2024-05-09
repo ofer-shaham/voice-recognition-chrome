@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import isRtl from '../utils/isRtl';
 import { useSearchParams } from 'react-router-dom'
 
 import { initialFromLang, initialToLang } from '../consts/config';
@@ -11,10 +10,6 @@ const useLanguageSelection = () => {
   const [selectedToVoice, setSelectedToVoice] = useState<SpeechSynthesisVoice | null>(null);
   const [fromLang, setFromLang] = useState<string>('');
   const [toLang, setToLang] = useState<string>('');
-
-  const fromLangClassName = isRtl(fromLang) ? 'is-rtl' : '';
-  const toLangClassName = isRtl(toLang) ? 'is-rtl' : '';
-
 
   useEffect(() => {
     const searchToLang = searchParams.get('to-lang') || initialToLang;
@@ -49,9 +44,7 @@ const useLanguageSelection = () => {
     fromLang,
     setFromLang,
     toLang,
-    setToLang,
-    fromLangClassName,
-    toLangClassName,
+    setToLang
   };
 };
 
