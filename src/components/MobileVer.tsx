@@ -385,7 +385,7 @@ const MobileVer = () => {
                     </div>
                 </FullScreenMode>
 
-                <Accordion title={'switch language'}
+                <Accordion title={'languages'}
                     style={{  height: '60px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                         <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
