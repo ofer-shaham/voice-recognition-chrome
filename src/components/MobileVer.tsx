@@ -3,7 +3,7 @@ import SpeechRecognition, { ListeningOptions, useSpeechRecognition } from 'react
 import { useRecognitionEvents } from '../hooks/useRecognitionEvents';
 import Logger from './LogAndDebugComponents/Logger';
 import RangeInput from './SpeechAndRecognitionComponents/RangeInput';
-import { INITIAL_DELAY_BETWEEN_WORDS, MAX_DELAY_FOR_NOT_LISTENING, instructions, initialFromLang, initialToLang } from '../consts/config';
+import { INITIAL_DELAY_BETWEEN_WORDS, MAX_DELAY_FOR_NOT_LISTENING, instructions } from '../consts/config';
 import { translate } from '../utils/translate';
 import { freeSpeak } from '../utils/freeSpeak';
 import { useAvailableVoices } from '../hooks/useAvailableVoices';
@@ -26,6 +26,7 @@ import BugComponent from './LogAndDebugComponents/bug';
 import Todo from './LogAndDebugComponents/mdPresenter';
 
 import useLocalStorageScore from '../hooks/useLocalStorage';
+import useLanguageSelection from '../hooks/useLanguageSelection';
 // import { setMute, setUnmute } from '../../utils/microphone';
 
 /**
@@ -45,11 +46,9 @@ const MobileVer = () => {
     const [isInterimResults, setIsInterimResults] = useState(false);
 
 
-    const [fromLang, setFromLang] = useState('')
-    const [toLang, setToLang] = useState('')
 
-    const fromLangClassName = isRtl(fromLang) ? 'is-rtl' : '';
-    const toLangClassName = isRtl(toLang) ? 'is-rtl' : '';
+
+
 
     const [delayBetweenWords, setdelayBetweenWords] = useState(INITIAL_DELAY_BETWEEN_WORDS)
     const [maxDelayForNotListening, setMaxDelayForNotListening] = useState(MAX_DELAY_FOR_NOT_LISTENING)
@@ -74,38 +73,14 @@ const MobileVer = () => {
     const [selectedToVoice, setSelectedToVoice] = useState<SpeechSynthesisVoice | null>(null);
     const [score, updateScore, resetScore] = useLocalStorageScore({ key: 'score', defaultValue: 0 });
     const scoreIncreaseRef = useRef(updateScore)
+    const {
+        fromLang,
+        setFromLang,
+        toLang,
+        setToLang,
+ 
+    } = useLanguageSelection();
 
-    useEffect(() => {
-        const searchToLang = searchParams.get('to-lang') || initialToLang
-        const searchFromLang = searchParams.get('from-lang') || initialFromLang
-        setTimeout(
-            () => {
-                if (searchToLang) {
-                    console.log(searchToLang)
-                    setToLang(searchToLang)
-                }
-
-                if (searchFromLang) {
-                    console.log(searchFromLang)
-                    setFromLang(searchFromLang)
-                }
-            }
-        )
-
-    }, [searchParams])
-
-    //update url based on change to source/target langs
-    useEffect(() => {
-        if (fromLang && toLang) {
-            setSearchParams({ 'from-lang': fromLang, 'to-lang': toLang })
-        }
-        else if (fromLang) {
-            setSearchParams({ 'from-lang': fromLang })
-        }
-        else if (toLang) {
-            setSearchParams({ 'to-lang': toLang })
-        }
-    }, [toLang, fromLang, setSearchParams])
 
     const willAddToHistory = useMemo(() => {
         return showTranslationHistory

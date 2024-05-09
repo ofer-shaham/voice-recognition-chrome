@@ -37,6 +37,7 @@ import { useRecording } from '../hooks/useRecording';
 import { useRecognitionEvents } from '../hooks/useRecognitionEvents';
 import React from 'react';
 import CheckBoxSwitch from './General/checkboxSwitch';
+import useLanguageSelection from '../hooks/useLanguageSelection';
 
 
 const PcVer: React.FC = () => {
@@ -64,7 +65,13 @@ const PcVer: React.FC = () => {
     const prevFinalTranscriptProxyRef = useRef('')
     const [selectedFromVoice, setSelectedFromVoice] = useState<SpeechSynthesisVoice | null>(null);
     const [selectedToVoice, setSelectedToVoice] = useState<SpeechSynthesisVoice | null>(null);
-
+    const {
+        fromLang,
+        setFromLang,
+        toLang,
+        setToLang,
+    
+    } = useLanguageSelection();
     renderCountRef.current += 1;
 
     const availableVoicesCode = useMemo<string[] | null>(() => availableVoices.map(r => r.lang), [availableVoices])
