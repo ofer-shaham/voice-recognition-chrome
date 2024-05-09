@@ -17,11 +17,8 @@ import '../styles/mobileVer.css'
 import Instructions from './SpeechAndRecognitionComponents/Instructions';
 import { FinalTranscriptHistory } from '../types/FinalTranscriptHistory';
 import TranscriptHistory from './SpeechAndRecognitionComponents/TranscriptHistory';
-import { useSearchParams } from 'react-router-dom'
 import Accordion from './LogAndDebugComponents/Accordion';
 import CheckBoxSwitch from './General/checkboxSwitch';
-import FullScreenMode from './General/FullScreenWrapper';
-import isRtl from '../utils/isRtl';
 import BugComponent from './LogAndDebugComponents/bug';
 import Todo from './LogAndDebugComponents/mdPresenter';
 
@@ -69,7 +66,6 @@ const MobileVer = () => {
     const [finalTranscriptHistory, setFinalTranscriptHistory] = useState<FinalTranscriptHistory[]>([])
 
     // const [isSimultaneousTranslation, setIsSimultaneousTranslation] = useState(true)
-    const [searchParams, setSearchParams] = useSearchParams()
     const [selectedFromVoice, setSelectedFromVoice] = useState<SpeechSynthesisVoice | null>(null);
     const [selectedToVoice, setSelectedToVoice] = useState<SpeechSynthesisVoice | null>(null);
     const [score, updateScore, resetScore] = useLocalStorageScore({ key: 'score', defaultValue: 0 });
@@ -78,8 +74,7 @@ const MobileVer = () => {
         fromLang,
         setFromLang,
         toLang,
-        setToLang,
- 
+        setToLang
     } = useLanguageSelection();
 
 
