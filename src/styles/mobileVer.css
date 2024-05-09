@@ -5,7 +5,9 @@
 .fullscreen-enabled .my-component {
   background: #000;
 }
-
+.buttons-container p {
+  margin: 0;
+}
 .button-container {
   display: flex;
   flex-direction: column;
@@ -25,6 +27,8 @@
   flex-direction: column;
   height: 100vh;
 }
+
+
 
 .transcript {
   font-size: calc(5vw);

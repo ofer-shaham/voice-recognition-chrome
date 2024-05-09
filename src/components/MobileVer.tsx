@@ -363,7 +363,7 @@ const MobileVer = () => {
 
                 {/* show main text source/translation */}
                 <FullScreenMode>
-                    <div>
+                    <div className="buttons-container">
                         <div className="button-container">
                             <button className={`button`}>{fromLang}</button>
                         </div>
