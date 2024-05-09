@@ -341,7 +341,7 @@ const MobileVer = () => {
                 <ShowTranscriptAndTranslation fromLang={fromLang} transcript={transcript} finalTranscriptProxy={finalTranscriptProxy} toLang={toLang} isSpeaking={isSpeaking} translation={translation} />
 
                 <Accordion title={'languages'}
-                    style={{  height: '60px' }}>
+                    style={{ height: '60px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                         <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
                             <TranslationBox isActiveTalking={!!transcript} setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang}
