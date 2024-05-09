@@ -27,6 +27,7 @@ import Todo from './LogAndDebugComponents/mdPresenter';
 
 import useLocalStorageScore from '../hooks/useLocalStorage';
 import useLanguageSelection from '../hooks/useLanguageSelection';
+import ShowTranscriptAndTranslation from './General/TranscriptTranslationPanel';
 // import { setMute, setUnmute } from '../../utils/microphone';
 
 /**
@@ -337,28 +338,7 @@ const MobileVer = () => {
                 </button>
 
                 {/* show main text source/translation */}
-                <FullScreenMode>
-                    <div className="buttons-container">
-                        <div className="button-container">
-                            <button className={`button`}>{fromLang}</button>
-                        </div>
-                        <div>
-                            {transcript ? (
-                                <p className={`transcript ${fromLangClassName}`}>{transcript}</p>
-                            ) : (
-                                <p className={`final-transcript ${fromLangClassName}`}>{finalTranscriptProxy}</p>
-                            )}
-                        </div>
-                        <div className="button-container">
-                            <div>
-                                <button className={`button`}>{toLang}</button>
-                            </div>
-                            <div>
-                                <p className={`translation ${toLangClassName} ${isSpeaking ? 'is-speaking' : ''}`}>{translation}</p>
-                            </div>
-                        </div>
-                    </div>
-                </FullScreenMode>
+                <ShowTranscriptAndTranslation fromLang={fromLang} transcript={transcript} finalTranscriptProxy={finalTranscriptProxy} toLang={toLang} isSpeaking={isSpeaking} translation={translation} />
 
                 <Accordion title={'languages'}
                     style={{  height: '60px' }}>
