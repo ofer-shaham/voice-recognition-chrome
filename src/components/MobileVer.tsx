@@ -123,7 +123,7 @@ const MobileVer = () => {
                 resetTranscript()
             }
         }
-    ], [])
+    ], [setFromLang, setToLang])
 
 
     const {
@@ -165,7 +165,7 @@ const MobileVer = () => {
 
         setFromLang(toLang);
         setToLang(fromLangCopy)
-    }, [fromLang, toLang, resetTranscript])
+    }, [fromLang, toLang, resetTranscript, setFromLang, setToLang])
 
     const flaggedFreeSpeak = useCallback(async (text: string, lang: string) => {
         // setTranscribing(() => false)
