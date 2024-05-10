@@ -106,7 +106,7 @@ const PcVer: React.FC = () => {
             },
             matchInterim: true
         }
-    ], [])
+    ], [setFromLang, setToLang])
 
     const { finalTranscript,
         interimTranscript,
