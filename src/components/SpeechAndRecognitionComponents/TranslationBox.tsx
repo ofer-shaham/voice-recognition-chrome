@@ -40,8 +40,8 @@ const TranslationBox: React.FC<TranslationProps> = ({ language, text, onfreeSpea
   return (
     <div className="translation-container">
       <div className="voices-dropdown">
-        <VoicesDropdownSelect voices={availableVoices} language={language} selectedVoice={selectedVoice}
-          setSelectedVoice={setSelectedVoice} />
+        {availableVoices.length && <VoicesDropdownSelect voices={availableVoices} language={language} selectedVoice={selectedVoice}
+          setSelectedVoice={setSelectedVoice} />}
       </div>
 
       <input type="text" defaultValue={language}

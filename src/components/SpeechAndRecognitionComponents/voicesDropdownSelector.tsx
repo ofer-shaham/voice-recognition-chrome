@@ -16,12 +16,15 @@ interface props {
 
 const VoicesDropdownSelect = ({ voices, selectedVoice, setSelectedVoice, language }: props) => {
     const normalizeToLang = (isMobile ? language.replace('-', '_') : language)
-    
+
     useEffect(() => {
-        if (!voices?.length) return;
+        if (!voices?.length) {
+            console.error('no voices')
+            return;
+        };
         console.info('change language to ', normalizeToLang)
         const voice = voices.find(r => r.lang === normalizeToLang)
-        voice ? setSelectedVoice(voice) : console.error('error picking voice for lang: ', normalizeToLang)
+        voice ? setSelectedVoice(voice) : console.warn('voice not found on voices list: ', normalizeToLang)
     }, [voices, normalizeToLang, setSelectedVoice])
 
     const handleVoiceSelect = (event: React.ChangeEvent<HTMLSelectElement>) => {
@@ -31,7 +34,7 @@ const VoicesDropdownSelect = ({ voices, selectedVoice, setSelectedVoice, languag
             setSelectedVoice(selectedVoice);
         }
     };
-    
+
     return (
         <div className='select-voice'>
             <select id="voiceSelect"
