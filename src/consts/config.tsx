@@ -1,3 +1,5 @@
+import { isMobile } from "../services/isMobile"
+
 export const DELAY_LISTENING_RESTART = 100
 export const MAX_DELAY_BETWEEN_WORDS = 3000
 export const INITIAL_DELAY_BETWEEN_WORDS = 1000
@@ -22,8 +24,9 @@ export const errorCode = {
     microphone_no_permission_details: 'please enable microphone permission to continue',
 }
 
-export const initialFromLang = 'he-IL'
-export const initialToLang = 'ru-RU'
+const newLocal = 'he-IL'
+export const initialFromLang = newLocal
+export const initialToLang = isMobile ? 'ar-AE' : 'ru-RU'
 
 // eslint-disable-next-line no-restricted-globals
 export const MODE_DEV = location.hostname === 'localhost'
