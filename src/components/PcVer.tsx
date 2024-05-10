@@ -222,9 +222,16 @@ const PcVer: React.FC = () => {
 
         async function appendToHistory() {
             const newFinalArrived = (finalTranscriptHistory.length ? finalTranscriptProxy !== finalTranscriptHistory[finalTranscriptHistory.length - 1].finalTranscriptProxy : true)
+            let audioEncodedString = ''
 
-            const audioEncodedString = await stopRecording()
-            // console.info({ audioEncodedString: audioEncodedString?.length })
+            try {
+                audioEncodedString = await stopRecording()
+            } catch (error) {
+                // Handle the error here
+                console.error('An error occurred while stopping recording:', error)
+                // Additional error handling logic if needed
+            }
+
             if (newFinalArrived) {
                 if (fromLang !== toLang) {
                     const translationResult = await translate({ finalTranscriptProxy, fromLang, toLang })
