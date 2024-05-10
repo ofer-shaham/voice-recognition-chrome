@@ -41,8 +41,6 @@ import useLanguageSelection from '../hooks/useLanguageSelection';
 
 
 const PcVer: React.FC = () => {
-    const [fromLang, setFromLang] = useState('he-IL')
-    const [toLang, setToLang] = useState(isMobile ? 'ar-AE' : 'ru-RU')
     const [translation, setTranslation] = useState('')
     const [finalTranscriptHistory, setFinalTranscriptHistory] = useState<FinalTranscriptHistory[]>([])
     const [isSpeaking, setIsSpeaking] = useState(false)
@@ -349,23 +347,19 @@ const PcVer: React.FC = () => {
                 setAllowRecording={setAllowRecording}
             />
 
-            <CheckBoxSwitch isModeValue={isModeDebug} setIsModeValue={setIsModeDebug} title='debug' />
+            <CheckBoxSwitch isModeValue={isModeDebug} setIsModeValue={setIsModeDebug} title='debug' />       
             <TranscriptLive finalTranscript={finalTranscript} interimTranscript={interimTranscript} transcript={transcript} isModeDebug={isModeDebug} />
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                 <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
-                    <TranslationBox setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang} 
-                        text={transcript || prevFinalTranscriptProxyRef.current} onfreeSpeakOnly={flaggedFreeSpeak} isActiveTalking={listening} 
-                        availableVoices={availableVoices} selectedVoice={selectedFromVoice} setSelectedVoice={setSelectedFromVoice}   
+                    <TranslationBox setText={setFinalTranscriptProxy} setLanguage={setFromLang} language={fromLang}
+                        text={transcript || prevFinalTranscriptProxyRef.current} onfreeSpeakOnly={flaggedFreeSpeak} isActiveTalking={listening}
+                        availableVoices={availableVoices} selectedVoice={selectedFromVoice} setSelectedVoice={setSelectedFromVoice}
                     />
-                        
-                    <TranslationBox setText={setTranslation} setLanguage={setToLang} language={toLang} 
+                    <TranslationBox setText={setTranslation} setLanguage={setToLang} language={toLang}
                         text={translation || ''} onfreeSpeakOnly={onfreeSpeakOnly} isActiveTalking={isSpeaking}
-                    
                         availableVoices={availableVoices}
                         selectedVoice={selectedToVoice} setSelectedVoice={setSelectedToVoice}
                     />
-                        
-                  
                 </div>
             </div>
 
