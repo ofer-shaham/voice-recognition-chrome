@@ -6,6 +6,7 @@
 - run e2e test on ci
 
 todo:
+- create git tag for ver 1.0.0: d1757935145bb14bea91ea3e82a4a73c3113aa9b
 - show only source/target text: wrap text and highlight border when activated
 - show currently spoken text as highlighted
 - integrate redux
