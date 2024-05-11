@@ -43,15 +43,8 @@ const MobileVer = () => {
 
     const [isInterimResults, setIsInterimResults] = useState(false);
 
-
-
-
-
-
     const [delayBetweenWords, setdelayBetweenWords] = useState(INITIAL_DELAY_BETWEEN_WORDS)
     const [maxDelayForNotListening, setMaxDelayForNotListening] = useState(MAX_DELAY_FOR_NOT_LISTENING)
-
-
 
     const [finalTranscriptProxy, setFinalTranscriptProxy] = useState('');
     const [translation, setTranslation] = useState('')
@@ -76,7 +69,6 @@ const MobileVer = () => {
         toLang,
         setToLang
     } = useLanguageSelection();
-
 
     const willAddToHistory = useMemo(() => {
         return showTranslationHistory
@@ -120,7 +112,6 @@ const MobileVer = () => {
         }
     ], [setFromLang, setToLang])
 
-
     const {
         transcript,
         listening,
@@ -128,9 +119,6 @@ const MobileVer = () => {
         browserSupportsSpeechRecognition
     } = useSpeechRecognition({ clearTranscriptOnListen, commands, transcribing });
     // Set events handlers
-
-
-
 
     const listeningOptions = useMemo((): ListeningOptions => {
         return { language: fromLang, interimResults: isInterimResults, continuous: isContinuous }
@@ -149,8 +137,6 @@ const MobileVer = () => {
         , [
             // handleStartListening
         ])
-
-
 
     const switchBetweenToAndFromLangs = useCallback(() => {
         const fromLangCopy = fromLang
@@ -215,8 +201,6 @@ const MobileVer = () => {
         };
     }, []);
 
-
-
     /*
     transcript translation
     */
@@ -241,12 +225,11 @@ const MobileVer = () => {
             if (willAddToHistory) {
                 setFinalTranscriptHistory(prev => [...prev, { uuid: Date.now(), finalTranscriptProxy: finalTranscriptProxy, translation: translationResult, fromLang: fromLang, toLang: toLang, audioData: '' }])
             }
-
         }
         if (finalTranscriptProxy) {
             appendToHistory()
         }
-    }, [finalTranscriptProxy, fromLang, toLang, willAddToHistory,]);
+    }, [finalTranscriptProxy, fromLang, toLang, willAddToHistory]);
 
     useEffect(() => {
         scoreIncreaseRef.current()
@@ -358,9 +341,7 @@ const MobileVer = () => {
                         showTranslationHistory {showTranslationHistory ? 'yes' : 'no'}
                     </button>
 
-
                     <RangeInput value={maxDelayForNotListening} setValue={setMaxDelayForNotListening} title='maxDelayForNotListening' />
-
 
                     <p style={{ color: 'blue' }}>listening: {listening ? 'on' : 'off'}</p>
                     <div>
@@ -438,6 +419,7 @@ const MobileVer = () => {
                 <Todo url="https://raw.githubusercontent.com/ofer-shaham/voice-recognition-chrome/main/README.md" />
             </Accordion>
             <BugComponent />
+
             <CheckBoxSwitch isModeValue={isModeDebug} setIsModeValue={setIsModeDebug} title='Debug' />
         </div>
     );
