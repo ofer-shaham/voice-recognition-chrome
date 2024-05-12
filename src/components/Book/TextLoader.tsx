@@ -172,37 +172,39 @@ function TextLoader() {
 
   return (
     <div>
-      <input
-        type="text"
-        value={url}
-        onChange={(e) => setUrl(e.target.value)}
-        placeholder="Enter URL"
-      />
-      <input
-        type="text"
-        value={fromLang}
-        onChange={(e) => setFromLang(e.target.value)}
-        placeholder="From Language"
-      />
-      <input
-        type="text"
-        value={toLang}
-        onChange={(e) => setToLang(e.target.value)}
-        placeholder="To Language"
-      />
-      <input
-        type="number"
-        value={linesPerPage}
-        onChange={(e) => setLinesPerPage(Number(e.target.value))}
-        placeholder="Lines Per Page"
-      />
+      <div className="inputs">
+        <input
+          type="text"
+          value={url}
+          onChange={(e) => setUrl(e.target.value)}
+          placeholder="Enter URL"
+        />
+        <input
+          type="text"
+          value={fromLang}
+          onChange={(e) => setFromLang(e.target.value)}
+          placeholder="From Language"
+        />
+        <input
+          type="text"
+          value={toLang}
+          onChange={(e) => setToLang(e.target.value)}
+          placeholder="To Language"
+        />
+        <input
+          type="number"
+          value={linesPerPage}
+          onChange={(e) => setLinesPerPage(Number(e.target.value))}
+          placeholder="Lines Per Page"
+        />
+      </div>
       <button onClick={handleLoadText}>Load</button>
 
       {transcriptHistory.length ? (
         <table id="transcript-table">
           <thead>
             <tr>
-              <th>Line Number</th>
+              <th>id</th>
               <th>{fromLang}</th>
               <th>{toLang}</th>
               <th>video frame</th>
@@ -214,7 +216,6 @@ function TextLoader() {
               .map((line, index) => (
                 <tr key={index + 1 + (currentPage - 1) * linesPerPage}>
                   <td>{index + 1 + (currentPage - 1) * linesPerPage}</td>
-                  <td>{line.timestamp}</td>
                   <td className={`transcript ${fromLangClassName}`}>
                     <NarrateSentence rate={1} markTextAsSpoken={true} markColor='blue' mySentence={line.finalTranscriptProxy} lang={fromLang} />
                   </td>
@@ -233,17 +234,19 @@ function TextLoader() {
       ) : null
       }
 
-      <div>
-        <button onClick={goToPreviousPage} disabled={currentPage === 1}>
-          Previous Page
-        </button>
-        <span>
-          Page {currentPage} of {totalPages}
-        </span>
-        <button onClick={goToNextPage} disabled={currentPage === totalPages}>
-          Next Page
-        </button>
-      </div>
+      {totalPages ?
+        <> <div className="nav">
+          <button onClick={goToPreviousPage} disabled={currentPage === 1}>
+            Previous Page
+          </button>
+          <span>
+            {totalPages ? <>Page {currentPage} of {totalPages}</> : null}
+          </span>
+          <button onClick={goToNextPage} disabled={currentPage === totalPages}>
+            Next Page
+          </button>
+        </div></> : null
+      }
     </div >
   );
 }
