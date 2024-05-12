@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { translate } from "../../utils/translate";
 import { bookExample } from "../../consts/config";
 import isRtl from "../../utils/isRtl";
 import '../../styles/TextLoader.css'
 import NarrateSentence from "./NarrateSentence";
-import { splitTextByEndlAndPunctuation } from "../../utils/splitTextByPunctuation";
-
+import YouTubePlayer from "./YoutubePlayer";
+import Accordion from "../LogAndDebugComponents/Accordion";
 
 interface FinalTranscriptHistory {
   finalTranscriptProxy: string;
@@ -15,27 +16,80 @@ interface FinalTranscriptHistory {
   toLang: string;
   audioData: string | null;
   translated: boolean;
+  timestamp: string;
 }
 
 function TextLoader() {
-  const [url, setUrl] = useState(bookExample.url);
-  const [fromLang, setFromLang] = useState(bookExample.fromLang);
-  const [toLang, setToLang] = useState(bookExample.toLang);
-  const [linesPerPage, setLinesPerPage] = useState(4);
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const urlParam = searchParams.get("url");
+  const pageParam = searchParams.get("page");
+  const linesParam = searchParams.get("lines");
+  const fromLangParam = searchParams.get("fromLang");
+  const toLangParam = searchParams.get("toLang");
+
+  const [url, setUrl] = useState(urlParam || bookExample.url);
+  const [fromLang, setFromLang] = useState(fromLangParam || bookExample.fromLang);
+  const [toLang, setToLang] = useState(toLangParam || bookExample.toLang);
+  const [currentPage, setCurrentPage] = useState(parseInt(pageParam || "1"));
+  const [linesPerPage, setLinesPerPage] = useState(parseInt(linesParam || "4"));
+
   const [transcriptHistory, setTranscriptHistory] = useState<FinalTranscriptHistory[]>([]);
-  const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     setTotalPages(Math.ceil(transcriptHistory.length / linesPerPage));
   }, [transcriptHistory, linesPerPage]);
 
+  useEffect(() => {
+    // Update the search params whenever the state changes
+    setSearchParams({
+      url,
+      page: currentPage.toString(),
+      lines: linesPerPage.toString(),
+      fromLang,
+      toLang,
+    });
+  }, [url, currentPage, linesPerPage, fromLang, toLang, setSearchParams]);
+
+
+  const parseSubtitles = (subtitles: string): {
+    timestamps: string[];
+    texts: string[];
+  } => {
+    const lines = subtitles.split("\n");
+    const timestamps = [];
+    const texts = [];
+
+    for (let i = 0; i < lines.length; i++) {
+      if (i % 2 === 0) {
+        // Even line (timestamp)
+        const timestamp = lines[i].trim();
+        timestamps.push(timestamp);
+      } else {
+        // Odd line (text)
+        const text = lines[i].trim();
+        texts.push(text);
+      }
+    }
+
+    return { timestamps, texts };
+  }
+
   const handleLoadText = () => {
     fetch(url)
-      .then((response) => response.text())
+      .then((resp) => {
+        const contentType = resp.headers.get("Content-Type");
+        if (contentType && contentType.includes("text/html")) {
+          throw new Error("Invalid content type: text/html");
+        }
+        return resp.text();
+      })
       .then((text) => {
-        const splitted = splitTextByEndlAndPunctuation(text);
-        const initialTranscriptHistory: FinalTranscriptHistory[] = splitted.map((line) => ({
+
+        const { timestamps, texts } = parseSubtitles(text);
+
+        const initialTranscriptHistory: FinalTranscriptHistory[] = texts.map((line, index) => ({
           finalTranscriptProxy: line,
           uuid: generateUuid(),
           translation: "",
@@ -43,6 +97,7 @@ function TextLoader() {
           toLang: toLang,
           audioData: null,
           translated: false, // Initialize the translated flag as false
+          timestamp: timestamps[index]
         }));
         setTranscriptHistory(initialTranscriptHistory);
         setCurrentPage(1);
@@ -150,19 +205,26 @@ function TextLoader() {
               <th>Line Number</th>
               <th>{fromLang}</th>
               <th>{toLang}</th>
+              <th>video frame</th>
             </tr>
           </thead>
           <tbody>
             {transcriptHistory
               .slice((currentPage - 1) * linesPerPage, currentPage * linesPerPage)
               .map((line, index) => (
-                <tr key={line.uuid}>
-                  <td>{index + 1}</td>
+                <tr key={index + 1 + (currentPage - 1) * linesPerPage}>
+                  <td>{index + 1 + (currentPage - 1) * linesPerPage}</td>
+                  <td>{line.timestamp}</td>
                   <td className={`transcript ${fromLangClassName}`}>
                     <NarrateSentence rate={1} markTextAsSpoken={true} markColor='blue' mySentence={line.finalTranscriptProxy} lang={fromLang} />
                   </td>
                   <td className={`translation ${toLangClassName}`}>
                     <NarrateSentence rate={1} markTextAsSpoken={true} markColor='blue' mySentence={line.translation} lang={toLang} />
+                  </td>
+                  <td>
+                    <Accordion title={line.timestamp + '-' + transcriptHistory[index + 1 + (currentPage - 1) * linesPerPage].timestamp} >
+                      <YouTubePlayer videoUrl={bookExample.videoUrl} videoId={bookExample.videoId} startTime={line.timestamp} stopTime={index + (currentPage - 1) * linesPerPage === transcriptHistory.length - 1 ? '00:00' : transcriptHistory[index + 1 + (currentPage - 1) * linesPerPage].timestamp} />
+                    </Accordion>
                   </td>
                 </tr>
               ))}

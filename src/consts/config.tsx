@@ -32,5 +32,10 @@ export const initialToLang = isMobile ? 'ar-AE' : 'ru-RU'
 export const MODE_DEV = location.hostname === 'localhost'
 export const DEBOUNCE_TEXT_DELAY = 1500
 
-export const bookExample = {url: './fixtures/keidar.txt', fromLang: 'ar-EG', toLang:'he-IL'}
- 
+export const bookExample = {
+    url: './fixtures/keidar.timestamp.txt',
+    videoId:'K3WX2hBtewM',
+    videoUrl: 'https://www.youtube.com/watch?v=K3WX2hBtewM',
+    fromLang: 'ar-EG', toLang: 'he-IL'
+}
+// https://www.youtube.com/watch?v=K3WX2hBtewM&t=657s
