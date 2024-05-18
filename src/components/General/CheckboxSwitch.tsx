@@ -6,6 +6,7 @@ interface Props {
     setIsModeValue: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
+
 const CheckBoxSwitch: React.FC<Props> = ({ isModeValue, setIsModeValue, title }) => {
     return (
         <div id="configuration">

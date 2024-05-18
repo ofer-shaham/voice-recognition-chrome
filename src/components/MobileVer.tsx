@@ -18,7 +18,7 @@ import Instructions from './SpeechAndRecognitionComponents/Instructions';
 import { FinalTranscriptHistory } from '../types/FinalTranscriptHistory';
 import TranscriptHistory from './SpeechAndRecognitionComponents/TranscriptHistory';
 import Accordion from './LogAndDebugComponents/Accordion';
-import CheckBoxSwitch from './General/checkboxSwitch';
+import CheckBoxSwitch from './General/CheckboxSwitch';
 import BugComponent from './LogAndDebugComponents/bug';
 import Todo from './LogAndDebugComponents/mdPresenter';
 
@@ -321,7 +321,8 @@ const MobileVer = () => {
                 </button>
 
                 {/* show main text source/translation */}
-                <ShowTranscriptAndTranslation fromLang={fromLang} transcript={transcript} finalTranscriptProxy={finalTranscriptProxy} toLang={toLang} isSpeaking={isSpeaking} translation={translation} />
+                <ShowTranscriptAndTranslation fromLang={fromLang} transcript={transcript} finalTranscriptProxy={finalTranscriptProxy} toLang={toLang} isSpeaking={isSpeaking} translation={translation}
+                    speakEnable={speakEnable} setSpeakEnable={setSpeakEnable} />
 
                 <Accordion title={'languages'}
                     style={{ height: '60px' }}>
@@ -410,11 +411,6 @@ const MobileVer = () => {
                     <Logger messages={logMessages} setMessages={setLogMessages} />
                     <RangeInput value={delayBetweenWords} setValue={setdelayBetweenWords} title='delayBetweenWords' />
                 </Debug>
-                <CheckBoxSwitch isModeValue={speakEnable}
-                    setIsModeValue={setSpeakEnable}
-                    title='speak translation'
-                />
-
             </div>
 
 

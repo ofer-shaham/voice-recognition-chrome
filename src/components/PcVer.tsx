@@ -36,7 +36,7 @@ import Logger from './LogAndDebugComponents/Logger';
 import { useRecording } from '../hooks/useRecording';
 import { useRecognitionEvents } from '../hooks/useRecognitionEvents';
 import React from 'react';
-import CheckBoxSwitch from './General/checkboxSwitch';
+import CheckBoxSwitch from './General/CheckboxSwitch';
 import useLanguageSelection from '../hooks/useLanguageSelection';
 
 
@@ -68,7 +68,7 @@ const PcVer: React.FC = () => {
         setFromLang,
         toLang,
         setToLang,
-    
+
     } = useLanguageSelection();
     renderCountRef.current += 1;
 
@@ -347,7 +347,7 @@ const PcVer: React.FC = () => {
                 setAllowRecording={setAllowRecording}
             />
 
-            <CheckBoxSwitch isModeValue={isModeDebug} setIsModeValue={setIsModeDebug} title='debug' />       
+            <CheckBoxSwitch isModeValue={isModeDebug} setIsModeValue={setIsModeDebug} title='debug' />
             <TranscriptLive finalTranscript={finalTranscript} interimTranscript={interimTranscript} transcript={transcript} isModeDebug={isModeDebug} />
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
                 <div style={{ display: 'flex', flexDirection: 'row', width: '100%' }}>
