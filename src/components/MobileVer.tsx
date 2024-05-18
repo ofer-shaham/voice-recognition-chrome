@@ -53,6 +53,7 @@ const MobileVer = () => {
     // const [isUserTouchedScreen, setIsUserTouchedScreen] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false)
     const [isModeConversation, setIsModeConversation] = useState(false)
+    const [speakEnable, setSpeakEnable] = useState(true)
 
     const [showTranslationHistory, setShowTranslationHistory] = useState(true)
     // const [willAddToHistory, setWillAddToHistory] = useState(false)
@@ -236,6 +237,10 @@ const MobileVer = () => {
     }, [finalTranscriptProxy])
 
     useEffect(() => {
+        if (!speakEnable) {
+            console.log({ speakEnable })
+            return;
+        }
         const speakTranslation = (text: string, lang: string) => {
             console.log('speak: __/' + text + '\\__')
             flaggedFreeSpeak(text, lang)
@@ -244,7 +249,7 @@ const MobileVer = () => {
         if (translation) {
             speakTranslation(translation, toLang)
         }
-    }, [translation, toLang, flaggedFreeSpeak]);
+    }, [translation, toLang, flaggedFreeSpeak, speakEnable]);
 
     useEffect(() => {
         console.log('init listening')
@@ -400,9 +405,16 @@ const MobileVer = () => {
                         setIsModeValue={setIsContinuous}
                         title='continuous'
                     />
+
+
                     <Logger messages={logMessages} setMessages={setLogMessages} />
                     <RangeInput value={delayBetweenWords} setValue={setdelayBetweenWords} title='delayBetweenWords' />
                 </Debug>
+                <CheckBoxSwitch isModeValue={speakEnable}
+                    setIsModeValue={setSpeakEnable}
+                    title='speak translation'
+                />
+
             </div>
 
 
