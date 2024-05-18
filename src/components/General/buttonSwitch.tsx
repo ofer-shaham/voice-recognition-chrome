@@ -11,7 +11,7 @@ const ButtonSwitch: React.FC<Props> = ({ isModeValue, setIsModeValue, title }) =
         <div id="configuration">
 
             <button
-                style={{ backgroundColor: 'red', color: 'white' }}
+                style={{ backgroundColor: 'grey', color: 'white', borderColor: isModeValue ? 'green' : 'red' }}
 
                 onClick={() => { setIsModeValue(prev => !prev) }}
             >

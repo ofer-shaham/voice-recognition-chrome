@@ -7,3 +7,11 @@
   border: 2px solid #000;
   padding: 10px;
 }
+
+.fullscreen-enabled {
+  background: rgb(0, 0, 0);
+}
+
+.fullscreen-enabled .is-speaking {
+  color: rgb(115, 252, 115);
+}
