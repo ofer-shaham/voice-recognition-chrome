@@ -197,6 +197,12 @@ function TextLoader() {
           onChange={(e) => setLinesPerPage(Number(e.target.value))}
           placeholder="Lines Per Page"
         />
+        <input
+          type="number"
+          value={currentPage}
+          onChange={(e) => setCurrentPage(Number(e.target.value))}
+          placeholder="Page"
+        />
       </div>
       <button onClick={handleLoadText}>Load</button>
 
