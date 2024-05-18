@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Intro from './components/Intro';
-import TextLoader from './components/Book/TextLoader';
+import TextLoader from './components/YoutubeTranscriptNavigator/TextLoader';
 
 function App() {
     return (
