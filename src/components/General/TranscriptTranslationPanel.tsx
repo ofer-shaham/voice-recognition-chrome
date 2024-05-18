@@ -1,7 +1,7 @@
 import React, { Dispatch, SetStateAction } from 'react';
 import FullScreenMode from './FullScreenWrapper';
 import isRtl from '../../utils/isRtl';
-import ButtonSwitch from './buttonSwitch';
+import ButtonSwitch from './ButtonSwitch';
 
 interface ShowTranscriptAndTranslationProps {
     fromLang: string;
@@ -30,6 +30,10 @@ const ShowTranscriptAndTranslation: React.FC<ShowTranscriptAndTranslationProps> 
     return (
         <FullScreenMode>
             <div className="buttons-container">
+                <ButtonSwitch isModeValue={speakEnable}
+                    setIsModeValue={setSpeakEnable}
+                    title='speak translation'
+                />
                 <div className="button-container">
                     <button className={`button`}>{fromLang}</button>
                 </div>
@@ -48,10 +52,6 @@ const ShowTranscriptAndTranslation: React.FC<ShowTranscriptAndTranslationProps> 
                         <p className={`translation ${toLangClassName} ${isSpeaking ? 'is-speaking' : ''}`}>{translation}</p>
                     </div>
                 </div>
-                <ButtonSwitch isModeValue={speakEnable}
-                    setIsModeValue={setSpeakEnable}
-                    title='speak translation'
-                />
             </div>
         </FullScreenMode>
     );
