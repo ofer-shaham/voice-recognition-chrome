@@ -1,14 +1,14 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Intro from './components/Intro';
-import TextLoader from './components/YoutubeTranscriptNavigator/TextLoader';
-
+import YoutubeTranscriptParser from './components/YoutubeTranscriptNavigator/YoutubeTranscriptParser';
+ 
 function App() {
     return (
         <Router>
             <Routes>
                 <Route path="/" element={<Intro />} />
-                <Route path="/book" element={<TextLoader />} />
+                <Route path="/youtube" element={<YoutubeTranscriptParser />} />
             </Routes>
         </Router>
     );

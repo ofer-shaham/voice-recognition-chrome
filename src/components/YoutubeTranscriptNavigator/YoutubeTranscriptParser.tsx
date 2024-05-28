@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { translate } from "../../utils/translate";
 import { bookExample } from "../../consts/config";
 import isRtl from "../../utils/isRtl";
-import '../../styles/TextLoader.css'
+import '../../styles/YoutubeTranscriptParser.css'
 import NarrateSentence from "./NarrateSentence";
 import YouTubePlayer from "./YoutubePlayer";
 import Accordion from "../LogAndDebugComponents/Accordion";
@@ -19,7 +19,7 @@ interface FinalTranscriptHistory {
   timestamp: string;
 }
 
-function TextLoader() {
+function YoutubeTranscriptParser() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const urlParam = searchParams.get("url");
@@ -257,4 +257,4 @@ function TextLoader() {
   );
 }
 
-export default TextLoader;
+export default YoutubeTranscriptParser;

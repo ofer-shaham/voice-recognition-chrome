@@ -1,0 +1,144 @@
+table {
+    border-collapse: collapse;
+    border: 1px solid rgb(255, 255, 255);
+  }
+  
+  td,
+  th {
+    border: 1px solid rgb(255, 255, 255);
+    padding: 8px;
+  }
+  .my-component {
+    background: #fff;
+  }
+  
+  .fullscreen-enabled .my-component {
+    background: #000;
+  }
+  .buttons-container p {
+    margin: 0;
+  }
+  .button-container {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .button {
+    width: 100%;
+    flex: 1;
+    background-color: #8f749a;
+  }
+  
+  .container {
+    padding: 11px;
+    margin: 11px;
+    background: rgb(163, 38, 38);
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+  
+  
+  
+  .transcript {
+    font-size: calc(5vw);
+    direction: ltr;
+    text-align: left;
+    color: purple;
+    overflow: auto;
+  }
+  
+  .final-transcript,
+  .translation {
+    font-size: calc(5vw);
+    direction: ltr;
+    text-align: left;
+    color: black;
+    overflow: auto;
+    max-height: 40vh;
+    margin-top: 0px;
+    margin-bottom: 0px;
+  }
+  
+  .is-rtl {
+    direction: rtl;
+    text-align: right;
+  }
+  
+  @media screen and (max-width: 767px) {
+  
+    /* Apply styles for mobile devices */
+    .container {
+      background-color: lightblue;
+      padding: 20px;
+      margin: 0;
+      height: auto;
+    }
+  
+    .transcript,
+    .final-transcript,
+    .translation {
+      font-size: calc(5vw);
+      /* Adjust the font size as needed */
+      color: darkblue;
+      
+      margin-top: 0px;
+      margin-bottom: 0px;
+  
+    }
+  }
+  
+  @media screen and (max-width: 767px) and (orientation: portrait) {
+  
+    /* Apply styles for mobile devices with vertical screen */
+    /* Adjust the styles as per your requirements */
+    .container {
+      background-color: lightgreen;
+      padding: 10px;
+      margin: 5px;
+      height: auto;
+    }
+  
+    .transcript,
+    .final-transcript,
+    .translation {
+      font-size: calc(10vw);
+      /* Adjust the font size as needed */
+      color: darkgreen;
+      margin-top: 0px;
+      margin-bottom: 0px;
+    }
+  }
+  
+  @media screen and (max-width: 767px) and (orientation: landscape) {
+  
+    /* Apply styles for mobile devices with landscape screen */
+    /* Adjust the styles as per your requirements */
+    .container {
+      background-color: lightyellow;
+      padding: 15px;
+      margin: 10px;
+      height: auto;
+    }
+  
+    .transcript,
+    .final-transcript,
+    .translation {
+      font-size: calc(5vw);
+      /* Adjust the font size as needed */
+      color: darkorange;
+      margin-top: 0px;
+      margin-bottom: 0px;
+    }
+  }
+  
+  .is-speaking {
+    color: green;
+  }
+  
+  .centeredContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+   
+  }
