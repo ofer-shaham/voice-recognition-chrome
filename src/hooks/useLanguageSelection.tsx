@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 
 import { initialFromLang, initialToLang } from '../consts/config';
 
+//sync between toLang,fromLang and the query params. if matched query params do not exists on mount, fallback to configuration values.
 const useLanguageSelection = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedFromVoice, setSelectedFromVoice] = useState<SpeechSynthesisVoice | null>(null);
