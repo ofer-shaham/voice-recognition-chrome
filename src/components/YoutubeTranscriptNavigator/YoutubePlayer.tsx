@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { convertTimeToSeconds } from '../../utils/YoutubeUtils';
 
 interface YouTubePlayerProps {
     videoId: string;
@@ -8,13 +9,10 @@ interface YouTubePlayerProps {
 }
 
 const YouTubePlayer: React.FC<YouTubePlayerProps> = ({ videoId, videoUrl, startTime, stopTime }) => {
-    const [playerWidth, setPlayerWidth] = useState<number>(200);
-    const [playerHeight, setPlayerHeight] = useState<number>(200);
+    const [playerWidth, setPlayerWidth] = useState<number>(0);
+    const [playerHeight, setPlayerHeight] = useState<number>(0);
 
-    const convertTimeToSeconds = (time: string): number => {
-        const [seconds, minutes, hours] = time.split(':').reverse();
-        return parseInt(hours || '0', 10) * 3600 + parseInt(minutes || '0', 10) * 60 + parseInt(seconds, 10);
-    };
+
 
     const startTimeInSeconds = convertTimeToSeconds(startTime);
     const stopTimeInSeconds = convertTimeToSeconds(stopTime);
@@ -47,10 +45,10 @@ const YouTubePlayer: React.FC<YouTubePlayerProps> = ({ videoId, videoUrl, startT
                 title="YouTube Player"
                 width={playerWidth}
                 height={playerHeight}
-                src={`https://www.youtube.com/embed/${videoId}?start=${startTimeInSeconds}&end=${stopTimeInSeconds}&autoplay=1`}
-                frameBorder="0"
+                src={`https://www.youtube-nocookie.com/embed/${videoId}?start=${startTimeInSeconds}&end=${stopTimeInSeconds}&autoplay=1`}
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 allowFullScreen
+
             />
         </>
     );

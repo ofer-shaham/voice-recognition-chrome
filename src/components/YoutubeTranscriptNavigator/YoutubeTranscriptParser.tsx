@@ -7,7 +7,12 @@ import '../../styles/YoutubeTranscriptParser.css'
 import NarrateSentence from "./NarrateSentence";
 import YouTubePlayer from "./YoutubePlayer";
 import Accordion from "../LogAndDebugComponents/Accordion";
-
+import { convertTimeToSeconds } from "../../utils/YoutubeUtils";
+import { freeSpeak } from "../../utils/freeSpeak";
+import { populateAvailableVoices } from "../../utils/getVoice";
+import { useAvailableVoices } from "../../hooks/useAvailableVoices";
+ 
+const MAX_LINES = 20
 interface FinalTranscriptHistory {
   finalTranscriptProxy: string;
   uuid: number;
@@ -23,7 +28,7 @@ function YoutubeTranscriptParser() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const urlParam = searchParams.get("url");
-  const pageParam = searchParams.get("page");
+  const pageParam = (searchParams.get("page"));
   const linesParam = searchParams.get("lines");
   const fromLangParam = searchParams.get("fromLang");
   const toLangParam = searchParams.get("toLang");
@@ -31,22 +36,50 @@ function YoutubeTranscriptParser() {
   const [url, setUrl] = useState(urlParam || bookExample.url);
   const [fromLang, setFromLang] = useState(fromLangParam || bookExample.fromLang);
   const [toLang, setToLang] = useState(toLangParam || bookExample.toLang);
-  const [currentPage, setCurrentPage] = useState(parseInt(pageParam || "1"));
-  const [linesPerPage, setLinesPerPage] = useState(parseInt(linesParam || "4"));
-
+  const [currentPage, setCurrentPage] = useState(parseInt(pageParam || "1") || 1);
+  const [linesPerPage, setLinesPerPage] = useState(parseInt(linesParam || "4") || 4);
   const [transcriptHistory, setTranscriptHistory] = useState<FinalTranscriptHistory[]>([]);
   const [totalPages, setTotalPages] = useState(1);
+  const [currentWords, setCurrentWords] = useState('');
+  const [currentWordsTranslated, setCurrentWordsTranslated] = useState('');
+  const availableVoices = useAvailableVoices();
+
+
+
+  useEffect(() => {
+    async function translateIt() {
+
+      const res = await translate({ finalTranscriptProxy: currentWords, fromLang, toLang })
+      setCurrentWordsTranslated(res)
+      freeSpeak(currentWords, fromLang)
+
+    }
+    translateIt()
+
+  }, [currentWords, currentWordsTranslated, fromLang, toLang])
+
+
+  function getStopTime(index: number, currentPage: number, linesPerPage: number, transcriptHistoryLength: number): string {
+    const nextIndex = index + 1 + (currentPage - 1) * linesPerPage;
+
+    if (nextIndex === transcriptHistoryLength - 1) {
+      return '00:00';
+    } else {
+      return transcriptHistory[nextIndex].timestamp;
+    }
+  }
 
   useEffect(() => {
     setTotalPages(Math.ceil(transcriptHistory.length / linesPerPage));
+
   }, [transcriptHistory, linesPerPage]);
 
   useEffect(() => {
     // Update the search params whenever the state changes
     setSearchParams({
       url,
-      page: currentPage.toString(),
-      lines: linesPerPage.toString(),
+      page: (currentPage || 1).toString(),
+      lines: (linesPerPage || 1).toString(),
       fromLang,
       toLang,
     });
@@ -62,15 +95,18 @@ function YoutubeTranscriptParser() {
     const texts = [];
 
     for (let i = 0; i < lines.length; i++) {
-      if (i % 2 === 0) {
-        // Even line (timestamp)
-        const timestamp = lines[i].trim();
-        timestamps.push(timestamp);
-      } else {
-        // Odd line (text)
-        const text = lines[i].trim();
-        texts.push(text);
+      if (lines[i].trim().length) {
+        if (i % 2 === 0) {
+          // Even line (timestamp)
+          const timestamp = lines[i].trim();
+          timestamps.push(timestamp);
+        } else {
+          // Odd line (text)
+          const text = lines[i].trim();
+          texts.push(text);
+        }
       }
+
     }
 
     return { timestamps, texts };
@@ -100,7 +136,6 @@ function YoutubeTranscriptParser() {
           timestamp: timestamps[index]
         }));
         setTranscriptHistory(initialTranscriptHistory);
-        setCurrentPage(1);
       })
       .catch((error) => {
         console.error("Error loading text:", error);
@@ -123,7 +158,16 @@ function YoutubeTranscriptParser() {
       setCurrentPage(currentPage + 1);
     }
   };
-
+  /*
+    * update devices' available voices
+    */
+  useEffect(() => {
+    if (!availableVoices.length) { console.warn('no voices') }
+    else {
+      populateAvailableVoices(availableVoices)
+      console.info('some voices', { availableVoices })
+    }
+  }, [availableVoices])
   useEffect(() => {
     if (!transcriptHistory.length) {
       console.log("empty transcript history");
@@ -131,26 +175,31 @@ function YoutubeTranscriptParser() {
     }
 
     const handleTranslateText = async () => {
+      // Check if any lines need translation
+      const linesToTranslate = transcriptHistory.slice(
+        (currentPage - 1) * linesPerPage,
+        currentPage * linesPerPage
+      ).filter(line => !line.translated);
+
+      if (linesToTranslate.length === 0) {
+        return; // No lines to translate, exit the function
+      }
+      console.log({ linesToTranslate })
       // Perform translation logic here and update the translation property of each visible line
       const translatedLines = await Promise.all(
-        transcriptHistory
-          .slice((currentPage - 1) * linesPerPage, currentPage * linesPerPage)
-          .map(async (line: FinalTranscriptHistory) => {
-            if (!line.translated) { // Check if the line has been translated
-              const translatedLine = await translate({
-                finalTranscriptProxy: line.finalTranscriptProxy,
-                fromLang: line.fromLang,
-                toLang: line.toLang,
-              });
-              return {
-                ...line,
-                translation: translatedLine,
-                translated: true, // Set the translated flag as true
-              };
-            } else {
-              return line;
-            }
-          })
+        linesToTranslate.map(async (line) => {
+
+          const translatedLine = await translate({
+            finalTranscriptProxy: line.finalTranscriptProxy,
+            fromLang: line.fromLang,
+            toLang: line.toLang,
+          });
+          return {
+            ...line,
+            translation: translatedLine,
+            translated: true, // Set the translated flag as true
+          };
+        })
       );
 
       setTranscriptHistory((prevState) => {
@@ -169,6 +218,10 @@ function YoutubeTranscriptParser() {
   }, [currentPage, linesPerPage, toLang, transcriptHistory]);
   const fromLangClassName = isRtl(fromLang) ? 'is-rtl' : '';
   const toLangClassName = isRtl(toLang) ? 'is-rtl' : '';
+
+  function getDurationInSeconds(stopTimeInSeconds: string, startTimeInSeconds: string): number {
+    return convertTimeToSeconds(stopTimeInSeconds) - convertTimeToSeconds(startTimeInSeconds);
+  }
 
   return (
     <div>
@@ -192,19 +245,34 @@ function YoutubeTranscriptParser() {
           placeholder="To Language"
         />
         <input
+          min={1}
+          max={MAX_LINES}
           type="number"
-          value={linesPerPage}
-          onChange={(e) => setLinesPerPage(Number(e.target.value))}
-          placeholder="Lines Per Page"
+          value={Math.min(Math.max(linesPerPage, 1), MAX_LINES)}
+          onChange={(e) => {
+            const newValue = Number(e.target.value);
+            const clampedValue = Math.min(Math.max(newValue, 1), MAX_LINES);
+            setLinesPerPage(clampedValue);
+          }}
+          title="Lines Per Page"
         />
         <input
+          min={1}
+          max={totalPages}
           type="number"
-          value={currentPage}
-          onChange={(e) => setCurrentPage(Number(e.target.value))}
+          value={currentPage.toString()}
+          onChange={(e) => {
+            const newValue = Number(e.target.value);
+            const clampedValue = Math.min(Math.max(newValue, 1), totalPages);
+            setCurrentPage(clampedValue);
+          }}
           placeholder="Page"
+          title="Current Page"
         />
       </div>
       <button onClick={handleLoadText}>Load</button>
+
+
 
       {transcriptHistory.length ? (
         <table id="transcript-table">
@@ -222,16 +290,35 @@ function YoutubeTranscriptParser() {
               .map((line, index) => (
                 <tr key={index + 1 + (currentPage - 1) * linesPerPage}>
                   <td>{index + 1 + (currentPage - 1) * linesPerPage}</td>
-                  <td className={`transcript ${fromLangClassName}`}>
+                  <td className={`transcript ${fromLangClassName}`}
+                    title={currentWordsTranslated}
+                    onClick={(ev) => {
+                      const selection = window.getSelection() || '';
+                      const selectedText = selection.toString().trim();
+                      setCurrentWords(selectedText);
+                    }}
+
+                  >
                     <NarrateSentence rate={1} markTextAsSpoken={true} markColor='blue' mySentence={line.finalTranscriptProxy} lang={fromLang} />
                   </td>
                   <td className={`translation ${toLangClassName}`}>
                     <NarrateSentence rate={1} markTextAsSpoken={true} markColor='blue' mySentence={line.translation} lang={toLang} />
                   </td>
                   <td>
-                    <Accordion title={line.timestamp + '-' + transcriptHistory[index + 1 + (currentPage - 1) * linesPerPage].timestamp} >
-                      <YouTubePlayer videoUrl={bookExample.videoUrl} videoId={bookExample.videoId} startTime={line.timestamp} stopTime={index + (currentPage - 1) * linesPerPage === transcriptHistory.length - 1 ? '00:00' : transcriptHistory[index + 1 + (currentPage - 1) * linesPerPage].timestamp} />
-                    </Accordion>
+                    {line.timestamp && transcriptHistory[index + 1 + (currentPage - 1) * linesPerPage]?.timestamp ? (
+                      <Accordion
+                        title={line.timestamp + '-' + transcriptHistory[index + 1 + (currentPage - 1) * linesPerPage].timestamp}
+                        timeout={getDurationInSeconds(getStopTime(index, currentPage, linesPerPage, transcriptHistory.length), line.timestamp)}
+                      >
+                        <YouTubePlayer
+                          videoUrl={bookExample.videoUrl}
+                          videoId={bookExample.videoId}
+                          startTime={line.timestamp}
+                          stopTime={getStopTime(index, currentPage, linesPerPage, transcriptHistory.length)}
+
+                        />
+                      </Accordion>
+                    ) : null}
                   </td>
                 </tr>
               ))}
