@@ -10,7 +10,7 @@ function App() {
             <Routes>
                 <Route path="/" element={<Intro />} />
                 <Route path="/youtube" element={<YoutubeTranscriptParser />} />
-                <Route path="/proverbs" element={<ProverbList />} />
+                <Route path="/proverb" element={<ProverbList />} />
 
             </Routes>
         </Router>

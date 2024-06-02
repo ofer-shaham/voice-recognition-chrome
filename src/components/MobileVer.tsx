@@ -207,9 +207,7 @@ const MobileVer = () => {
     */
     useEffect(() => {
         async function appendToHistory() {
-            // if (finalTranscriptProxy.includes('-')) {
-            //     debugger
-            // }
+        
             console.log('slice', finalTranscriptProxy.slice(0, 1) === '-')
             let finalTranscriptProxyTmp = ''
             if (finalTranscriptProxy.slice(0, 1) === '-') {
