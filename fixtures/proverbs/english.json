@@ -1,0 +1,182 @@
+[
+    {
+        "id": 1,
+        "proverb": "Actions speak louder than words.",
+        "meaning": "What a person does is more important than what they say they will do.",
+        "explanation": "This proverb emphasizes that people's actions reveal their true intentions and character, which carry more weight and credibility than mere words."
+    },
+    {
+        "id": 2,
+        "proverb": "A journey of a thousand miles begins with a single step.",
+        "meaning": "Every long and difficult journey starts with a small and simple step.",
+        "explanation": "This proverb encourages individuals to start their endeavors, no matter how challenging they may seem, by taking the first small step towards their goal."
+    },
+    {
+        "id": 3,
+        "proverb": "Don't count your chickens before they hatch.",
+        "meaning": "Don't make plans based on something that hasn't happened yet.",
+        "explanation": "This proverb advises against being overly confident or making assumptions about future outcomes before they actually occur, as things may not always go as planned."
+    },
+    {
+        "id": 4,
+        "proverb": "A picture is worth a thousand words.",
+        "meaning": "Visual images can convey complex ideas more effectively than a description in words.",
+        "explanation": "This proverb suggests that a single image can communicate a message or convey meaning more efficiently and powerfully than a lengthy explanation or description."
+    },
+    {
+        "id": 5,
+        "proverb": "When in Rome, do as the Romans do.",
+        "meaning": "Adapt your behavior to the customs and traditions of the people and places you are visiting.",
+        "explanation": "This proverb highlights the importance of respecting and conforming to the cultural norms and practices of the environment you find yourself in."
+    },
+    {
+        "id": 6,
+        "proverb": "Birds of a feather flock together.",
+        "meaning": "People with similar interests, characteristics, or backgrounds tend to associate with each other.",
+        "explanation": "This proverb suggests that individuals with shared traits or interests often form social groups or communities, as they feel more comfortable and understood in each other's company."
+    },
+    {
+        "id": 7,
+        "proverb": "Don't put all your eggs in one basket.",
+        "meaning": "Don't risk everything on a single opportunity or investment.",
+        "explanation": "This proverb advises against relying solely on one option or putting all resources into a single venture, as it increases the chances of losing everything if that particular option fails."
+    },
+    {
+        "id": 8,
+        "proverb": "The early bird catches the worm.",
+        "meaning": "Those who act promptly and decisively have an advantage over others.",
+        "explanation": "This proverb suggests that individuals who start their tasks or activities early and are proactive are more likely to succeed or gain an advantage compared to those who delay or procrastinate."
+    },
+    {
+        "id": 9,
+        "proverb": "Practice makes perfect.",
+        "meaning": "Repeating an activity or skill leads to improvement and mastery.",
+        "explanation": "This proverb emphasizes the importance of consistent practice in order to achieve excellence or proficiency in a particular skill or activity."
+    },
+    {
+        "id": 10,
+        "proverb": "Honesty is the best policy.",
+        "meaning": "Being truthful and sincere is the most effective approach.",
+        "explanation": "This proverb suggests that honesty and integrity are the most beneficial and morally upright ways of dealing with situations or interacting with others."
+    },
+    {
+        "id": 11,
+        "proverb": "Every cloud has a silver lining.",
+        "meaning": "Even in difficult or challenging situations, there is always some positive aspect or opportunity.",
+        "explanation": "This proverb reminds us that even when faced with adversity or setbacks, there is usually a hidden or unexpected positive outcome or opportunity that can arise from the situation."
+    },
+    {
+        "id": 12,
+        "proverb": "Two heads are better than one.",
+        "meaning": "Collaboration and teamwork yield better results than individual effort.",
+        "explanation": "This proverb emphasizes the benefits of working together and seeking input from others, as collective intelligence and diverse perspectives often lead to better decision-making and problem-solving."
+    },
+    {
+        "id": 13,
+        "proverb": "Better late than never.",
+        "meaning": "It's better to do something late than to not do it at all.",
+        "explanation": "This proverb suggests that completing a task or taking action, even if delayed, is preferable to not doing it at all, as it can still yield positive outcomes or contribute to progress."
+    },
+    {
+        "id": 14,
+        "proverb": "You can't judge a book by its cover.",
+        "meaning": "You shouldn't form opinions or make assumptions based solely on outward appearances.",
+        "explanation": "This proverb advises against making hasty judgments about someone or something based solely on their external appearance, as it may not accurately reflect their true nature or qualities."
+    },
+    {
+        "id": 15,
+        "proverb": "All good things must come to an end.",
+        "meaning": "Everything pleasant or enjoyable eventually finishes or concludes.",
+        "explanation": "This proverb reminds us that even the most enjoyable or favorable situations or experiences have a limited duration and will eventually come to an end."
+    },
+    {
+        "id": 16,
+        "proverb": "Actions speak louder than words.",
+        "meaning": "What a person does is more important than what they say they will do.",
+        "explanation": "This proverb emphasizes that people's actions reveal their true intentions and character, which carry more weight and credibility than mere words."
+    },
+    {
+        "id": 17,
+        "proverb": "A journey of a thousand miles begins with a single step.",
+        "meaning": "Every long and difficult journey starts with a small and simple step.",
+        "explanation": "This proverb encourages individuals to start their endeavors, no matter how challenging they may seem, by taking the first small step towards their goal."
+    },
+    {
+        "id": 18,
+        "proverb": "Don't count your chickens before they hatch.",
+        "meaning": "Don't make plans based on something that hasn't happened yet.",
+        "explanation": "This proverb advises against being overly confident or making assumptions about future outcomes before they actually occur, as things may not always go as planned."
+    },
+    {
+        "id": 19,
+        "proverb": "A picture is worth a thousand words.",
+        "meaning": "Visual images can convey complex ideas more effectively than a description in words.",
+        "explanation": "This proverb suggests that a single image can communicate a message or convey meaning more efficiently and powerfully than a lengthy explanation or description."
+    },
+    {
+        "id": 20,
+        "proverb": "When in Rome, do as the Romans do.",
+        "meaning": "Adapt your behavior to the customs and traditions of the people and places you are visiting.",
+        "explanation": "This proverb highlights the importance of respecting and conforming to the cultural norms and practices of the environment you find yourself in."
+    },
+    {
+        "id": 21,
+        "proverb": "Birds of a feather flock together.",
+        "meaning": "People with similar interests, characteristics, or backgrounds tend to associate with each other.",
+        "explanation": "This proverb suggests that individuals with shared traits or interests often form social groups or communities, as they feel more comfortable and understood in each other's company."
+    },
+    {
+        "id": 22,
+        "proverb": "Don't put all your eggs in one basket.",
+        "meaning": "Don't risk everything on a single opportunity or investment.",
+        "explanation": "This proverb advises against relying solely on one option or putting all resources into a single venture, as it increases the chances of losing everything if that particular option fails."
+    },
+    {
+        "id": 23,
+        "proverb": "The early bird catches the worm.",
+        "meaning": "Those who act promptly and decisively have an advantage over others.",
+        "explanation": "This proverb suggests that individuals who start their tasks or activities early and are proactive are more likely to succeed or gain an advantage compared to those who delay or procrastinate."
+    },
+    {
+        "id": 24,
+        "proverb": "Practice makes perfect.",
+        "meaning": "Repeating an activity or skill leads to improvement and mastery.",
+        "explanation": "This proverb emphasizes the importance of consistent practice in order to achieve excellence or proficiency in a particular skill or activity."
+    },
+    {
+        "id": 25,
+        "proverb": "Honesty is the best policy.",
+        "meaning": "Being truthful and sincere is the most effective approach.",
+        "explanation": "This proverb suggests that honesty and integrity are the most beneficial and morally upright ways of dealing with situations or interacting with others."
+    },
+    {
+        "id": 26,
+        "proverb": "Every cloud has a silver lining.",
+        "meaning": "Even in difficult or challenging situations, there is always some positive aspect or opportunity.",
+        "explanation": "This proverb reminds us that even when faced with adversity or setbacks, there is usually a hidden or unexpected positive outcome or opportunity that can arise from the situation."
+    },
+    {
+        "id": 27,
+        "proverb": "Two heads are better than one.",
+        "meaning": "Collaboration and teamwork yield better results than individual effort.",
+        "explanation": "This proverb emphasizes the benefits of working together and seeking input from others, as collective intelligence and diverse perspectives often lead to better decision-making and problem-solving."
+    },
+    {
+        "id": 28,
+        "proverb": "Better late than never.",
+        "meaning": "It's better to do something late than to not do it at all.",
+        "explanation": "This proverb suggests that completing a task or taking action, even if delayed, is preferable to not doing it at all, as it can still yield positive outcomes or contribute to progress."
+    },
+    {
+        "id": 29,
+        "proverb": "You can't judge a book by its cover.",
+        "meaning": "You shouldn't form opinions or make assumptions based solely on outward appearances.",
+        "explanation": "This proverb advises against making hasty judgments about someone or something based solely on their external appearance, as it may not accurately reflect their true nature or qualities."
+    },
+    {
+        "id": 30,
+        "proverb": "All good things must come to an end.",
+        "meaning": "Everything pleasant or enjoyable eventually finishes or concludes.",
+        "explanation": "This proverb reminds us that even the most enjoyable or favorable situations or experiences have a limited duration and will eventually come to an end."
+    }
+]
