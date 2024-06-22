@@ -45,8 +45,9 @@ function YoutubeTranscriptParser() {
   const availableVoices = useAvailableVoices();
 
 
-
+//translate and speak the marked text
   useEffect(() => {
+    if (!currentWords) return;
     async function translateIt() {
 
       const res = await translate({ finalTranscriptProxy: currentWords, fromLang, toLang })
@@ -224,7 +225,7 @@ function YoutubeTranscriptParser() {
   }
 
   return (
-    <div>
+    <div className='content'>
       <div className="inputs">
         <input
           type="text"
