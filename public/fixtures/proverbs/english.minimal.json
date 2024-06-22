@@ -1,0 +1,402 @@
+[
+    {
+      "id": 1,
+      "proverb": "A stitch in time saves nine."
+    },
+    {
+      "id": 2,
+      "proverb": "Actions speak louder than words."
+    },
+    {
+      "id": 3,
+      "proverb": "All good things must come to an end."
+    },
+    {
+      "id": 4,
+      "proverb": "All is fair in love and war."
+    },
+    {
+      "id": 5,
+      "proverb": "A picture is worth a thousand words."
+    },
+    {
+      "id": 6,
+      "proverb": "A watched pot never boils."
+    },
+    {
+      "id": 7,
+      "proverb": "Beauty is in the eye of the beholder."
+    },
+    {
+      "id": 8,
+      "proverb": "Better late than never."
+    },
+    {
+      "id": 9,
+      "proverb": "Better safe than sorry."
+    },
+    {
+      "id": 10,
+      "proverb": "Birds of a feather flock together."
+    },
+    {
+      "id": 11,
+      "proverb": "Cleanliness is next to godliness."
+    },
+    {
+      "id": 12,
+      "proverb": "Don't bite the hand that feeds you."
+    },
+    {
+      "id": 13,
+      "proverb": "Don't count your chickens before they hatch."
+    },
+    {
+      "id": 14,
+      "proverb": "Don't judge a book by its cover."
+    },
+    {
+      "id": 15,
+      "proverb": "Don't put all your eggs in one basket."
+    },
+    {
+      "id": 16,
+      "proverb": "Don't throw the baby out with the bathwater."
+    },
+    {
+      "id": 17,
+      "proverb": "Every cloud has a silver lining."
+    },
+    {
+      "id": 18,
+      "proverb": "Every dog has its day."
+    },
+    {
+      "id": 19,
+      "proverb": "Fortune favors the bold."
+    },
+    {
+      "id": 20,
+      "proverb": "Good things come to those who wait."
+    },
+    {
+      "id": 21,
+      "proverb": "Haste makes waste."
+    },
+    {
+      "id": 22,
+      "proverb": "Honesty is the best policy."
+    },
+    {
+      "id": 23,
+      "proverb": "If the shoe fits, wear it."
+    },
+    {
+      "id": 24,
+      "proverb": "If you can't beat them, join them."
+    },
+    {
+      "id": 25,
+      "proverb": "Ignorance is bliss."
+    },
+    {
+      "id": 26,
+      "proverb": "It takes two to tango."
+    },
+    {
+      "id": 27,
+      "proverb": "Laughter is the best medicine."
+    },
+    {
+      "id": 28,
+      "proverb": "Look before you leap."
+    },
+    {
+      "id": 29,
+      "proverb": "Money doesn't grow on trees."
+    },
+    {
+      "id": 30,
+      "proverb": "No pain, no gain."
+    },
+    {
+      "id": 31,
+      "proverb": "Out of sight, out of mind."
+    },
+    {
+      "id": 32,
+      "proverb": "Practice makes perfect."
+    },
+    {
+      "id": 33,
+      "proverb": "Rome wasn't built in a day."
+    },
+    {
+      "id": 34,
+      "proverb": "Slow and steady wins the race."
+    },
+    {
+      "id": 35,
+      "proverb": "The early bird catches the worm."
+    },
+    {
+      "id": 36,
+      "proverb": "The grass is always greener on the other side."
+    },
+    {
+      "id": 37,
+      "proverb": "The pen is mightier than the sword."
+    },
+    {
+      "id": 38,
+      "proverb": "There's no smoke without fire."
+    },
+    {
+      "id": 39,
+      "proverb": "Time heals all wounds."
+    },
+    {
+      "id": 40,
+      "proverb": "Two heads are better than one."
+    },
+    {
+      "id": 41,
+      "proverb": "When in Rome, do as the Romans do."
+    },
+    {
+      "id": 42,
+      "proverb": "Where there's smoke, there's fire."
+    },
+    {
+      "id": 43,
+      "proverb": "You can't have your cake and eat it too."
+    },
+    {
+      "id": 44,
+      "proverb": "You can't judge a book by its cover."
+    },
+    {
+      "id": 45,
+      "proverb": "You reap what you sow."
+    },
+    {
+      "id": 46,
+      "proverb": "A leopard can't change its spots."
+    },
+    {
+      "id": 47,
+      "proverb": "A penny saved is a penny earned."
+    },
+    {
+      "id": 48,
+      "proverb": "A rolling stone gathers no moss."
+    },
+    {
+      "id": 49,
+      "proverb": "A watched pot never boils."
+    },
+    {
+      "id": 50,
+      "proverb": "Absence makes the heart grow fonder."
+    },
+    {
+      "id": 51,
+      "proverb": "As you sow, so shall you reap."
+    },
+    {
+      "id": 52,
+      "proverb": "Beauty is only skin deep."
+    },
+    {
+      "id": 53,
+      "proverb": "Better late than never."
+    },
+    {
+      "id": 54,
+      "proverb": "Blood is thicker than water."
+    },
+    {
+      "id": 55,
+      "proverb": "Charity begins at home."
+    },
+    {
+      "id": 56,
+      "proverb": "Desperate times call for desperate measures."
+    },
+    {
+      "id": 57,
+      "proverb": "Don't bite the hand that feeds you."
+    },
+    {
+      "id": 58,
+      "proverb": "Don't count your chickens before they hatch."
+    },
+    {
+      "id": 59,
+      "proverb": "Don't judge a book by its cover."
+    },
+    {
+      "id": 60,
+      "proverb": "Don't put all your eggs in one basket."
+    },
+    {
+      "id": 61,
+      "proverb": "Don't throw the baby out with the bathwater."
+    },
+    {
+      "id": 62,
+      "proverb": "Every cloud has a silver lining."
+    },
+    {
+      "id": 63,
+      "proverb": "Every dog has its day."
+    },
+    {
+      "id": 64,
+      "proverb": "Familiarity breeds contempt."
+    },
+    {
+      "id": 65,
+      "proverb": "Good things come to those who wait."
+    },
+    {
+      "id": 66,
+      "proverb": "Haste makes waste."
+    },
+    {
+      "id": 67,
+      "proverb": "Honesty is the best policy."
+    },
+    {
+      "id": 68,
+      "proverb": "If the shoe fits, wear it."
+    },
+    {
+      "id": 69,
+      "proverb": "If you can't beat them, join them."
+    },
+    {
+      "id": 70,
+      "proverb": "Ignorance is bliss."
+    },
+    {
+      "id": 71,
+      "proverb": "It takes two to tango."
+    },
+    {
+      "id": 72,
+      "proverb": "Laughter is the best medicine."
+    },
+    {
+      "id": 73,
+      "proverb": "Look before you leap."
+    },
+    {
+      "id": 74,
+      "proverb": "Money doesn't grow on trees."
+    },
+    {
+      "id": 75,
+      "proverb": "No pain, no gain."
+    },
+    {
+      "id": 76,
+      "proverb": "Out of sight, out of mind."
+    },
+    {
+      "id": 77,
+      "proverb": "Practice makes perfect."
+    },
+    {
+      "id": 78,
+      "proverb": "Rome wasn't built in a day."
+    },
+    {
+      "id": 79,
+      "proverb": "Slow and steady wins the race."
+    },
+    {
+      "id": 80,
+      "proverb": "The early bird catches the worm."
+    },
+    {
+      "id": 81,
+      "proverb": "The grass is always greener on the other side."
+    },
+    {
+      "id": 82,
+      "proverb": "The pen is mightier than the sword."
+    },
+    {
+      "id": 83,
+      "proverb": "There's no smoke without fire."
+    },
+    {
+      "id": 84,
+      "proverb": "Time heals all wounds."
+    },
+    {
+      "id": 85,
+      "proverb": "Two heads are better than one."
+    },
+    {
+      "id": 86,
+      "proverb": "When in Rome, do as the Romans do."
+    },
+    {
+      "id": 87,
+      "proverb": "Where there's smoke, there's fire."
+    },
+    {
+      "id": 88,
+      "proverb": "You can't have your cake and eat it too."
+    },
+    {
+      "id": 89,
+      "proverb": "You can't judge a book by its cover."
+    },
+    {
+      "id": 90,
+      "proverb": "You reap what you sow."
+    },
+    {
+      "id": 91,
+      "proverb": "A leopard can't change its spots."
+    },
+    {
+      "id": 92,
+      "proverb": "A penny saved is a penny earned."
+    },
+    {
+      "id": 93,
+      "proverb": "A rolling stone gathers no moss."
+    },
+    {
+      "id": 94,
+      "proverb": "A watched pot never boils."
+    },
+    {
+      "id": 95,
+      "proverb": "Absence makes the heart grow fonder."
+    },
+    {
+      "id": 96,
+      "proverb": "Actions speak louder than words."
+    },
+    {
+      "id": 97,
+      "proverb": "All good things must come to an end."
+    },
+    {
+      "id": 98,
+      "proverb": "All is fair in love and war."
+    },
+    {
+      "id": 99,
+      "proverb": "A picture is worth a thousand words."
+    },
+    {
+      "id": 100,
+      "proverb": "A watched pot never boils."
+    }
+  ]
