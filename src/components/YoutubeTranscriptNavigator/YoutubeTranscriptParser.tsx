@@ -11,7 +11,9 @@ import { convertTimeToSeconds } from "../../utils/YoutubeUtils";
 import { freeSpeak } from "../../utils/freeSpeak";
 import { populateAvailableVoices } from "../../utils/getVoice";
 import { useAvailableVoices } from "../../hooks/useAvailableVoices";
- 
+// import Todo from '../LogAndDebugComponents/mdPresenter';
+
+
 const MAX_LINES = 20
 interface FinalTranscriptHistory {
   finalTranscriptProxy: string;
@@ -45,7 +47,7 @@ function YoutubeTranscriptParser() {
   const availableVoices = useAvailableVoices();
 
 
-//translate and speak the marked text
+  //translate and speak the marked text
   useEffect(() => {
     if (!currentWords) return;
     async function translateIt() {
@@ -341,6 +343,12 @@ function YoutubeTranscriptParser() {
           </button>
         </div></> : null
       }
+
+      {/* <Accordion title='readme'>
+        <Todo url="https://raw.githubusercontent.com/ofer-shaham/voice-recognition-chrome/main/src/components/YoutubeTranscriptNavigator/README.md" />
+
+      </Accordion> */}
+
     </div >
   );
 }
