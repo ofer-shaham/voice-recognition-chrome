@@ -42,7 +42,7 @@ const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({
             className={`button ${selectedLang === lang ? "selected" : ""}`}
             onClick={() => handleLanguageClick(lang)}
           >
-            {index}: {lang}
+            {lang}
           </button>
         ))}
       </div>

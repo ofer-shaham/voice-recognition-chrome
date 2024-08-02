@@ -3,6 +3,7 @@ import FullScreenMode from "./FullScreenWrapper";
 import isRtl from "../../utils/isRtl";
 import ButtonSwitch from "./ButtonSwitch";
 import LanguageSwitcher from "../LanguageSwitcher";
+import "../../styles/mobileVer.css";
 
 interface ShowTranscriptAndTranslationProps {
   fromLang: string;

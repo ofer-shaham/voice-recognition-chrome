@@ -11,7 +11,7 @@
   cursor: pointer;
   border: 1px solid #ccc;
   background-color: #f0f0f0;
-  color: black;
+  /* color: black; */
   transition: background-color 0.3s, color 0.3s;
 }
 

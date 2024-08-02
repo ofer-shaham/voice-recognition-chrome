@@ -1,0 +1,60 @@
+.transcript-history table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0 10px;
+}
+
+.transcript-history tr {
+  border: 1px solid #ddd;
+  margin-bottom: 10px;
+}
+
+.transcript-history td {
+  padding: 10px;
+}
+
+.transcript-history .lang-cell {
+  width: 45%;
+}
+
+.transcript-history .audio-cell {
+  width: 10%;
+  max-width: 10%;
+  background: #f0f0f0;
+}
+
+.transcript-history button {
+  width: 100%;
+  padding: 5px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+}
+
+.transcript-history button div {
+  display: flex;
+}
+
+.transcript-history .lang-label {
+  flex: 20%;
+  text-align: right;
+  margin-right: 10px;
+  font-weight: bold;
+}
+
+.transcript-history button span:last-child {
+  flex: 80%;
+}
+
+/* Color palette */
+.transcript-history .color-1 { background-color: #E6F3FF; color: #003366; }
+.transcript-history .color-2 { background-color: #FFF2E6; color: #663300; }
+.transcript-history .color-3 { background-color: #E6FFF2; color: #003300; }
+.transcript-history .color-4 { background-color: #FFE6F3; color: #660033; }
+.transcript-history .color-5 { background-color: #F2E6FF; color: #330066; }
+.transcript-history .color-6 { background-color: #FFFFE6; color: #666600; }
+.transcript-history .color-7 { background-color: #E6FFFF; color: #006666; }
+.transcript-history .color-8 { background-color: #FFE6E6; color: #660000; }
+.transcript-history .color-default { background-color: #F0F0F0; color: #333333; }

@@ -28,17 +28,15 @@
   height: 100vh;
 }
 
-
-
 .transcript {
   font-size: calc(5vw);
   direction: ltr;
   text-align: left;
-  color: purple;
+  color: rgb(255, 246, 163);
   overflow: auto;
 }
 
-.final-transcript,
+/* .final-transcript,
 .translation {
   font-size: calc(5vw);
   direction: ltr;
@@ -48,7 +46,7 @@
   max-height: 40vh;
   margin-top: 0px;
   margin-bottom: 0px;
-}
+} */
 
 .is-rtl {
   direction: rtl;
@@ -56,7 +54,6 @@
 }
 
 @media screen and (max-width: 767px) {
-
   /* Apply styles for mobile devices */
   .container {
     background-color: lightblue;
@@ -71,15 +68,13 @@
     font-size: calc(5vw);
     /* Adjust the font size as needed */
     color: darkblue;
-    
+
     margin-top: 0px;
     margin-bottom: 0px;
-
   }
 }
 
 @media screen and (max-width: 767px) and (orientation: portrait) {
-
   /* Apply styles for mobile devices with vertical screen */
   /* Adjust the styles as per your requirements */
   .container {
@@ -101,7 +96,6 @@
 }
 
 @media screen and (max-width: 767px) and (orientation: landscape) {
-
   /* Apply styles for mobile devices with landscape screen */
   /* Adjust the styles as per your requirements */
   .container {
@@ -130,5 +124,4 @@
   display: flex;
   justify-content: center;
   align-items: center;
- 
 }
