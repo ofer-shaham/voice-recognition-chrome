@@ -17,23 +17,16 @@ const TranscriptHistory: React.FC<TranscriptHistoryProps> = ({
 }) => {
   const LIMIT_ARR_CUT_FINAL = 10;
 
-  const colorPalette = [
-    "color-1",
-    "color-2",
-    "color-3",
-    "color-4",
-    "color-5",
-    "color-6",
-    "color-7",
-    "color-8",
-  ];
-
   const languageColorMap = useMemo(() => {
+    const colorPalette = [
+      'color-1', 'color-2', 'color-3', 'color-4',
+      'color-5', 'color-6', 'color-7', 'color-8'
+    ];
     const map = new Map<string, string>();
     let colorIndex = 0;
 
-    finalTranscriptHistory.forEach((item) => {
-      [item.fromLang, item.toLang].forEach((lang) => {
+    finalTranscriptHistory.forEach(item => {
+      [item.fromLang, item.toLang].forEach(lang => {
         if (!map.has(lang)) {
           map.set(lang, colorPalette[colorIndex % colorPalette.length]);
           colorIndex++;
@@ -45,7 +38,7 @@ const TranscriptHistory: React.FC<TranscriptHistoryProps> = ({
   }, [finalTranscriptHistory]);
 
   const getLanguageClass = (lang: string) => {
-    return languageColorMap.get(lang) || "color-default";
+    return languageColorMap.get(lang) || 'color-default';
   };
 
   return finalTranscriptHistory.length ? (
@@ -59,11 +52,7 @@ const TranscriptHistory: React.FC<TranscriptHistoryProps> = ({
             .map((r) => (
               <tr key={r.uuid}>
                 <td className={`lang-cell ${getLanguageClass(r.fromLang)}`}>
-                  <button
-                    onClick={() =>
-                      onfreeSpeakOnly(r.finalTranscriptProxy, r.fromLang)
-                    }
-                  >
+                  <button onClick={() => onfreeSpeakOnly(r.finalTranscriptProxy, r.fromLang)}>
                     <div>
                       <span className="lang-label">[{r.fromLang}]</span>
                       <span>{r.finalTranscriptProxy}</span>
@@ -71,9 +60,7 @@ const TranscriptHistory: React.FC<TranscriptHistoryProps> = ({
                   </button>
                 </td>
                 <td className={`lang-cell ${getLanguageClass(r.toLang)}`}>
-                  <button
-                    onClick={() => onfreeSpeakOnly(r.translation, r.toLang)}
-                  >
+                  <button onClick={() => onfreeSpeakOnly(r.translation, r.toLang)}>
                     <div>
                       <span className="lang-label">[{r.toLang}]</span>
                       <span>{r.translation}</span>
