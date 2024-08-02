@@ -13,12 +13,12 @@ const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({
   toLang,
   switchLanguages,
 }) => {
-  const [languages, setLanguagesState] = useState<string[]>([]);
+  const [languages, setLanguagesState] = useState<[string, string]>(["", ""]);
   const [selectedLang, setSelectedLang] = useState<string>(fromLang);
 
   useEffect(() => {
     const sortedLangs = [fromLang, toLang].sort();
-    setLanguagesState(sortedLangs);
+    setLanguagesState(sortedLangs as [string, string]);
     setSelectedLang(fromLang);
   }, [fromLang, toLang]);
 
@@ -32,13 +32,12 @@ const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({
     <div className="language-switcher">
       <label className="language-label">
         Choose talker language: {fromLang}
-        <br />
-        Number of languages: {languages.length}
+        number of languages: {languages.length}
       </label>
       <div className="button-row">
         {languages.map((lang, index) => (
           <button
-            key={lang}
+            key={index}
             className={`button ${selectedLang === lang ? "selected" : ""}`}
             onClick={() => handleLanguageClick(lang)}
           >
