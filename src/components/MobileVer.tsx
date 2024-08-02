@@ -38,7 +38,7 @@ import Todo from "./LogAndDebugComponents/mdPresenter";
 import useLocalStorageScore from "../hooks/useLocalStorage";
 import useLanguageSelection from "../hooks/useLanguageSelection";
 import ShowTranscriptAndTranslation from "./General/TranscriptTranslationPanel";
- // import { setMute, setUnmute } from '../../utils/microphone';
+// import { setMute, setUnmute } from '../../utils/microphone';
 
 /**
  * NOTE:
@@ -334,7 +334,7 @@ const MobileVer = () => {
   }, [handleStartListening, listening, isSpeaking, maxDelayForNotListening]);
 
   useRecognitionEvents(SpeechRecognition, onEndHandler);
- 
+
   //-----end useEffect
   if (!browserSupportsSpeechRecognition) {
     return (
@@ -374,7 +374,7 @@ const MobileVer = () => {
           onClick={() => switchBetweenToAndFromLangs()}
           style={{ background: isModeConversation ? "blue" : "green" }}
         ></button>
- 
+
         {/* show main text source/translation */}
         <ShowTranscriptAndTranslation
           fromLang={fromLang}

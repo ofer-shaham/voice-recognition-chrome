@@ -35,7 +35,7 @@ th {
   background: rgb(163, 38, 38);
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
 }
 
 .transcript {
