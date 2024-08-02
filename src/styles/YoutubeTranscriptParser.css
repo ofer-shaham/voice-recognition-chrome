@@ -1,3 +1,28 @@
+.content {
+  position: relative;
+}
+.nav {
+  justify-content: center;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+  padding: 0px;
+  position: fixed;
+  left: 0;
+  bottom: 69px;
+  position: fixed;
+  text-align: center;
+  width: 100%;
+} 
+
+.inputs {
+  display: flex;
+  justify-content: space-between;
+}
+
+input[type="text"] {
+  width: 100%;
+}
 table {
   border-collapse: collapse;
   border: 1px solid rgb(255, 255, 255);
