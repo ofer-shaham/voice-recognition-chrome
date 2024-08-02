@@ -25,7 +25,7 @@
   background: rgb(163, 38, 38);
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
 }
 
 .transcript {
@@ -124,4 +124,8 @@
   display: flex;
   justify-content: center;
   align-items: center;
+}
+
+.configuration {
+  margin-top: 1rem;
 }
