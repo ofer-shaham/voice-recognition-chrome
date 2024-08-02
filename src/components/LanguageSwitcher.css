@@ -1,0 +1,29 @@
+/* LanguageSwitcher.css */
+.button-row {
+  display: flex;
+  width: 100%;
+}
+
+.button {
+  flex: 1;
+  padding: 10px;
+  text-align: center;
+  cursor: pointer;
+  border: 1px solid #ccc;
+  background-color: #f0f0f0;
+  color: black;
+  transition: background-color 0.3s, color 0.3s;
+}
+
+.button:hover {
+  background-color: #e0e0e0;
+}
+
+.button.selected {
+  background-color: #007bff;
+  color: white;
+}
+
+.button.selected:hover {
+  background-color: #0056b3;
+}
