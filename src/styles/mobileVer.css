@@ -16,7 +16,7 @@
 .button {
   width: 100%;
   flex: 1;
-  background-color: #8f749a;
+  background-color: #fefbff;
 }
 
 .container {
@@ -36,17 +36,17 @@
   overflow: auto;
 }
 
-/* .final-transcript,
+.final-transcript,
 .translation {
   font-size: calc(5vw);
   direction: ltr;
   text-align: left;
-  color: black;
+  color: gray;
   overflow: auto;
   max-height: 40vh;
   margin-top: 0px;
   margin-bottom: 0px;
-} */
+}
 
 .is-rtl {
   direction: rtl;
