@@ -38,6 +38,9 @@ import Todo from "./LogAndDebugComponents/mdPresenter";
 import useLocalStorageScore from "../hooks/useLocalStorage";
 import useLanguageSelection from "../hooks/useLanguageSelection";
 import ShowTranscriptAndTranslation from "./General/TranscriptTranslationPanel";
+import useAiFriend from "./SpeechAndRecognitionComponents/new/useAiFriend";
+import SpeakMultiple from "./SpeechAndRecognitionComponents/new/SpeakMultiple";
+// import SpeakMultiple from "./SpeechAndRecognitionComponents/new/SpeakMultiple";
 // import { setMute, setUnmute } from '../../utils/microphone';
 
 /**
@@ -64,6 +67,9 @@ const MobileVer = () => {
   );
 
   const [finalTranscriptProxy, setFinalTranscriptProxy] = useState("");
+  const [myPrompt, setMyPrompt] = useState<null | string>(null);
+
+
   const [translation, setTranslation] = useState("");
   const availableVoices = useAvailableVoices();
 
@@ -89,7 +95,8 @@ const MobileVer = () => {
   });
   const scoreIncreaseRef = useRef(updateScore);
   const { fromLang, setFromLang, toLang, setToLang } = useLanguageSelection();
-
+  const { verifiedResponse, sentences, verificationExceptions } = useAiFriend({ fromLang, inputText: finalTranscriptProxy, myPrompt });
+  console.log({ verifiedResponse, sentences, verificationExceptions })
   const willAddToHistory = useMemo(() => {
     return showTranslationHistory;
   }, [showTranslationHistory]);
@@ -351,8 +358,8 @@ const MobileVer = () => {
         background: isSpeaking
           ? "darkblue"
           : listening
-          ? "darkgreen"
-          : "darkgrey",
+            ? "darkgreen"
+            : "darkgrey",
       }}
     >
       <div style={{ background: "grey" }}>
@@ -538,6 +545,9 @@ const MobileVer = () => {
         setIsModeValue={setIsModeDebug}
         title="Debug"
       />
+
+
+      <SpeakMultiple verifiedResponse={verifiedResponse} verificationExceptions={verificationExceptions} sentences={sentences} />
     </div>
   );
 };

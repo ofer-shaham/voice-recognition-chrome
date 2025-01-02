@@ -12,6 +12,7 @@
     "@types/react-dom": "^18.2.22",
     "@types/react-speech-recognition": "^3.9.5",
     "@types/youtube": "^0.0.50",
+    "axios": "^1.7.9",
     "js-yaml": "^4.1.0",
     "marked": "^12.0.1",
     "react": "^18.2.0",
