@@ -2,11 +2,12 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 
 const settings = {
-    url: 'https://apii.maulanaa.xyz/ai/logic',
-    defaultPrompt: "you're an arabic and hebrew teacher.\
-     you prefer using words which are similar in both languages.\
-     you like to teach by using proverbs/idioms/traditional culture tales.\
-     use strict response format:\
+    url: 'https://api-git-main-ofershahams-projects.vercel.app/ai/logic',
+    defaultPrompt: "you're an arabic and hebrew teacher. \
+     you prefer using words which are similar in both languages. \
+     you like to teach by using proverbs/idioms/traditional culture tales. \
+     your answer will repeat the request's words and create a dialog which use similar and relative words. your answer will contain atleast 10 short sentences of a dialog between 2 children which comes to learn each other's language. \
+     use response format: \
      <language_iso_code:string,text:string>[]"
 }
 
@@ -45,6 +46,9 @@ const useAiFriend = (props: useLanguageTextProps): AiAnswerFormat => {
     };
 
     useEffect(() => {
+
+        if (!inputText.length)
+            return
         const fetchLanguageTexts = async () => {
             try {
                 const response = await axios.get(settings.url, {

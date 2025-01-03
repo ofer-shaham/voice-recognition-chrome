@@ -547,7 +547,7 @@ const MobileVer = () => {
       />
 
 
-      <SpeakMultiple verifiedResponse={verifiedResponse} verificationExceptions={verificationExceptions} sentences={sentences} />
+      {sentences.length && <SpeakMultiple verifiedResponse={verifiedResponse} verificationExceptions={verificationExceptions} sentences={sentences} />}
     </div>
   );
 };
