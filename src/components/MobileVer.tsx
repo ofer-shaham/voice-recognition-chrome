@@ -38,8 +38,11 @@ import Todo from "./LogAndDebugComponents/mdPresenter";
 import useLocalStorageScore from "../hooks/useLocalStorage";
 import useLanguageSelection from "../hooks/useLanguageSelection";
 import ShowTranscriptAndTranslation from "./General/TranscriptTranslationPanel";
-import useAiFriend from "./SpeechAndRecognitionComponents/new/useAiFriend";
+import ShowTranscriptAndTranslationWithAnswer from "./General/TranscriptTranslationPanelWithAnswer";
+
+import useAiFriend from "./SpeechAndRecognitionComponents/new/useSimpleAiFriend";
 import SpeakMultiple from "./SpeechAndRecognitionComponents/new/SpeakMultiple";
+import useSimpleAiFriend from "./SpeechAndRecognitionComponents/new/useSimpleAiFriend";
 // import SpeakMultiple from "./SpeechAndRecognitionComponents/new/SpeakMultiple";
 // import { setMute, setUnmute } from '../../utils/microphone';
 
@@ -77,7 +80,7 @@ const MobileVer = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isModeConversation, setIsModeConversation] = useState(false);
   const [speakEnable, setSpeakEnable] = useState(true);
-
+  const [answer, setAnswer] = useState('');
   const [showTranslationHistory, setShowTranslationHistory] = useState(true);
   // const [willAddToHistory, setWillAddToHistory] = useState(false)
   const [finalTranscriptHistory, setFinalTranscriptHistory] = useState<
@@ -95,8 +98,10 @@ const MobileVer = () => {
   });
   const scoreIncreaseRef = useRef(updateScore);
   const { fromLang, setFromLang, toLang, setToLang } = useLanguageSelection();
-  const { verifiedResponse, sentences, verificationExceptions } = useAiFriend({ fromLang, inputText: finalTranscriptProxy, myPrompt });
-  console.log({ verifiedResponse, sentences, verificationExceptions })
+  const answerTmp = useSimpleAiFriend({ fromLang, inputText: finalTranscriptProxy, myPrompt });
+  console.log({ answerTmp })
+
+  // console.log({ verifiedResponse, sentences, verificationExceptions })
   const willAddToHistory = useMemo(() => {
     return showTranslationHistory;
   }, [showTranslationHistory]);
@@ -206,12 +211,14 @@ const MobileVer = () => {
   const onfreeSpeakOnly = useCallback(
     (text: string, lang: string) => {
       //   await stopListenAndRecord()
+      console.log('onfreeSpeakOnly', text, lang)
       flaggedFreeSpeak(text, lang);
       //   startListenAndRecord()
     },
     [flaggedFreeSpeak]
   );
 
+  useEffect(() => { if (answerTmp.length) { setAnswer(answerTmp) }; console.log({ answer }) }, [answerTmp])
   /*
    * update devices' available voices
    */
@@ -244,6 +251,7 @@ const MobileVer = () => {
     */
   useEffect(() => {
     async function appendToHistory() {
+      debugger
       console.log("slice", finalTranscriptProxy.slice(0, 1) === "-");
       let finalTranscriptProxyTmp = "";
       if (finalTranscriptProxy.slice(0, 1) === "-") {
@@ -383,10 +391,23 @@ const MobileVer = () => {
         ></button>
 
         {/* show main text source/translation */}
-        <ShowTranscriptAndTranslation
+        {/* <ShowTranscriptAndTranslation
           fromLang={fromLang}
           transcript={transcript}
           finalTranscriptProxy={finalTranscriptProxy}
+          toLang={toLang}
+          isSpeaking={isSpeaking}
+          translation={translation}
+          speakEnable={speakEnable}
+          setSpeakEnable={setSpeakEnable}
+          switchBetweenToAndFromLangs={switchBetweenToAndFromLangs}
+        /> */}
+        <ShowTranscriptAndTranslationWithAnswer
+          fromLang={fromLang}
+          transcript={transcript}
+          finalTranscriptProxy={finalTranscriptProxy}
+          answer={answer}
+
           toLang={toLang}
           isSpeaking={isSpeaking}
           translation={translation}
@@ -547,7 +568,7 @@ const MobileVer = () => {
       />
 
 
-      <SpeakMultiple verifiedResponse={verifiedResponse} verificationExceptions={verificationExceptions} sentences={sentences} />
+      {/* <SpeakMultiple verifiedResponse={verifiedResponse} verificationExceptions={verificationExceptions} sentences={sentences} /> */}
     </div>
   );
 };

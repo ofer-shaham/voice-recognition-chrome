@@ -7,7 +7,7 @@ import { useSearchParams } from 'react-router-dom';
 
 const ComponentSwitcher: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [showMobile, setShowMobile] = useState<boolean>(isMobile);
+  const [showMobile, setShowMobile] = useState<boolean>(true);
 
   const toggleComponent = () => {
     const updatedShowMobile = !showMobile;

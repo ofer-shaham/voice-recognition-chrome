@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 
 const settings = {
+    url: 'https://api-git-main-ofershahams-projects.vercel.app/ai/chat'
+}
+const settings2 = {
     url: 'https://apii.maulanaa.xyz/ai/logic',
     defaultPrompt: "you're an arabic and hebrew teacher.\
      you prefer using words which are similar in both languages.\
@@ -50,7 +53,7 @@ const useAiFriend = (props: useLanguageTextProps): AiAnswerFormat => {
                 const response = await axios.get(settings.url, {
                     params: {
                         q: inputText,
-                        logic: myPrompt && myPrompt.length ? myPrompt : settings.defaultPrompt
+                        // logic: myPrompt && myPrompt.length ? myPrompt : settings.defaultPrompt
                     }
                 });
 
