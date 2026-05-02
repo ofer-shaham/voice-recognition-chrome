@@ -28,7 +28,7 @@ const VOICE_LANGS = [
   { code: "zh-CN", label: "Chinese" },
 ];
 
-const API_KEY = process.env.REACT_APP_OPENROUTER_API_KEY || "";
+const API_KEY = process.env.REACT_APP_OPENAI_API_KEY || "";
 
 const AiConversation: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -222,7 +222,7 @@ const AiConversation: React.FC = () => {
             </label>
           </div>
 
-          {(!API_KEY || API_KEY === "your-openrouter-api-key-here") && (
+          {!API_KEY && (
             <p
               style={{
                 color: "#ff8a9a",
@@ -231,8 +231,8 @@ const AiConversation: React.FC = () => {
                 marginBottom: 0,
               }}
             >
-              ⚠ No API key found. Open <code>.env.local</code> and set{" "}
-              <code>REACT_APP_OPENROUTER_API_KEY</code>, then restart the app.
+              ⚠ No API key found. Add <code>REACT_APP_OPENAI_API_KEY</code> to
+              Replit Secrets, then restart the app.
             </p>
           )}
         </div>

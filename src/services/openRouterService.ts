@@ -27,8 +27,8 @@ export const chatWithAI = async (
   model: string,
   apiKey: string
 ): Promise<string> => {
-  if (!apiKey || apiKey === 'your-openrouter-api-key-here') {
-    throw new Error('OpenRouter API key not configured. Edit .env.local and set REACT_APP_OPENROUTER_API_KEY.');
+  if (!apiKey) {
+    throw new Error('API key not configured. Set REACT_APP_OPENAI_API_KEY in Replit Secrets.');
   }
 
   const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
