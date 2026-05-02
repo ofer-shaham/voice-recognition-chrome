@@ -10,6 +10,9 @@ const YoutubeTranscriptParser = lazy(
     import("./components/YoutubeTranscriptNavigator/YoutubeTranscriptParser")
 );
 const ProverbList = lazy(() => import("./components/Proverbs/Proverbs"));
+const SimultaneousTranslation = lazy(
+  () => import("./components/SimultaneousTranslation")
+);
 
 // Loading component
 const Loading = () => <div>Loading...</div>;
@@ -23,6 +26,10 @@ function App() {
             <Route path="/" element={<Intro />} />
             <Route path="/youtube" element={<YoutubeTranscriptParser />} />
             <Route path="/proverb" element={<ProverbList />} />
+            <Route
+              path="/simultanuos_translation"
+              element={<SimultaneousTranslation />}
+            />
           </Routes>
         </Suspense>
       </div>

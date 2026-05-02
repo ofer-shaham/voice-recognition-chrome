@@ -16,6 +16,11 @@ function Footer() {
                     <li>
                         <Link to="/proverb">Proverbs</Link>
                     </li>
+                    <li>
+                        <Link to="/simultanuos_translation/?showMobile=true&from-lang=he-IL&to-lang=ru-RU">
+                            Simultaneous Translation
+                        </Link>
+                    </li>
                 </ul>
             </nav>
         </footer>

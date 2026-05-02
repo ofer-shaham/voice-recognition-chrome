@@ -54,7 +54,7 @@ const MobileVer = () => {
   const [logMessages, setLogMessages] = useState<any[]>([]);
   const [isContinuous, setIsContinuous] = useState(false);
 
-  const [isInterimResults, setIsInterimResults] = useState(false);
+  const [isInterimResults, setIsInterimResults] = useState(true);
 
   const [delayBetweenWords, setdelayBetweenWords] = useState(
     INITIAL_DELAY_BETWEEN_WORDS
@@ -64,6 +64,7 @@ const MobileVer = () => {
   );
 
   const [finalTranscriptProxy, setFinalTranscriptProxy] = useState("");
+  const [displayTranscriptText, setDisplayTranscriptText] = useState("");
   const [translation, setTranslation] = useState("");
   const availableVoices = useAvailableVoices();
 
@@ -105,6 +106,7 @@ const MobileVer = () => {
           setToLang(toCode);
           console.log(`from ${fromCode} to ${toCode}`);
           setFinalTranscriptProxy("");
+          setDisplayTranscriptText("");
           //experiment
           setClearTranscriptOnListen(true);
         },
@@ -117,6 +119,7 @@ const MobileVer = () => {
           setToLang(langCode);
           setTranslation("");
           setFinalTranscriptProxy("");
+          setDisplayTranscriptText("");
           //experiment
           setClearTranscriptOnListen(true);
           console.log("match :languge");
@@ -128,6 +131,7 @@ const MobileVer = () => {
         callback: ({ resetTranscript }) => {
           setTranslation("");
           setFinalTranscriptProxy("");
+          setDisplayTranscriptText("");
           resetTranscript();
         },
       },
@@ -307,7 +311,9 @@ const MobileVer = () => {
     if (transcript && transcript !== "-") {
       timerId = setTimeout(() => {
         console.log({ finish: transcript });
-        setFinalTranscriptProxy(transcript);
+        const committed = transcript;
+        setFinalTranscriptProxy(committed);
+        setDisplayTranscriptText(committed);
         resetTranscript();
       }, delay);
     }
@@ -379,7 +385,7 @@ const MobileVer = () => {
         <ShowTranscriptAndTranslation
           fromLang={fromLang}
           transcript={transcript}
-          finalTranscriptProxy={finalTranscriptProxy}
+          finalTranscriptProxy={displayTranscriptText}
           toLang={toLang}
           isSpeaking={isSpeaking}
           translation={translation}
