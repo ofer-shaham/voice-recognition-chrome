@@ -13,6 +13,9 @@ const ProverbList = lazy(() => import("./components/Proverbs/Proverbs"));
 const SimultaneousTranslation = lazy(
   () => import("./components/SimultaneousTranslation")
 );
+const AiConversation = lazy(
+  () => import("./components/AiConversation/AiConversation")
+);
 
 // Loading component
 const Loading = () => <div>Loading...</div>;
@@ -30,6 +33,7 @@ function App() {
               path="/simultanuos_translation"
               element={<SimultaneousTranslation />}
             />
+            <Route path="/ai-conversation" element={<AiConversation />} />
           </Routes>
         </Suspense>
       </div>

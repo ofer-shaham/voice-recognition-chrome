@@ -21,6 +21,9 @@ function Footer() {
                             Simultaneous Translation
                         </Link>
                     </li>
+                    <li>
+                        <Link to="/ai-conversation">AI Conversation</Link>
+                    </li>
                 </ul>
             </nav>
         </footer>
