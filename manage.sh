@@ -5,7 +5,7 @@
 # Use --native to run without Docker (requires node/npm on PATH).
 #
 # Usage:
-#   ./manage.sh [--native] {start|stop|restart|status|build|doctor}
+#   ./manage.sh [--native] {start|stop|restart|status|build|doctor|fix}
 #   ./manage.sh [--native] logs [client|server|openrouter|all]
 #
 # Docker Compose services:
@@ -15,6 +15,7 @@
 #
 # Examples:
 #   ./manage.sh doctor                  # diagnose Docker + environment issues
+#   ./manage.sh fix                     # auto-fix detected issues
 #   ./manage.sh start                   # docker compose up (build if needed)
 #   ./manage.sh stop                    # docker compose down
 #   ./manage.sh restart                 # rebuild + restart both services
@@ -44,7 +45,7 @@ head_()  { echo -e "${CYAN}── $* ──${NC}"; }
 for arg in "$@"; do
   case "$arg" in
     --native) USE_NATIVE=true ;;
-    start|stop|restart|status|build|doctor) COMMAND="$arg" ;;
+    start|stop|restart|status|build|doctor|fix) COMMAND="$arg" ;;
     logs) COMMAND="logs" ;;
     client|server|openrouter|all)
       if [[ "$COMMAND" == "logs" ]]; then
@@ -67,7 +68,7 @@ for arg in "$@"; do
 done
 
 if [[ -z "$COMMAND" ]]; then
-  echo "Usage: $0 [--native] {start|stop|restart|status|build|doctor|logs [service]}"
+  echo "Usage: $0 [--native] {start|stop|restart|status|build|doctor|fix|logs [service]}"
   exit 1
 fi
 
@@ -251,6 +252,135 @@ run_doctor() {
     echo -e "  ${FAIL}  Native mode is NOT ready (see issues above)"
   fi
   echo ""
+}
+
+# ── fix ───────────────────────────────────────────────────────────────────────
+FIX_="${CYAN}[FIX]${NC}"
+
+run_fix() {
+  local fixed=0
+
+  echo ""
+  head_ "Automated fixes"
+
+  # ── 1. client node_modules ─────────────────────────────────────────────────
+  if [[ ! -d node_modules ]]; then
+    echo -e "  ${FIX_}  Installing client dependencies (npm install --legacy-peer-deps)…"
+    if npm install --legacy-peer-deps; then
+      echo -e "  ${PASS}  Client dependencies installed."
+      fixed=$((fixed+1))
+    else
+      echo -e "  ${FAIL}  npm install failed — check the output above."
+    fi
+  else
+    echo -e "  ${PASS}  Client node_modules present — skipping."
+  fi
+
+  # ── 2. server node_modules ─────────────────────────────────────────────────
+  if [[ ! -d server/node_modules ]]; then
+    echo -e "  ${FIX_}  Installing server dependencies (cd server && npm install)…"
+    if (cd server && npm install); then
+      echo -e "  ${PASS}  Server dependencies installed."
+      fixed=$((fixed+1))
+    else
+      echo -e "  ${FAIL}  npm install (server) failed — check the output above."
+    fi
+  else
+    echo -e "  ${PASS}  Server node_modules present — skipping."
+  fi
+
+  # ── 3. .env file ──────────────────────────────────────────────────────────
+  if [[ ! -f .env ]]; then
+    echo -e "  ${FIX_}  Creating .env from .env.example…"
+    if cp .env.example .env; then
+      echo -e "  ${PASS}  .env created."
+      echo    "          Edit .env and set OPENROUTER_API_KEY=sk-or-…"
+      fixed=$((fixed+1))
+    else
+      echo -e "  ${FAIL}  Could not copy .env.example → .env"
+    fi
+  elif ! grep -q "^OPENROUTER_API_KEY=.\+" .env 2>/dev/null; then
+    echo -e "  ${SKIP}  .env exists but OPENROUTER_API_KEY is empty."
+    echo    "          → Edit .env and set OPENROUTER_API_KEY=sk-or-…"
+  else
+    echo -e "  ${PASS}  .env with OPENROUTER_API_KEY — skipping."
+  fi
+
+  # ── 4. Docker daemon ───────────────────────────────────────────────────────
+  if ! command -v docker &>/dev/null; then
+    echo -e "  ${SKIP}  Docker not installed — install it manually:"
+    echo    "          → https://docs.docker.com/get-docker/"
+    echo    "          → Then re-run: ./manage.sh fix"
+  elif docker info &>/dev/null 2>&1; then
+    echo -e "  ${PASS}  Docker daemon already running — skipping."
+  else
+    echo -e "  ${FIX_}  Attempting to start Docker daemon…"
+    local daemon_started=false
+    case "$(uname -s)" in
+      Darwin)
+        open -a Docker 2>/dev/null && daemon_started=true
+        ;;
+      Linux)
+        if sudo systemctl start docker 2>/dev/null; then
+          daemon_started=true
+        elif systemctl --user start docker 2>/dev/null; then
+          daemon_started=true
+        fi
+        ;;
+    esac
+
+    if $daemon_started; then
+      echo -n "          Waiting for daemon to respond"
+      local i=0
+      while (( i < 20 )); do
+        sleep 1; i=$((i+1)); echo -n "."
+        docker info &>/dev/null 2>&1 && break
+      done
+      echo ""
+      if docker info &>/dev/null 2>&1; then
+        echo -e "  ${PASS}  Docker daemon is now running."
+        fixed=$((fixed+1))
+      else
+        echo -e "  ${FAIL}  Daemon did not respond within 20 s."
+        case "$(uname -s)" in
+          Darwin) echo "          → Try opening Docker Desktop manually." ;;
+          Linux)  echo "          → sudo systemctl start docker" ;;
+        esac
+      fi
+    else
+      echo -e "  ${SKIP}  Could not start Docker automatically."
+      case "$(uname -s)" in
+        Darwin) echo "          → open -a Docker" ;;
+        Linux)  echo "          → sudo systemctl start docker" ;;
+        *)      echo "          → Start Docker Desktop manually." ;;
+      esac
+      echo    "          → Or skip Docker entirely: ./manage.sh --native start"
+    fi
+  fi
+
+  # ── 5. Stale PID files ─────────────────────────────────────────────────────
+  local stale=0
+  for pidfile in .server.pid .client.pid .app.pid; do
+    if [[ -f "$pidfile" ]]; then
+      local pid; pid=$(cat "$pidfile")
+      if ! kill -0 "$pid" 2>/dev/null; then
+        echo -e "  ${FIX_}  Removing stale PID file $pidfile (PID $pid gone)."
+        rm -f "$pidfile"
+        stale=$((stale+1)); fixed=$((fixed+1))
+      fi
+    fi
+  done
+  (( stale == 0 )) && echo -e "  ${PASS}  No stale PID files."
+
+  # ── summary ────────────────────────────────────────────────────────────────
+  echo ""
+  if (( fixed > 0 )); then
+    info "$fixed fix(es) applied. Re-running diagnostics…"
+    echo ""
+    run_doctor
+  else
+    info "Nothing needed fixing. Run './manage.sh doctor' for a full status report."
+  fi
 }
 
 # ── Docker Compose helpers ────────────────────────────────────────────────────
@@ -480,11 +610,9 @@ native_logs() {
 }
 
 # ── dispatch ──────────────────────────────────────────────────────────────────
-# doctor runs regardless of --native flag
-if [[ "$COMMAND" == "doctor" ]]; then
-  run_doctor
-  exit 0
-fi
+# doctor and fix run regardless of --native flag
+if [[ "$COMMAND" == "doctor" ]]; then run_doctor; exit 0; fi
+if [[ "$COMMAND" == "fix"    ]]; then run_fix;    exit 0; fi
 
 if $USE_NATIVE; then
   case "$COMMAND" in
