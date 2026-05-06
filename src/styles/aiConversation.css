@@ -26,16 +26,43 @@
   white-space: nowrap;
 }
 
-.ai-model-select {
+.ai-model-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   flex: 1;
-  min-width: 160px;
+  min-width: 0;
+}
+
+.ai-model-input {
+  flex: 1;
+  min-width: 0;
   background: #0f3460;
   color: #eee;
   border: 1px solid #e94560;
   border-radius: 6px;
   padding: 5px 8px;
   font-size: 0.85rem;
+  font-family: monospace;
 }
+
+.ai-model-input:focus {
+  outline: none;
+  border-color: #fff;
+}
+
+.ai-model-apply {
+  flex-shrink: 0;
+  background: #e94560;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 5px 9px;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.ai-model-apply:hover { background: #c73652; }
 
 .ai-settings-btn {
   background: #0f3460;
@@ -106,6 +133,66 @@
   border-radius: 6px;
   padding: 4px 8px;
   font-size: 0.82rem;
+}
+
+/* ── OpenRouter inputs bar ── */
+.ai-or-bar {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 12px;
+  background: #12192e;
+  border-bottom: 1px solid #0f3460;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.ai-or-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.ai-or-field:first-child {
+  flex: 1;
+  min-width: 220px;
+}
+
+.ai-or-label {
+  font-size: 0.72rem;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.ai-or-hint {
+  font-size: 0.72rem;
+  margin-top: 1px;
+}
+
+.ai-or-model-info {
+  justify-content: center;
+}
+
+.ai-or-model-badge {
+  font-family: monospace;
+  font-size: 0.78rem;
+  color: #aaa;
+  background: #0f3460;
+  border-radius: 5px;
+  padding: 4px 8px;
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-speaking-badge {
+  font-size: 0.78rem;
+  color: #4caf50;
+  white-space: nowrap;
+  align-self: center;
 }
 
 /* ── API key row ── */

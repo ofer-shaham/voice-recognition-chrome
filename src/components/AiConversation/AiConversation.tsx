@@ -28,54 +28,76 @@ const VOICE_LANGS = [
   { code: "zh-CN", label: "Chinese" },
 ];
 
-const LS_KEY = "ai_conversation_api_key";
-const ENV_API_KEY = process.env.REACT_APP_OPENAI_API_KEY || "";
+const LS_KEY_API   = "ai_conversation_api_key";
+const LS_KEY_MODEL = "ai_conversation_model";
+const ENV_API_KEY  = process.env.REACT_APP_OPENAI_API_KEY || "";
+
+// ── small helpers ──────────────────────────────────────────────────────────────
+const lsGet = (key: string, fallback: string) =>
+  localStorage.getItem(key) || fallback;
+
+const lsSet = (key: string, value: string) => {
+  if (value) localStorage.setItem(key, value);
+  else localStorage.removeItem(key);
+};
 
 const AiConversation: React.FC = () => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  // ── conversation state ─────────────────────────────────────────────────────
+  const [messages, setMessages]   = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [selectedModel, setSelectedModel] = useState(
-    process.env.REACT_APP_OPENROUTER_DEFAULT_MODEL || DEFAULT_MODEL
+  const [error, setError]         = useState("");
+  const [isSpeaking, setIsSpeaking] = useState(false);
+
+  // ── OpenRouter inputs (persisted) ──────────────────────────────────────────
+  const [modelInput, setModelInput] = useState<string>(
+    () => lsGet(LS_KEY_MODEL, DEFAULT_MODEL)
   );
+  const [uiApiKey, setUiApiKey] = useState<string>(
+    () => lsGet(LS_KEY_API, "")
+  );
+  const [showKey, setShowKey] = useState(false);
+
+  // committed values actually used for requests
+  const [activeModel, setActiveModel] = useState<string>(
+    () => lsGet(LS_KEY_MODEL, DEFAULT_MODEL)
+  );
+  const [activeApiKey, setActiveApiKey] = useState<string>(
+    () => lsGet(LS_KEY_API, "")
+  );
+
+  const effectiveKey = activeApiKey || ENV_API_KEY;
+
+  const commitModel = useCallback((val: string) => {
+    const v = val.trim() || DEFAULT_MODEL;
+    setModelInput(v);
+    setActiveModel(v);
+    lsSet(LS_KEY_MODEL, v);
+  }, []);
+
+  const commitApiKey = useCallback((val: string) => {
+    const v = val.trim();
+    setUiApiKey(v);
+    setActiveApiKey(v);
+    lsSet(LS_KEY_API, v);
+  }, []);
+
+  const clearApiKey = useCallback(() => commitApiKey(""), [commitApiKey]);
+
+  // ── settings panel ─────────────────────────────────────────────────────────
+  const [showSettings, setShowSettings] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState(
     "You are a helpful, concise assistant."
   );
-  const [showSettings, setShowSettings] = useState(false);
   const [ttsEnabled, setTtsEnabled] = useState(true);
-  const [voiceLang, setVoiceLang] = useState("en-US");
-  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [voiceLang, setVoiceLang]   = useState("en-US");
 
-  // API key override stored in localStorage
-  const [uiApiKey, setUiApiKey] = useState<string>(
-    () => localStorage.getItem(LS_KEY) || ""
-  );
-  const [keyInput, setKeyInput] = useState<string>(
-    () => localStorage.getItem(LS_KEY) || ""
-  );
-  const [showKeyText, setShowKeyText] = useState(false);
-
-  const effectiveKey = uiApiKey || ENV_API_KEY;
-
-  const saveKey = useCallback((value: string) => {
-    const trimmed = value.trim();
-    setUiApiKey(trimmed);
-    setKeyInput(trimmed);
-    if (trimmed) {
-      localStorage.setItem(LS_KEY, trimmed);
-    } else {
-      localStorage.removeItem(LS_KEY);
-    }
-  }, []);
-
-  const clearKey = useCallback(() => {
-    saveKey("");
-  }, [saveKey]);
-
+  // ── refs ───────────────────────────────────────────────────────────────────
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const textareaRef    = useRef<HTMLTextAreaElement>(null);
+  const modelInputRef  = useRef<HTMLInputElement>(null);
 
+  // ── speech recognition ────────────────────────────────────────────────────
   const {
     transcript,
     interimTranscript,
@@ -92,6 +114,7 @@ const AiConversation: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
+  // ── actions ───────────────────────────────────────────────────────────────
   const toggleListening = useCallback(() => {
     if (listening) {
       SpeechRecognition.stopListening();
@@ -125,9 +148,8 @@ const AiConversation: React.FC = () => {
         ? [{ role: "system", content: systemPrompt }, ...history]
         : history;
 
-      const reply = await chatWithAI(context, selectedModel, effectiveKey);
-      const assistantMsg: ChatMessage = { role: "assistant", content: reply };
-      setMessages((prev) => [...prev, assistantMsg]);
+      const reply = await chatWithAI(context, activeModel, effectiveKey);
+      setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
 
       if (ttsEnabled) {
         setIsSpeaking(true);
@@ -140,16 +162,8 @@ const AiConversation: React.FC = () => {
       setIsLoading(false);
     }
   }, [
-    inputText,
-    isLoading,
-    listening,
-    messages,
-    resetTranscript,
-    selectedModel,
-    systemPrompt,
-    ttsEnabled,
-    voiceLang,
-    effectiveKey,
+    inputText, isLoading, listening, messages, resetTranscript,
+    activeModel, effectiveKey, systemPrompt, ttsEnabled, voiceLang,
   ]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -166,15 +180,16 @@ const AiConversation: React.FC = () => {
     resetTranscript();
   };
 
-  const isInterim = listening && !!interimTranscript;
-  const keySource = uiApiKey ? "ui" : ENV_API_KEY ? "env" : "none";
+  const isInterim   = listening && !!interimTranscript;
+  const keySource   = activeApiKey ? "ui" : ENV_API_KEY ? "env" : "none";
+  const modelDirty  = modelInput !== activeModel;
+  const keyDirty    = uiApiKey !== activeApiKey;
 
   if (!browserSupportsSpeechRecognition) {
     return (
       <div className="ai-conversation">
         <p style={{ color: "#e94560", padding: 20 }}>
-          Your browser does not support speech recognition. You can still type
-          messages below.
+          Your browser does not support speech recognition. You can still type messages below.
         </p>
       </div>
     );
@@ -182,100 +197,130 @@ const AiConversation: React.FC = () => {
 
   return (
     <div className="ai-conversation">
-      {/* ── top bar ── */}
+
+      {/* ── top bar ─────────────────────────────────────────────────────── */}
       <div className="ai-top-bar">
         <h2>AI Conversation</h2>
-        <select
-          className="ai-model-select"
-          value={selectedModel}
-          onChange={(e) => setSelectedModel(e.target.value)}
-        >
-          {OPENROUTER_MODELS.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.label}
-            </option>
-          ))}
-        </select>
+
+        {/* model combobox */}
+        <div className="ai-model-wrap">
+          <input
+            ref={modelInputRef}
+            className="ai-model-input"
+            list="or-models"
+            value={modelInput}
+            onChange={(e) => setModelInput(e.target.value)}
+            onBlur={(e) => commitModel(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                commitModel((e.target as HTMLInputElement).value);
+                (e.target as HTMLInputElement).blur();
+              }
+            }}
+            placeholder="model id…"
+            spellCheck={false}
+            autoComplete="off"
+            title="Type any OpenRouter model ID, or pick from the list"
+          />
+          <datalist id="or-models">
+            {OPENROUTER_MODELS.map((m) => (
+              <option key={m.id} value={m.id}>{m.label}</option>
+            ))}
+          </datalist>
+          {modelDirty && (
+            <button
+              className="ai-model-apply"
+              onClick={() => commitModel(modelInput)}
+              title="Apply model"
+            >
+              ✓
+            </button>
+          )}
+        </div>
+
         <button
           className="ai-settings-btn"
           onClick={() => setShowSettings((p) => !p)}
         >
           {showSettings ? "▲ Settings" : "▼ Settings"}
         </button>
+
         {messages.length > 0 && (
           <button className="ai-clear-btn" onClick={clearConversation}>
             Clear
           </button>
         )}
+
         {isSpeaking && (
-          <span style={{ fontSize: "0.78rem", color: "#4caf50" }}>
-            🔊 speaking…
-          </span>
+          <span className="ai-speaking-badge">🔊 speaking…</span>
         )}
       </div>
 
-      {/* ── settings panel ── */}
-      {showSettings && (
-        <div className="ai-settings-panel">
-          {/* API key override */}
-          <label>OpenRouter API key</label>
+      {/* ── openrouter inputs bar ────────────────────────────────────────── */}
+      <div className="ai-or-bar">
+        {/* API key */}
+        <div className="ai-or-field">
+          <span className="ai-or-label">API key</span>
           <div className="ai-key-row">
             <input
               className="ai-key-input"
-              type={showKeyText ? "text" : "password"}
-              value={keyInput}
-              onChange={(e) => setKeyInput(e.target.value)}
+              type={showKey ? "text" : "password"}
+              value={uiApiKey}
+              onChange={(e) => setUiApiKey(e.target.value)}
+              onBlur={(e) => commitApiKey(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") commitApiKey((e.target as HTMLInputElement).value);
+              }}
               placeholder={
-                ENV_API_KEY
-                  ? "Leave blank to use env key"
-                  : "Paste your OpenRouter key…"
+                ENV_API_KEY ? "env key active — paste to override" : "sk-or-…"
               }
               spellCheck={false}
               autoComplete="off"
             />
             <button
               className="ai-key-toggle"
-              onClick={() => setShowKeyText((p) => !p)}
-              title={showKeyText ? "Hide key" : "Show key"}
+              onClick={() => setShowKey((p) => !p)}
+              title={showKey ? "Hide" : "Show"}
             >
-              {showKeyText ? "🙈" : "👁"}
+              {showKey ? "🙈" : "👁"}
             </button>
-            <button
-              className="ai-key-save"
-              onClick={() => saveKey(keyInput)}
-              disabled={keyInput === uiApiKey}
-            >
-              Save
-            </button>
-            {uiApiKey && (
-              <button className="ai-key-clear" onClick={clearKey}>
-                ✕ Clear
+            {keyDirty && (
+              <button
+                className="ai-key-save"
+                onClick={() => commitApiKey(uiApiKey)}
+              >
+                Save
+              </button>
+            )}
+            {activeApiKey && (
+              <button className="ai-key-clear" onClick={clearApiKey} title="Remove override">
+                ✕
               </button>
             )}
           </div>
-          <p className="ai-key-status">
-            {keySource === "ui" && (
-              <span style={{ color: "#4caf50" }}>✔ Using key from UI (overrides env)</span>
-            )}
-            {keySource === "env" && (
-              <span style={{ color: "#aaa" }}>Using key from REACT_APP_OPENAI_API_KEY env var</span>
-            )}
-            {keySource === "none" && (
-              <span style={{ color: "#e94560" }}>
-                ⚠ No API key — enter one above or set REACT_APP_OPENAI_API_KEY in Replit Secrets
-              </span>
-            )}
-          </p>
+          <span className="ai-or-hint">
+            {keySource === "ui"  && <span style={{ color: "#4caf50" }}>✔ UI key active</span>}
+            {keySource === "env" && <span style={{ color: "#888" }}>env key active</span>}
+            {keySource === "none" && <span style={{ color: "#e94560" }}>⚠ no key set</span>}
+          </span>
+        </div>
 
-          {/* System prompt */}
-          <label style={{ marginTop: 10 }}>System prompt</label>
+        {/* active model badge */}
+        <div className="ai-or-field ai-or-model-info">
+          <span className="ai-or-label">Active model</span>
+          <span className="ai-or-model-badge" title={activeModel}>{activeModel}</span>
+        </div>
+      </div>
+
+      {/* ── settings panel ──────────────────────────────────────────────── */}
+      {showSettings && (
+        <div className="ai-settings-panel">
+          <label>System prompt</label>
           <textarea
             value={systemPrompt}
             onChange={(e) => setSystemPrompt(e.target.value)}
             placeholder="e.g. You are a helpful assistant."
           />
-
-          {/* TTS + voice lang */}
           <div className="ai-settings-row">
             <label>
               <input
@@ -294,9 +339,7 @@ const AiConversation: React.FC = () => {
                 style={{ marginLeft: 6 }}
               >
                 {VOICE_LANGS.map((l) => (
-                  <option key={l.code} value={l.code}>
-                    {l.label}
-                  </option>
+                  <option key={l.code} value={l.code}>{l.label}</option>
                 ))}
               </select>
             </label>
@@ -304,7 +347,7 @@ const AiConversation: React.FC = () => {
         </div>
       )}
 
-      {/* ── messages ── */}
+      {/* ── messages ────────────────────────────────────────────────────── */}
       <div className="ai-messages">
         {messages.length === 0 && !isLoading && (
           <div className="ai-empty">
@@ -329,13 +372,12 @@ const AiConversation: React.FC = () => {
         ))}
 
         {isLoading && <div className="ai-thinking">Thinking…</div>}
-
-        {error && <div className="ai-error">⚠ {error}</div>}
+        {error     && <div className="ai-error">⚠ {error}</div>}
 
         <div ref={messagesEndRef} />
       </div>
 
-      {/* ── input bar ── */}
+      {/* ── input bar ───────────────────────────────────────────────────── */}
       <div className="ai-input-bar">
         <button
           className={`ai-mic-btn${listening ? " listening" : ""}`}
