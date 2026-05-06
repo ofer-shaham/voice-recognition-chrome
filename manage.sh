@@ -5,7 +5,7 @@
 # Use --native to run without Docker (requires node/npm on PATH).
 #
 # Usage:
-#   ./manage.sh [--native] {start|stop|restart|status|build}
+#   ./manage.sh [--native] {start|stop|restart|status|build|doctor}
 #   ./manage.sh [--native] logs [client|server|openrouter|all]
 #
 # Docker Compose services:
@@ -14,6 +14,7 @@
 #   openrouter  Alias for 'server'
 #
 # Examples:
+#   ./manage.sh doctor                  # diagnose Docker + environment issues
 #   ./manage.sh start                   # docker compose up (build if needed)
 #   ./manage.sh stop                    # docker compose down
 #   ./manage.sh restart                 # rebuild + restart both services
@@ -22,7 +23,7 @@
 #   ./manage.sh logs                    # follow all logs
 #   ./manage.sh logs server             # follow server / OpenRouter logs
 #   ./manage.sh logs client             # follow React client logs
-#   ./manage.sh --native start          # start server + client natively
+#   ./manage.sh --native start          # start server + client natively (no Docker)
 #   ./manage.sh --native logs server    # tail logs/server.log
 
 set -uo pipefail
@@ -43,7 +44,7 @@ head_()  { echo -e "${CYAN}── $* ──${NC}"; }
 for arg in "$@"; do
   case "$arg" in
     --native) USE_NATIVE=true ;;
-    start|stop|restart|status|build) COMMAND="$arg" ;;
+    start|stop|restart|status|build|doctor) COMMAND="$arg" ;;
     logs) COMMAND="logs" ;;
     client|server|openrouter|all)
       if [[ "$COMMAND" == "logs" ]]; then
@@ -66,19 +67,201 @@ for arg in "$@"; do
 done
 
 if [[ -z "$COMMAND" ]]; then
-  echo "Usage: $0 [--native] {start|stop|restart|status|build|logs [service]}"
+  echo "Usage: $0 [--native] {start|stop|restart|status|build|doctor|logs [service]}"
   exit 1
 fi
 
+# ── Check helpers (used by doctor + docker_check) ─────────────────────────────
+PASS="${GREEN}[PASS]${NC}"; FAIL="${RED}[FAIL]${NC}"; SKIP="${YELLOW}[SKIP]${NC}"
+
+check_docker_installed() {
+  if command -v docker &>/dev/null; then
+    echo -e "  ${PASS}  docker $(docker --version 2>/dev/null | awk '{print $3}' | tr -d ',')"
+    return 0
+  else
+    echo -e "  ${FAIL}  docker not found in PATH"
+    echo    "          → Install Docker Desktop: https://docs.docker.com/get-docker/"
+    echo    "          → Or run without Docker:  ./manage.sh --native start"
+    return 1
+  fi
+}
+
+check_docker_daemon() {
+  if docker info &>/dev/null 2>&1; then
+    local ctx; ctx=$(docker context show 2>/dev/null || echo "default")
+    echo -e "  ${PASS}  Docker daemon running (context: ${ctx})"
+    return 0
+  else
+    echo -e "  ${FAIL}  Docker daemon is not running"
+    # Give OS-specific hints
+    case "$(uname -s)" in
+      Darwin)
+        echo    "          → Start Docker Desktop from Applications"
+        echo    "          → Or via CLI: open -a Docker"
+        ;;
+      Linux)
+        echo    "          → sudo systemctl start docker"
+        echo    "          → If using Rootless Docker: systemctl --user start docker"
+        echo    "          → Check socket: ls -la /var/run/docker.sock"
+        ;;
+      MINGW*|MSYS*|CYGWIN*)
+        echo    "          → Start Docker Desktop from the system tray / Start Menu"
+        ;;
+    esac
+    echo    "          → Or run without Docker: ./manage.sh --native start"
+    return 1
+  fi
+}
+
+check_compose_available() {
+  if docker compose version &>/dev/null 2>&1; then
+    echo -e "  ${PASS}  docker compose (v2) $(docker compose version --short 2>/dev/null)"
+    return 0
+  elif command -v docker-compose &>/dev/null; then
+    echo -e "  ${PASS}  docker-compose (v1) $(docker-compose --version 2>/dev/null | awk '{print $NF}')"
+    return 0
+  else
+    echo -e "  ${FAIL}  Neither 'docker compose' (v2) nor 'docker-compose' (v1) found"
+    echo    "          → Upgrade Docker Desktop (includes Compose v2)"
+    echo    "          → Or install plugin: https://docs.docker.com/compose/install/"
+    return 1
+  fi
+}
+
+check_node() {
+  if command -v node &>/dev/null; then
+    echo -e "  ${PASS}  node $(node --version)"
+    return 0
+  else
+    echo -e "  ${FAIL}  node not found"
+    echo    "          → Install Node.js: https://nodejs.org/"
+    return 1
+  fi
+}
+
+check_npm() {
+  if command -v npm &>/dev/null; then
+    echo -e "  ${PASS}  npm $(npm --version)"
+    return 0
+  else
+    echo -e "  ${FAIL}  npm not found (usually bundled with Node.js)"
+    return 1
+  fi
+}
+
+check_server_deps() {
+  if [[ -d server/node_modules ]]; then
+    echo -e "  ${PASS}  server/node_modules present"
+    return 0
+  else
+    echo -e "  ${FAIL}  server/node_modules missing"
+    echo    "          → Run: cd server && npm install"
+    return 1
+  fi
+}
+
+check_client_deps() {
+  if [[ -d node_modules ]]; then
+    echo -e "  ${PASS}  node_modules present"
+    return 0
+  else
+    echo -e "  ${FAIL}  node_modules missing"
+    echo    "          → Run: npm install --legacy-peer-deps"
+    return 1
+  fi
+}
+
+check_env_file() {
+  if [[ -f .env ]]; then
+    if grep -q "^OPENROUTER_API_KEY=.\+" .env 2>/dev/null; then
+      echo -e "  ${PASS}  .env found with OPENROUTER_API_KEY set"
+    else
+      echo -e "  ${SKIP}  .env found but OPENROUTER_API_KEY is empty or missing"
+      echo    "          → Edit .env and set OPENROUTER_API_KEY=sk-or-..."
+    fi
+    return 0
+  else
+    echo -e "  ${SKIP}  .env not found (needed for Docker Compose API key)"
+    echo    "          → cp .env.example .env  then fill in OPENROUTER_API_KEY"
+    return 0  # not fatal; Replit Secrets or UI key can supply the key
+  fi
+}
+
+check_port() {
+  local port="$1" label="$2"
+  if port_is_free "$port"; then
+    echo -e "  ${PASS}  port ${port} (${label}) is free"
+  else
+    # Try to identify what's using it
+    local hex_port; printf -v hex_port '%04X' "$port"
+    local inode; inode=$(awk -v p=":${hex_port}" 'NR>1 && $2~p && $4=="0A"{print $10;exit}' /proc/net/tcp /proc/net/tcp6 2>/dev/null || true)
+    local who="unknown process"
+    if [[ -n "$inode" ]]; then
+      for dir in /proc/[0-9]*/fd; do
+        if ls -la "$dir" 2>/dev/null | grep -q "socket:\[${inode}\]"; then
+          local pid; pid=$(echo "$dir" | cut -d/ -f3)
+          local cmd; cmd=$(cat "/proc/${pid}/comm" 2>/dev/null || echo "unknown")
+          who="PID ${pid} (${cmd})"
+          break
+        fi
+      done
+    fi
+    echo -e "  ${SKIP}  port ${port} (${label}) in use by ${who}"
+    echo    "          → This is expected if the service is already running"
+  fi
+}
+
+# ── doctor ────────────────────────────────────────────────────────────────────
+run_doctor() {
+  local docker_ok=0 native_ok=0 issues=0
+
+  echo ""
+  head_ "Docker environment"
+  check_docker_installed && check_docker_daemon && check_compose_available \
+    && docker_ok=1 || issues=$((issues+1))
+
+  echo ""
+  head_ "Native (node/npm) environment"
+  check_node   || issues=$((issues+1))
+  check_npm    || issues=$((issues+1))
+  check_server_deps || issues=$((issues+1))
+  check_client_deps || issues=$((issues+1))
+  (check_node && check_npm && [[ -d server/node_modules ]] && [[ -d node_modules ]]) \
+    && native_ok=1
+
+  echo ""
+  head_ "Configuration"
+  check_env_file
+
+  echo ""
+  head_ "Ports"
+  check_port 5000 "client"
+  check_port 3001 "server"
+
+  echo ""
+  head_ "Summary"
+  if (( docker_ok )); then
+    echo -e "  ${PASS}  Docker is ready  →  ./manage.sh start"
+  else
+    echo -e "  ${FAIL}  Docker is NOT ready (see issues above)"
+  fi
+  if (( native_ok )); then
+    echo -e "  ${PASS}  Native mode ready  →  ./manage.sh --native start"
+  else
+    echo -e "  ${FAIL}  Native mode is NOT ready (see issues above)"
+  fi
+  echo ""
+}
+
 # ── Docker Compose helpers ────────────────────────────────────────────────────
 compose_cmd() {
-  # Prefer 'docker compose' (v2); fall back to 'docker-compose' (v1)
   if docker compose version &>/dev/null 2>&1; then
     docker compose "$@"
   elif command -v docker-compose &>/dev/null; then
     docker-compose "$@"
   else
     error "Neither 'docker compose' nor 'docker-compose' found."
+    echo  "       Run './manage.sh doctor' to diagnose and get fix instructions." >&2
     exit 1
   fi
 }
@@ -86,10 +269,20 @@ compose_cmd() {
 docker_check() {
   if ! command -v docker &>/dev/null; then
     error "Docker is not installed or not in PATH."
+    echo  "       Run './manage.sh doctor' to diagnose and get fix instructions." >&2
+    echo  "       Alternative: ./manage.sh --native start  (no Docker required)" >&2
     exit 1
   fi
   if ! docker info &>/dev/null 2>&1; then
-    error "Docker daemon is not running. Start Docker Desktop (or the daemon) and retry."
+    error "Docker daemon is not running."
+    echo  "" >&2
+    case "$(uname -s)" in
+      Darwin) echo  "       → Start Docker Desktop (open -a Docker)" >&2 ;;
+      Linux)  echo  "       → sudo systemctl start docker" >&2 ;;
+      *)      echo  "       → Start Docker Desktop" >&2 ;;
+    esac
+    echo  "       → Or run without Docker: ./manage.sh --native start" >&2
+    echo  "       → Full diagnostics:      ./manage.sh doctor" >&2
     exit 1
   fi
 }
@@ -287,6 +480,12 @@ native_logs() {
 }
 
 # ── dispatch ──────────────────────────────────────────────────────────────────
+# doctor runs regardless of --native flag
+if [[ "$COMMAND" == "doctor" ]]; then
+  run_doctor
+  exit 0
+fi
+
 if $USE_NATIVE; then
   case "$COMMAND" in
     start)   native_start ;;
