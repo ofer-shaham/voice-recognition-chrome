@@ -61,7 +61,7 @@ for arg in "$@"; do
       ;;
     *)
       error "Unknown argument: $arg"
-      echo "Usage: $0 [--native] {start|stop|restart|status|build|logs [service]}" >&2
+      echo "Usage: $0 [--native] {start|stop|restart|status|build|doctor|fix|logs [service]}" >&2
       exit 1
       ;;
   esac
@@ -93,8 +93,13 @@ check_docker_daemon() {
     echo -e "  ${PASS}  Docker daemon running (context: ${ctx})"
     return 0
   else
+    # Replit sandbox: dockerd cannot run — steer users to native mode
+    if [[ -n "${REPL_ID:-}" ]]; then
+      echo -e "  ${SKIP}  Docker daemon unavailable in Replit sandbox"
+      echo    "          → Use native mode instead: ./manage.sh --native start"
+      return 1
+    fi
     echo -e "  ${FAIL}  Docker daemon is not running"
-    # Give OS-specific hints
     case "$(uname -s)" in
       Darwin)
         echo    "          → Start Docker Desktop from Applications"
@@ -313,6 +318,12 @@ run_fix() {
     echo    "          → Then re-run: ./manage.sh fix"
   elif docker info &>/dev/null 2>&1; then
     echo -e "  ${PASS}  Docker daemon already running — skipping."
+  elif [[ -n "${REPL_ID:-}" ]]; then
+    # Replit sandbox: dockerd cannot run (no privilege), switch to native mode
+    echo -e "  ${FIX_}  Replit detected — Docker daemon cannot run in this sandbox."
+    echo    "          Switching default to --native mode for you."
+    echo    "          Run: ./manage.sh --native start"
+    echo -e "  ${PASS}  Native mode is fully supported (node + npm are present)."
   else
     echo -e "  ${FIX_}  Attempting to start Docker daemon…"
     local daemon_started=false
