@@ -108,6 +108,73 @@
   font-size: 0.82rem;
 }
 
+/* ── API key row ── */
+.ai-key-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.ai-key-input {
+  flex: 1;
+  background: #0f3460;
+  color: #eee;
+  border: 1px solid #e94560;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  font-family: monospace;
+  min-width: 0;
+}
+
+.ai-key-input:focus {
+  outline: none;
+  border-color: #fff;
+}
+
+.ai-key-toggle,
+.ai-key-save,
+.ai-key-clear {
+  flex-shrink: 0;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.ai-key-toggle {
+  background: #0f3460;
+  color: #aaa;
+  border-color: #0f3460;
+}
+
+.ai-key-toggle:hover { color: #eee; border-color: #666; }
+
+.ai-key-save {
+  background: #e94560;
+  color: #fff;
+}
+
+.ai-key-save:disabled {
+  background: #555;
+  cursor: not-allowed;
+}
+
+.ai-key-clear {
+  background: transparent;
+  color: #e94560;
+  border-color: #e94560;
+}
+
+.ai-key-clear:hover { background: #e94560; color: #fff; }
+
+.ai-key-status {
+  font-size: 0.78rem;
+  margin: 4px 0 0;
+}
+
 /* ── messages area ── */
 .ai-messages {
   flex: 1;

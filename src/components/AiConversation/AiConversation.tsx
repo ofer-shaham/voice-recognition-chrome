@@ -28,7 +28,8 @@ const VOICE_LANGS = [
   { code: "zh-CN", label: "Chinese" },
 ];
 
-const API_KEY = process.env.REACT_APP_OPENAI_API_KEY || "";
+const LS_KEY = "ai_conversation_api_key";
+const ENV_API_KEY = process.env.REACT_APP_OPENAI_API_KEY || "";
 
 const AiConversation: React.FC = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -46,6 +47,32 @@ const AiConversation: React.FC = () => {
   const [voiceLang, setVoiceLang] = useState("en-US");
   const [isSpeaking, setIsSpeaking] = useState(false);
 
+  // API key override stored in localStorage
+  const [uiApiKey, setUiApiKey] = useState<string>(
+    () => localStorage.getItem(LS_KEY) || ""
+  );
+  const [keyInput, setKeyInput] = useState<string>(
+    () => localStorage.getItem(LS_KEY) || ""
+  );
+  const [showKeyText, setShowKeyText] = useState(false);
+
+  const effectiveKey = uiApiKey || ENV_API_KEY;
+
+  const saveKey = useCallback((value: string) => {
+    const trimmed = value.trim();
+    setUiApiKey(trimmed);
+    setKeyInput(trimmed);
+    if (trimmed) {
+      localStorage.setItem(LS_KEY, trimmed);
+    } else {
+      localStorage.removeItem(LS_KEY);
+    }
+  }, []);
+
+  const clearKey = useCallback(() => {
+    saveKey("");
+  }, [saveKey]);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -57,12 +84,10 @@ const AiConversation: React.FC = () => {
     browserSupportsSpeechRecognition,
   } = useSpeechRecognition();
 
-  // Sync transcript → input box
   useEffect(() => {
     if (transcript) setInputText(transcript);
   }, [transcript]);
 
-  // Auto-scroll to latest message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
@@ -100,7 +125,7 @@ const AiConversation: React.FC = () => {
         ? [{ role: "system", content: systemPrompt }, ...history]
         : history;
 
-      const reply = await chatWithAI(context, selectedModel, API_KEY);
+      const reply = await chatWithAI(context, selectedModel, effectiveKey);
       const assistantMsg: ChatMessage = { role: "assistant", content: reply };
       setMessages((prev) => [...prev, assistantMsg]);
 
@@ -124,6 +149,7 @@ const AiConversation: React.FC = () => {
     systemPrompt,
     ttsEnabled,
     voiceLang,
+    effectiveKey,
   ]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -141,6 +167,7 @@ const AiConversation: React.FC = () => {
   };
 
   const isInterim = listening && !!interimTranscript;
+  const keySource = uiApiKey ? "ui" : ENV_API_KEY ? "env" : "none";
 
   if (!browserSupportsSpeechRecognition) {
     return (
@@ -190,12 +217,65 @@ const AiConversation: React.FC = () => {
       {/* ── settings panel ── */}
       {showSettings && (
         <div className="ai-settings-panel">
-          <label>System prompt</label>
+          {/* API key override */}
+          <label>OpenRouter API key</label>
+          <div className="ai-key-row">
+            <input
+              className="ai-key-input"
+              type={showKeyText ? "text" : "password"}
+              value={keyInput}
+              onChange={(e) => setKeyInput(e.target.value)}
+              placeholder={
+                ENV_API_KEY
+                  ? "Leave blank to use env key"
+                  : "Paste your OpenRouter key…"
+              }
+              spellCheck={false}
+              autoComplete="off"
+            />
+            <button
+              className="ai-key-toggle"
+              onClick={() => setShowKeyText((p) => !p)}
+              title={showKeyText ? "Hide key" : "Show key"}
+            >
+              {showKeyText ? "🙈" : "👁"}
+            </button>
+            <button
+              className="ai-key-save"
+              onClick={() => saveKey(keyInput)}
+              disabled={keyInput === uiApiKey}
+            >
+              Save
+            </button>
+            {uiApiKey && (
+              <button className="ai-key-clear" onClick={clearKey}>
+                ✕ Clear
+              </button>
+            )}
+          </div>
+          <p className="ai-key-status">
+            {keySource === "ui" && (
+              <span style={{ color: "#4caf50" }}>✔ Using key from UI (overrides env)</span>
+            )}
+            {keySource === "env" && (
+              <span style={{ color: "#aaa" }}>Using key from REACT_APP_OPENAI_API_KEY env var</span>
+            )}
+            {keySource === "none" && (
+              <span style={{ color: "#e94560" }}>
+                ⚠ No API key — enter one above or set REACT_APP_OPENAI_API_KEY in Replit Secrets
+              </span>
+            )}
+          </p>
+
+          {/* System prompt */}
+          <label style={{ marginTop: 10 }}>System prompt</label>
           <textarea
             value={systemPrompt}
             onChange={(e) => setSystemPrompt(e.target.value)}
             placeholder="e.g. You are a helpful assistant."
           />
+
+          {/* TTS + voice lang */}
           <div className="ai-settings-row">
             <label>
               <input
@@ -221,20 +301,6 @@ const AiConversation: React.FC = () => {
               </select>
             </label>
           </div>
-
-          {!API_KEY && (
-            <p
-              style={{
-                color: "#ff8a9a",
-                fontSize: "0.82rem",
-                marginTop: 8,
-                marginBottom: 0,
-              }}
-            >
-              ⚠ No API key found. Add <code>REACT_APP_OPENAI_API_KEY</code> to
-              Replit Secrets, then restart the app.
-            </p>
-          )}
         </div>
       )}
 
@@ -262,9 +328,7 @@ const AiConversation: React.FC = () => {
           </div>
         ))}
 
-        {isLoading && (
-          <div className="ai-thinking">Thinking…</div>
-        )}
+        {isLoading && <div className="ai-thinking">Thinking…</div>}
 
         {error && <div className="ai-error">⚠ {error}</div>}
 
@@ -288,9 +352,7 @@ const AiConversation: React.FC = () => {
           onChange={(e) => setInputText(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder={
-            listening
-              ? "Listening…"
-              : "Type a message or press 🎤 to speak…"
+            listening ? "Listening…" : "Type a message or press 🎤 to speak…"
           }
           rows={1}
         />
