@@ -2,12 +2,16 @@ FROM node:20-alpine
 
 WORKDIR /app
 
-# Install dependencies first (layer cached unless package files change)
+# Dependencies cached separately from source
 COPY package*.json ./
 RUN npm install --legacy-peer-deps
 
-# Copy source
 COPY . .
+
+# REACT_APP_API_URL is baked in at build time by CRA.
+# Docker Compose passes http://localhost:3001 so the browser reaches the server.
+ARG REACT_APP_API_URL=http://localhost:3001
+ENV REACT_APP_API_URL=$REACT_APP_API_URL
 
 ENV HOST=0.0.0.0
 ENV PORT=5000

@@ -1,47 +1,71 @@
 # my-app — Speech Translation App
 
-## Overview
-A React + TypeScript application for real-time speech recognition, translation, and text-to-speech. Built with Create React App (react-scripts 5).
+## Run & Operate
+| Command | Purpose |
+|---|---|
+| `npm start` | React client (port 5000) |
+| `node server/index.js` | OpenRouter proxy server (port 3001) |
+| `npm run build` | Production build → `build/` |
+| `./manage.sh start` | Docker Compose: build + start both services |
+| `./manage.sh logs [client\|server\|openrouter]` | Follow logs |
+| `./manage.sh --native start` | Start server + client without Docker |
 
-## Features
-- **Speech Recognition & Translation** (`/`) — Listen to speech and translate between languages using Web Speech API
-- **YouTube Transcript Parser** (`/youtube`) — Parse and navigate YouTube video transcripts with timestamp sync
-- **Proverbs** (`/proverb`) — Proverb display feature
+**Required env vars (Replit Secrets):**
+- `REACT_APP_OPENAI_API_KEY` — OpenRouter key (used by the server as `OPENROUTER_API_KEY`)
 
-## Architecture
-- **Frontend:** React 18 + TypeScript, Create React App (react-scripts)
+**Docker Compose env vars (`.env` file, see `.env.example`):**
+- `OPENROUTER_API_KEY` — OpenRouter key for server container
+
+## Stack
+- **Frontend:** React 18 + TypeScript, Create React App (react-scripts 5), port 5000
+- **Backend:** Node.js + Express (server/), port 3001
 - **Routing:** react-router-dom v6
 - **Speech:** react-speech-recognition, tts-react
-- **No backend** — purely client-side SPA
+- **AI:** OpenRouter API (server-side proxy)
+- **Infra:** Docker Compose (`docker-compose.yml`), `manage.sh` lifecycle script
 
-## Project Structure
+## Where things live
 ```
 src/
-  App.tsx              # Root router
-  index.tsx            # React entry point
-  components/          # UI components (Intro, YoutubeTranscriptNavigator, Proverbs, Footer, etc.)
-  consts/              # Config constants and language maps
-  hooks/               # Custom React hooks (voice, microphone, fullscreen, etc.)
-  services/            # Utility services (mobile detection, recording)
-  styles/              # CSS files
-  types/               # TypeScript types
-  utils/               # Utility functions (translation, TTS, YouTube parsing)
-public/                # Static assets and fixtures
+  App.tsx                        # Root router
+  components/AiConversation/     # AI chat UI
+  services/openRouterService.ts  # Client → server API calls
+  hooks/                         # Custom hooks
+  styles/                        # CSS files
+  utils/                         # TTS, translation helpers
+server/
+  index.js                       # Express server: proxies OpenRouter, logs all calls
+  package.json                   # Server deps (express, cors)
+  Dockerfile                     # Server Docker image
+Dockerfile                       # Client Docker image (accepts REACT_APP_API_URL build arg)
+docker-compose.yml               # Orchestrates client (5000) + server (3001)
+manage.sh                        # Lifecycle script (start/stop/restart/status/build/logs)
+.env.example                     # Template for Docker env vars
 ```
 
-## Replit Setup
-- **Port:** 5000 (HOST=0.0.0.0)
-- **Workflow:** "Start application" runs `npm start`
-- **Env:** `.env` sets `HOST=0.0.0.0`, `PORT=5000`, `DANGEROUSLY_DISABLE_HOST_CHECK=true`
-- **Deployment:** Configured as static site (`npm run build` → `build/` dir)
+## Architecture decisions
+- **Server-side OpenRouter proxy:** API key lives on the server (`OPENROUTER_API_KEY`), never exposed to the browser. Client may send an optional UI-provided key override.
+- **CRA proxy in dev:** `"proxy": "http://localhost:3001"` in `package.json` forwards `/api/*` requests to the server without CORS issues.
+- **Docker build arg:** `REACT_APP_API_URL` is baked into the client image at build time (CRA requirement). Defaults to `http://localhost:3001`.
+- **Two Replit workflows:** "Start application" (client, webview) + "Start server" (server, console). Both auto-start with Replit secrets injected.
+- **manage.sh:** Docker Compose is the default mode. `--native` flag runs both services without Docker using PID files + `logs/` directory.
 
-## Running Locally
-```bash
-npm install --legacy-peer-deps
-npm start
-```
+## Product
+- **Speech Recognition & Translation** (`/`) — Listen and translate using Web Speech API
+- **YouTube Transcript Parser** (`/youtube`) — Parse transcripts with timestamp sync
+- **Proverbs** (`/proverb`) — Proverb display
+- **Simultaneous Translation** (`/simultanuos_translation`) — Real-time translation
+- **AI Conversation** (`/ai-conversation`) — Chat via OpenRouter (voice + text, server-proxied)
 
-## Notes
-- Microphone access required for speech features (browser permission needed)
-- Uses browser's built-in Web Speech API — Chrome recommended
-- `DANGEROUSLY_DISABLE_HOST_CHECK=true` is set to allow Replit's proxied preview iframe
+## User preferences
+- Keep API key server-side; UI can override with a paste-in key saved to localStorage
+- Model name should be a free-text combobox (any OpenRouter model ID), not a fixed dropdown
+
+## Gotchas
+- `DANGEROUSLY_DISABLE_HOST_CHECK=true` required for Replit's proxied iframe preview
+- Server reads `REACT_APP_OPENAI_API_KEY` as a fallback for `OPENROUTER_API_KEY` (both env vars work)
+- `checkServerKey()` retries up to 4× with 1.5s delay — server may start slightly after client
+
+## Pointers
+- OpenRouter models: https://openrouter.ai/models
+- CRA proxy docs: https://create-react-app.dev/docs/proxying-api-requests-in-development/

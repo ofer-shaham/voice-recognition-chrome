@@ -1,290 +1,308 @@
 #!/usr/bin/env bash
 # manage.sh — Application lifecycle management
 #
-# Usage:
-#   ./manage.sh [--docker] {start|stop|restart|status}
+# Default mode: Docker Compose (orchestrates client + server via docker-compose.yml)
+# Use --native to run without Docker (requires node/npm on PATH).
 #
-# Options:
-#   --docker   Run via Docker instead of npm start (builds image if needed)
+# Usage:
+#   ./manage.sh [--native] {start|stop|restart|status|build}
+#   ./manage.sh [--native] logs [client|server|openrouter|all]
+#
+# Docker Compose services:
+#   client      React dev server  → http://localhost:5000
+#   server      OpenRouter proxy  → http://localhost:3001
+#   openrouter  Alias for 'server'
 #
 # Examples:
-#   ./manage.sh start               # start natively with npm
-#   ./manage.sh --docker start      # build image & run in Docker
-#   ./manage.sh status              # check native process + port
-#   ./manage.sh --docker restart    # rebuild & restart container
+#   ./manage.sh start                   # docker compose up (build if needed)
+#   ./manage.sh stop                    # docker compose down
+#   ./manage.sh restart                 # rebuild + restart both services
+#   ./manage.sh status                  # show container states
+#   ./manage.sh build                   # rebuild images
+#   ./manage.sh logs                    # follow all logs
+#   ./manage.sh logs server             # follow server / OpenRouter logs
+#   ./manage.sh logs client             # follow React client logs
+#   ./manage.sh --native start          # start server + client natively
+#   ./manage.sh --native logs server    # tail logs/server.log
 
 set -uo pipefail
 
-APP_NAME="speech-translation-app"
-PID_FILE=".app.pid"
-LOG_FILE="app.log"
-PORT=5000
-DOCKER_IMAGE="$APP_NAME"
-DOCKER_CONTAINER="$APP_NAME"
-
-USE_DOCKER=false
+# ── defaults ──────────────────────────────────────────────────────────────────
+USE_NATIVE=false
 COMMAND=""
+LOG_SERVICE="all"
 
-# ── Argument parsing ──────────────────────────────────────────────────────────
+# ── colours ───────────────────────────────────────────────────────────────────
+GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC='\033[0m'
+info()  { echo -e "${GREEN}[INFO]${NC}  $*"; }
+warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
+error() { echo -e "${RED}[ERROR]${NC} $*" >&2; }
+head_()  { echo -e "${CYAN}── $* ──${NC}"; }
+
+# ── argument parsing ──────────────────────────────────────────────────────────
 for arg in "$@"; do
   case "$arg" in
-    --docker) USE_DOCKER=true ;;
-    start|stop|restart|status) COMMAND="$arg" ;;
+    --native) USE_NATIVE=true ;;
+    start|stop|restart|status|build) COMMAND="$arg" ;;
+    logs) COMMAND="logs" ;;
+    client|server|openrouter|all)
+      if [[ "$COMMAND" == "logs" ]]; then
+        LOG_SERVICE="$arg"
+      else
+        error "Unknown argument: $arg"
+        exit 1
+      fi
+      ;;
     -h|--help)
-      grep '^#' "$0" | head -20 | sed 's/^# \?//'
+      grep '^#' "$0" | head -30 | sed 's/^# \?//'
       exit 0
       ;;
     *)
-      echo "Unknown argument: $arg" >&2
-      echo "Usage: $0 [--docker] {start|stop|restart|status}" >&2
+      error "Unknown argument: $arg"
+      echo "Usage: $0 [--native] {start|stop|restart|status|build|logs [service]}" >&2
       exit 1
       ;;
   esac
 done
 
 if [[ -z "$COMMAND" ]]; then
-  echo "Usage: $0 [--docker] {start|stop|restart|status}"
+  echo "Usage: $0 [--native] {start|stop|restart|status|build|logs [service]}"
   exit 1
 fi
 
-# ── Colour helpers ────────────────────────────────────────────────────────────
-GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; NC='\033[0m'
-info()  { echo -e "${GREEN}[INFO]${NC}  $*"; }
-warn()  { echo -e "${YELLOW}[WARN]${NC}  $*"; }
-error() { echo -e "${RED}[ERROR]${NC} $*" >&2; }
-
-# ── Port helpers ──────────────────────────────────────────────────────────────
-# Uses `node` (always available) to test binding and /proc/net/tcp for owner.
-
-port_is_free() {
-  node -e "
-    const net = require('net');
-    const s = net.createServer();
-    s.listen(${PORT}, '0.0.0.0', () => { s.close(); process.exit(0); });
-    s.on('error', () => process.exit(1));
-  " 2>/dev/null
-}
-
-describe_port() {
-  # Resolve port → inode via /proc/net/tcp, then inode → PID via /proc/*/fd
-  local hex_port
-  printf -v hex_port '%04X' "${PORT}"
-
-  local inode
-  inode=$(awk -v p=":${hex_port}" \
-    'NR>1 && $2~p && $4=="0A" {print $10; exit}' \
-    /proc/net/tcp /proc/net/tcp6 2>/dev/null || true)
-
-  if [[ -z "$inode" ]]; then
-    echo "unknown process (port ${PORT})"
-    return
-  fi
-
-  local pid=""
-  for dir in /proc/[0-9]*/fd; do
-    if ls -la "$dir" 2>/dev/null | grep -q "socket:\[${inode}\]"; then
-      pid=$(echo "$dir" | cut -d/ -f3)
-      break
-    fi
-  done
-
-  if [[ -n "$pid" ]]; then
-    local cmd
-    cmd=$(cat "/proc/${pid}/comm" 2>/dev/null || echo "unknown")
-    echo "PID ${pid} (${cmd})"
+# ── Docker Compose helpers ────────────────────────────────────────────────────
+compose_cmd() {
+  # Prefer 'docker compose' (v2); fall back to 'docker-compose' (v1)
+  if docker compose version &>/dev/null 2>&1; then
+    docker compose "$@"
+  elif command -v docker-compose &>/dev/null; then
+    docker-compose "$@"
   else
-    echo "unknown process (socket inode ${inode})"
-  fi
-}
-
-# ── Native (npm) helpers ──────────────────────────────────────────────────────
-native_is_running() {
-  [[ -f "$PID_FILE" ]] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null
-}
-
-native_status() {
-  if native_is_running; then
-    local pid
-    pid=$(cat "$PID_FILE")
-    info "Running (PID ${pid}) → http://localhost:${PORT}"
-    return 0
-  fi
-
-  # Clean up stale PID file
-  if [[ -f "$PID_FILE" ]]; then
-    warn "Stale PID file removed (process is gone)."
-    rm -f "$PID_FILE"
-  fi
-
-  # Check whether something else is holding the port
-  if ! port_is_free; then
-    warn "This app is NOT running, but port ${PORT} is in use by: $(describe_port)"
-    warn "Stop that process first if you want to start this app here."
-    return 1
-  fi
-
-  info "Stopped."
-  return 1
-}
-
-native_start() {
-  if native_is_running; then
-    warn "Already running (PID $(cat "$PID_FILE")). Use 'restart' to reload."
-    return 0
-  fi
-
-  # Fail fast if port is taken by something else
-  if ! port_is_free; then
-    error "Port ${PORT} is already in use by: $(describe_port)"
-    error "Stop that process first (or run this app on a different port)."
-    error "If the Replit workflow is running, stop it before using manage.sh."
-    exit 1
-  fi
-
-  info "Starting app on port ${PORT} (logs → ${LOG_FILE})…"
-  nohup npm start >"$LOG_FILE" 2>&1 &
-  local pid=$!
-  echo "$pid" > "$PID_FILE"
-
-  # Wait up to 15 s for the process to either stay alive or die
-  local i=0
-  while (( i < 15 )); do
-    sleep 1; (( i++ ))
-    if ! kill -0 "$pid" 2>/dev/null; then
-      error "Process exited after ${i}s. Last lines of ${LOG_FILE}:"
-      tail -20 "$LOG_FILE" >&2
-      rm -f "$PID_FILE"
-      exit 1
-    fi
-    # Stop waiting early once the port is actually bound
-    if ! port_is_free; then
-      break
-    fi
-  done
-
-  if native_is_running; then
-    info "Started (PID $(cat "$PID_FILE")) → http://localhost:${PORT}"
-  else
-    error "Process died. Last lines of ${LOG_FILE}:"
-    tail -20 "$LOG_FILE" >&2
-    rm -f "$PID_FILE"
+    error "Neither 'docker compose' nor 'docker-compose' found."
     exit 1
   fi
 }
 
-native_stop() {
-  if native_is_running; then
-    local pid
-    pid=$(cat "$PID_FILE")
-    info "Stopping PID ${pid}…"
-    kill "$pid" 2>/dev/null || true
-    local i=0
-    while kill -0 "$pid" 2>/dev/null && (( i < 10 )); do
-      sleep 1; (( i++ ))
-    done
-    kill -9 "$pid" 2>/dev/null || true
-    rm -f "$PID_FILE"
-    info "Stopped."
-  else
-    warn "Not running (nothing to stop)."
-    [[ -f "$PID_FILE" ]] && rm -f "$PID_FILE"
-  fi
-}
-
-# ── Docker helpers ────────────────────────────────────────────────────────────
 docker_check() {
   if ! command -v docker &>/dev/null; then
     error "Docker is not installed or not in PATH."
     exit 1
   fi
-  if ! docker info &>/dev/null; then
+  if ! docker info &>/dev/null 2>&1; then
     error "Docker daemon is not running. Start Docker Desktop (or the daemon) and retry."
     exit 1
   fi
 }
 
-docker_is_running() {
-  docker ps --format '{{.Names}}' 2>/dev/null | grep -q "^${DOCKER_CONTAINER}$"
+# Map 'openrouter' alias → 'server'
+resolve_service() {
+  local svc="$1"
+  [[ "$svc" == "openrouter" ]] && echo "server" || echo "$svc"
 }
 
-docker_exists() {
-  docker ps -a --format '{{.Names}}' 2>/dev/null | grep -q "^${DOCKER_CONTAINER}$"
-}
-
-docker_status() {
+compose_start() {
   docker_check
-  if docker_is_running; then
-    info "Container '${DOCKER_CONTAINER}' is running → http://localhost:${PORT}"
-    docker ps --filter "name=^/${DOCKER_CONTAINER}$" \
-              --format "  Image: {{.Image}}  Uptime: {{.Status}}"
-    return 0
-  elif docker_exists; then
-    warn "Container '${DOCKER_CONTAINER}' exists but is stopped. Run: $0 --docker start"
-    return 1
+  info "Building images and starting services…"
+  compose_cmd up -d --build
+  echo ""
+  compose_cmd ps
+  echo ""
+  info "Client  → http://localhost:5000"
+  info "Server  → http://localhost:3001"
+  info "Logs    → ./manage.sh logs [client|server]"
+}
+
+compose_stop() {
+  docker_check
+  info "Stopping and removing containers…"
+  compose_cmd down
+  info "Done."
+}
+
+compose_restart() {
+  docker_check
+  info "Rebuilding and restarting all services…"
+  compose_cmd down
+  compose_cmd up -d --build
+  echo ""
+  compose_cmd ps
+}
+
+compose_status() {
+  docker_check
+  head_ "Container status"
+  compose_cmd ps
+}
+
+compose_build() {
+  docker_check
+  info "Building images…"
+  compose_cmd build
+  info "Build complete."
+}
+
+compose_logs() {
+  docker_check
+  local svc
+  svc=$(resolve_service "$LOG_SERVICE")
+
+  if [[ "$svc" == "all" ]]; then
+    head_ "Following logs for all services (Ctrl-C to stop)"
+    compose_cmd logs -f --tail=50
   else
-    info "Container '${DOCKER_CONTAINER}' does not exist. Run: $0 --docker start"
-    return 1
+    head_ "Following logs for '$svc' (Ctrl-C to stop)"
+    compose_cmd logs -f --tail=50 "$svc"
   fi
 }
 
-docker_build() {
-  info "Building Docker image '${DOCKER_IMAGE}'…"
-  docker build -t "$DOCKER_IMAGE" .
-  info "Image built successfully."
+# ── Native mode helpers ───────────────────────────────────────────────────────
+SERVER_PID=".server.pid"
+CLIENT_PID=".client.pid"
+LOG_DIR="logs"
+
+mkdir -p "$LOG_DIR"
+
+port_is_free() {
+  node -e "
+    const net = require('net');
+    const s = net.createServer();
+    s.listen($1, '0.0.0.0', () => { s.close(); process.exit(0); });
+    s.on('error', () => process.exit(1));
+  " 2>/dev/null
 }
 
-docker_start() {
-  docker_check
-  if docker_is_running; then
-    warn "Container already running. Use 'restart' to rebuild and reload."
+native_is_running() {
+  local pidfile="$1"
+  [[ -f "$pidfile" ]] && kill -0 "$(cat "$pidfile")" 2>/dev/null
+}
+
+native_start_service() {
+  local name="$1" pidfile="$2" logfile="$3" port="$4"
+  shift 4
+  local cmd=("$@")
+
+  if native_is_running "$pidfile"; then
+    warn "$name already running (PID $(cat "$pidfile"))."
     return 0
   fi
-  docker_exists && docker rm "$DOCKER_CONTAINER" 2>/dev/null || true
-  docker_build
 
-  local env_flags=""
-  [[ -f ".env" ]] && env_flags="--env-file .env"
+  if ! port_is_free "$port"; then
+    error "Port $port is already in use — cannot start $name."
+    return 1
+  fi
 
-  info "Starting container '${DOCKER_CONTAINER}' on port ${PORT}…"
-  # shellcheck disable=SC2086
-  docker run -d \
-    --name "$DOCKER_CONTAINER" \
-    -p "${PORT}:${PORT}" \
-    $env_flags \
-    "$DOCKER_IMAGE"
+  info "Starting $name on port $port (logs → $logfile)…"
+  nohup "${cmd[@]}" >"$logfile" 2>&1 &
+  local pid=$!
+  echo "$pid" > "$pidfile"
 
-  info "Container started → http://localhost:${PORT}"
-  info "Follow logs with: docker logs -f ${DOCKER_CONTAINER}"
+  # Wait up to 10 s for the process to stabilise
+  local i=0
+  while (( i < 10 )); do
+    sleep 1; (( i++ ))
+    if ! kill -0 "$pid" 2>/dev/null; then
+      error "$name exited. Last lines of $logfile:"
+      tail -20 "$logfile" >&2
+      rm -f "$pidfile"
+      return 1
+    fi
+    ! port_is_free "$port" && break
+  done
+  info "$name started (PID $pid)."
 }
 
-docker_stop() {
-  docker_check
-  if docker_is_running; then
-    info "Stopping container '${DOCKER_CONTAINER}'…"
-    docker stop "$DOCKER_CONTAINER"
-    docker rm   "$DOCKER_CONTAINER"
-    info "Stopped and removed."
-  elif docker_exists; then
-    info "Container was already stopped; removing…"
-    docker rm "$DOCKER_CONTAINER"
+native_stop_service() {
+  local name="$1" pidfile="$2"
+  if native_is_running "$pidfile"; then
+    local pid; pid=$(cat "$pidfile")
+    info "Stopping $name (PID $pid)…"
+    kill "$pid" 2>/dev/null || true
+    local i=0
+    while kill -0 "$pid" 2>/dev/null && (( i < 10 )); do sleep 1; (( i++ )); done
+    kill -9 "$pid" 2>/dev/null || true
+    rm -f "$pidfile"
+    info "$name stopped."
   else
-    warn "No container named '${DOCKER_CONTAINER}' found."
+    warn "$name is not running."
+    [[ -f "$pidfile" ]] && rm -f "$pidfile"
   fi
 }
 
-# ── Dispatch ──────────────────────────────────────────────────────────────────
-if $USE_DOCKER; then
-  case "$COMMAND" in
-    start)   docker_start ;;
-    stop)    docker_stop ;;
-    restart) docker_stop; docker_start ;;
-    status)  docker_status || true ;;
+native_start() {
+  # Start server first, then client
+  native_start_service \
+    "server" "$SERVER_PID" "$LOG_DIR/server.log" 3001 \
+    node server/index.js \
+  || exit 1
+
+  native_start_service \
+    "client" "$CLIENT_PID" "$LOG_DIR/client.log" 5000 \
+    npm start \
+  || exit 1
+
+  echo ""
+  info "Client  → http://localhost:5000"
+  info "Server  → http://localhost:3001"
+  info "Logs    → ./manage.sh --native logs [client|server]"
+}
+
+native_stop() {
+  native_stop_service "client" "$CLIENT_PID"
+  native_stop_service "server" "$SERVER_PID"
+}
+
+native_status() {
+  head_ "Native service status"
+  for pair in "server:$SERVER_PID:3001" "client:$CLIENT_PID:5000"; do
+    local name="${pair%%:*}" rest="${pair#*:}"
+    local pidfile="${rest%%:*}" port="${rest##*:}"
+    if native_is_running "$pidfile"; then
+      info "$name  Running (PID $(cat "$pidfile")) → http://localhost:$port"
+    else
+      warn "$name  Stopped"
+      [[ -f "$pidfile" ]] && rm -f "$pidfile"
+    fi
+  done
+}
+
+native_logs() {
+  local svc
+  svc=$(resolve_service "$LOG_SERVICE")
+
+  case "$svc" in
+    server)
+      head_ "Server / OpenRouter logs (Ctrl-C to stop)"
+      tail -f "$LOG_DIR/server.log" 2>/dev/null || { error "$LOG_DIR/server.log not found. Is the server running?"; exit 1; }
+      ;;
+    client)
+      head_ "Client logs (Ctrl-C to stop)"
+      tail -f "$LOG_DIR/client.log" 2>/dev/null || { error "$LOG_DIR/client.log not found. Is the client running?"; exit 1; }
+      ;;
+    all)
+      head_ "All logs — server | client (Ctrl-C to stop)"
+      tail -f "$LOG_DIR/server.log" "$LOG_DIR/client.log" 2>/dev/null \
+        || { error "Log files not found in $LOG_DIR/. Are services running?"; exit 1; }
+      ;;
   esac
-else
+}
+
+# ── dispatch ──────────────────────────────────────────────────────────────────
+if $USE_NATIVE; then
   case "$COMMAND" in
     start)   native_start ;;
     stop)    native_stop ;;
     restart) native_stop; native_start ;;
     status)  native_status || true ;;
+    build)   warn "'build' is only relevant in Docker mode." ;;
+    logs)    native_logs ;;
+  esac
+else
+  case "$COMMAND" in
+    start)   compose_start ;;
+    stop)    compose_stop ;;
+    restart) compose_restart ;;
+    status)  compose_status || true ;;
+    build)   compose_build ;;
+    logs)    compose_logs ;;
   esac
 fi
