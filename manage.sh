@@ -505,6 +505,33 @@ port_is_free() {
   " 2>/dev/null
 }
 
+# Return the PID of the process listening on PORT, using /proc/net/tcp.
+# Works without lsof/fuser/ss — pure bash + /proc.
+pid_on_port() {
+  local port=$1
+  local hex_port; hex_port=$(printf '%04X' "$port")
+
+  # Find the socket inode for this listening port
+  local inode=""
+  for f in /proc/net/tcp /proc/net/tcp6; do
+    [[ -f "$f" ]] || continue
+    inode=$(awk -v p=":${hex_port}" 'NR>1 && $2~p"$" && $4=="0A" { print $10; exit }' "$f")
+    [[ -n "$inode" ]] && break
+  done
+  [[ -z "$inode" ]] && return 1
+
+  # Scan /proc/*/fd for a socket link matching that inode
+  local pid=""
+  for fd_dir in /proc/[0-9]*/fd; do
+    if ls -la "$fd_dir" 2>/dev/null | grep -q "socket:\[${inode}\]"; then
+      pid="${fd_dir%/fd}"; pid="${pid#/proc/}"
+      break
+    fi
+  done
+  [[ -z "$pid" ]] && return 1
+  echo "$pid"
+}
+
 native_is_running() {
   local pidfile="$1"
   [[ -f "$pidfile" ]] && kill -0 "$(cat "$pidfile")" 2>/dev/null
@@ -546,7 +573,8 @@ native_start_service() {
 }
 
 native_stop_service() {
-  local name="$1" pidfile="$2"
+  local name="$1" pidfile="$2" port="$3"
+
   if native_is_running "$pidfile"; then
     local pid; pid=$(cat "$pidfile")
     info "Stopping $name (PID $pid)…"
@@ -557,8 +585,24 @@ native_stop_service() {
     rm -f "$pidfile"
     info "$name stopped."
   else
-    warn "$name is not running."
+    warn "$name is not running (no PID file)."
     [[ -f "$pidfile" ]] && rm -f "$pidfile"
+  fi
+
+  # Free the port regardless — handles processes started outside manage.sh
+  # (e.g. Replit workflows, manual node invocations).
+  if ! port_is_free "$port"; then
+    local squatter; squatter=$(pid_on_port "$port") || true
+    if [[ -n "${squatter:-}" ]]; then
+      warn "Port $port held by PID $squatter — killing it…"
+      kill "$squatter" 2>/dev/null || true
+      local j=0
+      while ! port_is_free "$port" && (( j < 8 )); do sleep 1; (( j++ )); done
+      kill -9 "$squatter" 2>/dev/null || true
+      info "Port $port freed."
+    else
+      warn "Port $port is in use but the holder could not be identified — proceeding anyway."
+    fi
   fi
 }
 
@@ -581,8 +625,8 @@ native_start() {
 }
 
 native_stop() {
-  native_stop_service "client" "$CLIENT_PID"
-  native_stop_service "server" "$SERVER_PID"
+  native_stop_service "client" "$CLIENT_PID" 5000
+  native_stop_service "server" "$SERVER_PID" 3001
 }
 
 native_status() {
