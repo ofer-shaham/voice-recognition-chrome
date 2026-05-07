@@ -47,15 +47,14 @@ const AiConversation: React.FC = () => {
   const [error,      setError]      = useState("");
   const [isSpeaking, setIsSpeaking] = useState(false);
 
-  // ── OpenRouter inputs (persisted) ──────────────────────────────────────────
+  // ── model ──────────────────────────────────────────────────────────────────
   const [modelInput,  setModelInput]  = useState(() => lsGet(LS_KEY_MODEL, DEFAULT_MODEL));
   const [activeModel, setActiveModel] = useState(() => lsGet(LS_KEY_MODEL, DEFAULT_MODEL));
 
-  const [uiApiKey,    setUiApiKey]    = useState(() => lsGet(LS_KEY_API, ""));
-  const [activeApiKey,setActiveApiKey]= useState(() => lsGet(LS_KEY_API, ""));
-  const [showKey,     setShowKey]     = useState(false);
-
-  // whether the server itself has a key configured
+  // ── api key ────────────────────────────────────────────────────────────────
+  const [uiApiKey,     setUiApiKey]     = useState(() => lsGet(LS_KEY_API, ""));
+  const [activeApiKey, setActiveApiKey] = useState(() => lsGet(LS_KEY_API, ""));
+  const [showKey,      setShowKey]      = useState(false);
   const [serverHasKey, setServerHasKey] = useState<boolean | null>(null);
 
   // ── settings ───────────────────────────────────────────────────────────────
@@ -76,14 +75,15 @@ const AiConversation: React.FC = () => {
 
   // ── effects ────────────────────────────────────────────────────────────────
   useEffect(() => { if (transcript) setInputText(transcript); }, [transcript]);
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, isLoading]);
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isLoading]);
 
-  // probe server for key on mount
   useEffect(() => {
     checkServerKey().then(setServerHasKey);
   }, []);
 
-  // ── model helpers ──────────────────────────────────────────────────────────
+  // ── helpers ────────────────────────────────────────────────────────────────
   const commitModel = useCallback((val: string) => {
     const v = val.trim() || DEFAULT_MODEL;
     setModelInput(v);
@@ -91,7 +91,6 @@ const AiConversation: React.FC = () => {
     lsSet(LS_KEY_MODEL, v);
   }, []);
 
-  // ── api-key helpers ────────────────────────────────────────────────────────
   const commitApiKey = useCallback((val: string) => {
     const v = val.trim();
     setUiApiKey(v);
@@ -101,7 +100,7 @@ const AiConversation: React.FC = () => {
 
   const clearApiKey = useCallback(() => commitApiKey(""), [commitApiKey]);
 
-  // ── send ───────────────────────────────────────────────────────────────────
+  // ── mic ────────────────────────────────────────────────────────────────────
   const toggleListening = useCallback(() => {
     if (listening) {
       SpeechRecognition.stopListening();
@@ -112,6 +111,7 @@ const AiConversation: React.FC = () => {
     }
   }, [listening, resetTranscript, voiceLang]);
 
+  // ── send ───────────────────────────────────────────────────────────────────
   const sendMessage = useCallback(async () => {
     const text = inputText.trim();
     if (!text || isLoading) return;
@@ -121,7 +121,7 @@ const AiConversation: React.FC = () => {
     setInputText("");
     setError("");
 
-    const userMsg: ChatMessage  = { role: "user", content: text };
+    const userMsg: ChatMessage   = { role: "user", content: text };
     const history: ChatMessage[] = [...messages, userMsg];
     setMessages(history);
     setIsLoading(true);
@@ -131,7 +131,6 @@ const AiConversation: React.FC = () => {
         ? [{ role: "system" as const, content: systemPrompt }, ...history]
         : history;
 
-      // Only send UI key if user explicitly set one; server falls back to its env key.
       const reply = await chatWithAI(context, activeModel, activeApiKey || undefined);
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
 
@@ -159,15 +158,14 @@ const AiConversation: React.FC = () => {
   };
 
   // ── derived ────────────────────────────────────────────────────────────────
-  const isInterim   = listening && !!interimTranscript;
-  const modelDirty  = modelInput !== activeModel;
-  const keyDirty    = uiApiKey   !== activeApiKey;
+  const isInterim  = listening && !!interimTranscript;
+  const modelDirty = modelInput !== activeModel;
+  const keyDirty   = uiApiKey   !== activeApiKey;
 
-  // key status: ui-set > server-has-key > unknown/none
   const keyStatus: "ui" | "server" | "none" | "checking" =
-    activeApiKey ? "ui"
+    activeApiKey    ? "ui"
     : serverHasKey === null ? "checking"
-    : serverHasKey ? "server"
+    : serverHasKey  ? "server"
     : "none";
 
   if (!browserSupportsSpeechRecognition) {
@@ -193,7 +191,7 @@ const AiConversation: React.FC = () => {
             list="or-models"
             value={modelInput}
             onChange={(e) => setModelInput(e.target.value)}
-            onBlur={(e)  => commitModel(e.target.value)}
+            onBlur={(e)   => commitModel(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 commitModel((e.target as HTMLInputElement).value);
@@ -215,82 +213,84 @@ const AiConversation: React.FC = () => {
           )}
         </div>
 
-        <button className="ai-settings-btn" onClick={() => setShowSettings((p) => !p)}>
-          {showSettings ? "▲ Settings" : "▼ Settings"}
-        </button>
-        {messages.length > 0 && (
-          <button className="ai-clear-btn" onClick={clearConversation}>Clear</button>
-        )}
-        {isSpeaking && <span className="ai-speaking-badge">🔊 speaking…</span>}
-      </div>
-
-      {/* ── OpenRouter inputs bar ────────────────────────────────────────── */}
-      <div className="ai-or-bar">
-
-        {/* API key */}
-        <div className="ai-or-field">
-          <span className="ai-or-label">API key</span>
-          <div className="ai-key-row">
-            <input
-              className="ai-key-input"
-              type={showKey ? "text" : "password"}
-              value={uiApiKey}
-              onChange={(e) => setUiApiKey(e.target.value)}
-              onBlur={(e)   => commitApiKey(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") commitApiKey((e.target as HTMLInputElement).value);
-              }}
-              placeholder={serverHasKey ? "server key active — paste to override" : "sk-or-…"}
-              spellCheck={false}
-              autoComplete="off"
-            />
-            <button className="ai-key-toggle" onClick={() => setShowKey((p) => !p)} title={showKey ? "Hide" : "Show"}>
-              {showKey ? "🙈" : "👁"}
-            </button>
-            {keyDirty && (
-              <button className="ai-key-save" onClick={() => commitApiKey(uiApiKey)}>Save</button>
-            )}
-            {activeApiKey && (
-              <button className="ai-key-clear" onClick={clearApiKey} title="Remove override">✕</button>
-            )}
-          </div>
-          <span className="ai-or-hint">
-            {keyStatus === "checking" && <span style={{ color: "#888" }}>Checking server…</span>}
-            {keyStatus === "ui"       && <span style={{ color: "#4caf50" }}>✔ UI key → sent to server</span>}
-            {keyStatus === "server"   && <span style={{ color: "#888" }}>Server key active (OPENROUTER_API_KEY)</span>}
-            {keyStatus === "none"     && <span style={{ color: "#e94560" }}>⚠ No key — enter one above or set OPENROUTER_API_KEY on the server</span>}
-          </span>
+        <div className="ai-top-right">
+          {isSpeaking && <span className="ai-speaking-badge">🔊 speaking…</span>}
+          {messages.length > 0 && (
+            <button className="ai-clear-btn" onClick={clearConversation}>Clear</button>
+          )}
+          <button
+            className={`ai-settings-btn${showSettings ? " active" : ""}`}
+            onClick={() => setShowSettings((p) => !p)}
+          >
+            ⚙ Settings
+          </button>
         </div>
-
-        {/* Active model badge */}
-        <div className="ai-or-field ai-or-model-info">
-          <span className="ai-or-label">Active model</span>
-          <span className="ai-or-model-badge" title={activeModel}>{activeModel}</span>
-        </div>
-
       </div>
 
       {/* ── settings panel ──────────────────────────────────────────────── */}
       {showSettings && (
         <div className="ai-settings-panel">
-          <label>System prompt</label>
-          <textarea
-            value={systemPrompt}
-            onChange={(e) => setSystemPrompt(e.target.value)}
-            placeholder="e.g. You are a helpful assistant."
-          />
+
+          {/* API key */}
+          <div className="ai-settings-section">
+            <label className="ai-settings-label">API Key</label>
+            <div className="ai-key-row">
+              <input
+                className="ai-key-input"
+                type={showKey ? "text" : "password"}
+                value={uiApiKey}
+                onChange={(e) => setUiApiKey(e.target.value)}
+                onBlur={(e)   => commitApiKey(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") commitApiKey((e.target as HTMLInputElement).value);
+                }}
+                placeholder={serverHasKey ? "Server key active — paste to override" : "sk-or-…"}
+                spellCheck={false}
+                autoComplete="off"
+              />
+              <button className="ai-key-toggle" onClick={() => setShowKey((p) => !p)} title={showKey ? "Hide" : "Show"}>
+                {showKey ? "🙈" : "👁"}
+              </button>
+              {keyDirty && (
+                <button className="ai-key-save" onClick={() => commitApiKey(uiApiKey)}>Save</button>
+              )}
+              {activeApiKey && (
+                <button className="ai-key-clear" onClick={clearApiKey} title="Remove override">✕</button>
+              )}
+            </div>
+            <span className="ai-key-hint">
+              {keyStatus === "checking" && <span style={{ color: "#888" }}>Checking server…</span>}
+              {keyStatus === "ui"       && <span style={{ color: "#4caf50" }}>✔ Using your key</span>}
+              {keyStatus === "server"   && <span style={{ color: "#4caf50" }}>✔ Server key active</span>}
+              {keyStatus === "none"     && <span style={{ color: "#e94560" }}>⚠ No key — enter one above or set OPENROUTER_API_KEY on the server</span>}
+            </span>
+          </div>
+
+          {/* System prompt */}
+          <div className="ai-settings-section">
+            <label className="ai-settings-label">System prompt</label>
+            <textarea
+              className="ai-settings-textarea"
+              value={systemPrompt}
+              onChange={(e) => setSystemPrompt(e.target.value)}
+              placeholder="e.g. You are a helpful assistant."
+            />
+          </div>
+
+          {/* TTS + voice */}
           <div className="ai-settings-row">
-            <label>
+            <label className="ai-settings-check">
               <input type="checkbox" checked={ttsEnabled} onChange={(e) => setTtsEnabled(e.target.checked)} />
-              Read replies aloud (TTS)
+              Read replies aloud
             </label>
-            <label>
-              Voice / TTS language:
-              <select className="ai-lang-select" value={voiceLang} onChange={(e) => setVoiceLang(e.target.value)} style={{ marginLeft: 6 }}>
+            <label className="ai-settings-check">
+              Voice language:
+              <select className="ai-lang-select" value={voiceLang} onChange={(e) => setVoiceLang(e.target.value)}>
                 {VOICE_LANGS.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
               </select>
             </label>
           </div>
+
         </div>
       )}
 
@@ -331,7 +331,12 @@ const AiConversation: React.FC = () => {
           placeholder={listening ? "Listening…" : "Type a message or press 🎤 to speak…"}
           rows={1}
         />
-        <button className="ai-send-btn" onClick={sendMessage} disabled={!inputText.trim() || isLoading} title="Send">➤</button>
+        <button
+          className="ai-send-btn"
+          onClick={sendMessage}
+          disabled={!inputText.trim() || isLoading}
+          title="Send"
+        >➤</button>
       </div>
 
     </div>
