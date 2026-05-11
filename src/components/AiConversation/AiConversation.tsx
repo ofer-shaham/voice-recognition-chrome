@@ -29,10 +29,10 @@ const VOICE_LANGS = [
   { code: "zh-CN", label: "Chinese" },
 ];
 
-const LS_KEY_API      = "ai_conversation_api_key";
-const LS_KEY_MODEL    = "ai_conversation_model";
-const LS_KEY_WORDS    = "ai_max_words";
-const LS_KEY_MODE     = "ai_voice_mode";
+const LS_KEY_API   = "ai_conversation_api_key";
+const LS_KEY_MODEL = "ai_conversation_model";
+const LS_KEY_WORDS = "ai_max_words";
+const LS_KEY_MODE  = "ai_voice_mode";
 
 const lsGet = (key: string, fallback: string) =>
   localStorage.getItem(key) || fallback;
@@ -40,6 +40,26 @@ const lsSet = (key: string, value: string) => {
   if (value) localStorage.setItem(key, value);
   else        localStorage.removeItem(key);
 };
+
+const API_BASE = process.env.REACT_APP_API_URL || "";
+
+interface HealthSignal {
+  timestamp: number;
+  ok: boolean;
+  uptime?: number;
+}
+
+interface AiHealthResult {
+  ok: boolean;
+  elapsed?: number;
+  error?: string;
+  timestamp?: number;
+}
+
+interface FreeModel {
+  id: string;
+  label: string;
+}
 
 const AiConversation: React.FC = () => {
   // ── conversation ───────────────────────────────────────────────────────────
@@ -52,6 +72,7 @@ const AiConversation: React.FC = () => {
   // ── model ──────────────────────────────────────────────────────────────────
   const [modelInput,  setModelInput]  = useState(() => lsGet(LS_KEY_MODEL, DEFAULT_MODEL));
   const [activeModel, setActiveModel] = useState(() => lsGet(LS_KEY_MODEL, DEFAULT_MODEL));
+  const [freeModels,  setFreeModels]  = useState<FreeModel[]>([]);
 
   // ── api key ────────────────────────────────────────────────────────────────
   const [uiApiKey,     setUiApiKey]     = useState(() => lsGet(LS_KEY_API, ""));
@@ -69,15 +90,23 @@ const AiConversation: React.FC = () => {
   const [voiceMode,    setVoiceMode]    = useState<"manual" | "auto">(() =>
     lsGet(LS_KEY_MODE, "manual") as "manual" | "auto");
 
+  // ── server health indicator ────────────────────────────────────────────────
+  const [healthSignals,   setHealthSignals]   = useState<HealthSignal[]>([]);
+  const [showHealthPanel, setShowHealthPanel] = useState(false);
+  const [serverAlive,     setServerAlive]     = useState<boolean | null>(null);
+
+  // ── ai health ─────────────────────────────────────────────────────────────
+  const [aiHealthResult,  setAiHealthResult]  = useState<AiHealthResult | null>(null);
+  const [aiHealthLoading, setAiHealthLoading] = useState(false);
+
   // ── refs ───────────────────────────────────────────────────────────────────
-  const messagesEndRef  = useRef<HTMLDivElement>(null);
-  const textareaRef     = useRef<HTMLTextAreaElement>(null);
+  const messagesEndRef   = useRef<HTMLDivElement>(null);
+  const textareaRef      = useRef<HTMLTextAreaElement>(null);
   const prevListeningRef = useRef(false);
-  // live copies for use inside effects without stale closures
-  const isLoadingRef  = useRef(isLoading);
-  const isSpeakingRef = useRef(isSpeaking);
-  const voiceModeRef  = useRef(voiceMode);
-  const voiceLangRef  = useRef(voiceLang);
+  const isLoadingRef     = useRef(isLoading);
+  const isSpeakingRef    = useRef(isSpeaking);
+  const voiceModeRef     = useRef(voiceMode);
+  const voiceLangRef     = useRef(voiceLang);
   useEffect(() => { isLoadingRef.current  = isLoading;  }, [isLoading]);
   useEffect(() => { isSpeakingRef.current = isSpeaking; }, [isSpeaking]);
   useEffect(() => { voiceModeRef.current  = voiceMode;  }, [voiceMode]);
@@ -97,6 +126,62 @@ const AiConversation: React.FC = () => {
   useEffect(() => {
     checkServerKey().then(setServerHasKey);
   }, []);
+
+  // ── server health polling ─────────────────────────────────────────────────
+  const pingHealth = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/health`);
+      if (res.ok) {
+        const data = await res.json();
+        const signal: HealthSignal = { timestamp: data.timestamp ?? Date.now(), ok: true, uptime: data.uptime };
+        setHealthSignals((prev) => [signal, ...prev].slice(0, 20));
+        setServerAlive(true);
+      } else {
+        setHealthSignals((prev) => [{ timestamp: Date.now(), ok: false }, ...prev].slice(0, 20));
+        setServerAlive(false);
+      }
+    } catch {
+      setHealthSignals((prev) => [{ timestamp: Date.now(), ok: false }, ...prev].slice(0, 20));
+      setServerAlive(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    pingHealth();
+    const id = setInterval(pingHealth, 15000);
+    return () => clearInterval(id);
+  }, [pingHealth]);
+
+  // ── fetch free models ─────────────────────────────────────────────────────
+  useEffect(() => {
+    fetch(`${API_BASE}/api/free-models`)
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data?.models?.length) setFreeModels(data.models);
+      })
+      .catch(() => {});
+  }, []);
+
+  // ── ai health ping ────────────────────────────────────────────────────────
+  const pingAiHealth = useCallback(async () => {
+    setAiHealthLoading(true);
+    setAiHealthResult(null);
+    try {
+      const body: Record<string, string> = {};
+      if (activeApiKey) body.apiKey = activeApiKey;
+      const res = await fetch(`${API_BASE}/api/health_ai`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      setAiHealthResult(data);
+    } catch (e: any) {
+      setAiHealthResult({ ok: false, error: e.message, timestamp: Date.now() });
+    } finally {
+      setAiHealthLoading(false);
+    }
+  }, [activeApiKey]);
 
   // ── helpers ────────────────────────────────────────────────────────────────
   const commitModel = useCallback((val: string) => {
@@ -145,7 +230,7 @@ const AiConversation: React.FC = () => {
     }
   }, [listening, startListening]);
 
-  // ── core send (accepts text directly to avoid stale closures) ─────────────
+  // ── core send ─────────────────────────────────────────────────────────────
   const sendWithText = useCallback(async (
     text: string,
     currentMessages: ChatMessage[],
@@ -169,9 +254,7 @@ const AiConversation: React.FC = () => {
 
     try {
       const wordInstruction = `Reply in ${words} words or fewer.`;
-      const fullPrompt      = prompt
-        ? `${prompt}\n${wordInstruction}`
-        : wordInstruction;
+      const fullPrompt      = prompt ? `${prompt}\n${wordInstruction}` : wordInstruction;
 
       const context: ChatMessage[] = [
         { role: "system", content: fullPrompt },
@@ -188,7 +271,6 @@ const AiConversation: React.FC = () => {
         setIsSpeaking(false);
       }
 
-      // auto mode: restart mic after AI finishes speaking
       if (voiceModeRef.current === "auto") {
         setTimeout(() => startListening(), 300);
       }
@@ -199,13 +281,13 @@ const AiConversation: React.FC = () => {
     }
   }, [resetTranscript, startListening]);
 
-  // ── public sendMessage uses current state ──────────────────────────────────
-  const messagesRef    = useRef(messages);
-  const activeModelRef = useRef(activeModel);
+  // ── ref copies to avoid stale closures ───────────────────────────────────
+  const messagesRef     = useRef(messages);
+  const activeModelRef  = useRef(activeModel);
   const activeApiKeyRef = useRef(activeApiKey);
   const systemPromptRef = useRef(systemPrompt);
-  const ttsEnabledRef  = useRef(ttsEnabled);
-  const maxWordsRef    = useRef(maxWords);
+  const ttsEnabledRef   = useRef(ttsEnabled);
+  const maxWordsRef     = useRef(maxWords);
   useEffect(() => { messagesRef.current     = messages;     }, [messages]);
   useEffect(() => { activeModelRef.current  = activeModel;  }, [activeModel]);
   useEffect(() => { activeApiKeyRef.current = activeApiKey; }, [activeApiKey]);
@@ -229,17 +311,15 @@ const AiConversation: React.FC = () => {
     );
   }, [inputText, listening, sendWithText]);
 
-  // ── auto mode: send when mic stops and transcript has content ─────────────
+  // ── auto mode: send when mic stops ───────────────────────────────────────
   useEffect(() => {
     const wasListening = prevListeningRef.current;
     prevListeningRef.current = listening;
 
     if (
       voiceModeRef.current === "auto" &&
-      wasListening &&
-      !listening &&
-      !isLoadingRef.current &&
-      !isSpeakingRef.current
+      wasListening && !listening &&
+      !isLoadingRef.current && !isSpeakingRef.current
     ) {
       const text = transcript.trim();
       if (text) {
@@ -259,12 +339,10 @@ const AiConversation: React.FC = () => {
     }
   }, [listening, transcript, sendWithText]);
 
-  // ── auto mode: start mic automatically when mode is enabled ───────────────
   useEffect(() => {
     if (voiceMode === "auto" && !listening && !isLoading && !isSpeaking) {
       setTimeout(() => startListening(), 400);
     }
-    // only trigger when voiceMode changes
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [voiceMode]);
 
@@ -282,10 +360,18 @@ const AiConversation: React.FC = () => {
   const keyDirty   = uiApiKey   !== activeApiKey;
 
   const keyStatus: "ui" | "server" | "none" | "checking" =
-    activeApiKey      ? "ui"
+    activeApiKey ? "ui"
     : serverHasKey === null ? "checking"
-    : serverHasKey    ? "server"
+    : serverHasKey ? "server"
     : "none";
+
+  // merged model list: free models from server + static fallback, deduplicated
+  const allModels: FreeModel[] = React.useMemo(() => {
+    const base = freeModels.length ? freeModels : OPENROUTER_MODELS;
+    const seen  = new Set(base.map((m) => m.id));
+    const extra = OPENROUTER_MODELS.filter((m) => !seen.has(m.id));
+    return [...base, ...extra];
+  }, [freeModels]);
 
   if (!browserSupportsSpeechRecognition) {
     return (
@@ -297,12 +383,26 @@ const AiConversation: React.FC = () => {
     );
   }
 
+  const healthDotClass =
+    serverAlive === null ? "health-dot checking" :
+    serverAlive           ? "health-dot alive"   :
+                            "health-dot dead";
+
   return (
     <div className="ai-conversation">
 
       {/* ── top bar ─────────────────────────────────────────────────────── */}
       <div className="ai-top-bar">
         <h2>AI Conversation</h2>
+
+        {/* server health dot */}
+        <button
+          className="ai-health-btn"
+          onClick={() => { setShowHealthPanel((p) => !p); pingHealth(); }}
+          title="Server health — click to see signals"
+        >
+          <span className={healthDotClass} />
+        </button>
 
         <div className="ai-model-wrap">
           <input
@@ -323,7 +423,7 @@ const AiConversation: React.FC = () => {
             title="Type any OpenRouter model ID, or pick from the list"
           />
           <datalist id="or-models">
-            {OPENROUTER_MODELS.map((m) => (
+            {allModels.map((m) => (
               <option key={m.id} value={m.id}>{m.label}</option>
             ))}
           </datalist>
@@ -346,11 +446,49 @@ const AiConversation: React.FC = () => {
         </div>
       </div>
 
+      {/* ── health panel ─────────────────────────────────────────────────── */}
+      {showHealthPanel && (
+        <div className="ai-health-panel">
+          <div className="ai-health-panel-header">
+            <span>Server life signals</span>
+            <button className="ai-health-ai-btn" onClick={pingAiHealth} disabled={aiHealthLoading}>
+              {aiHealthLoading ? "Pinging AI…" : "🤖 Ping AI key"}
+            </button>
+          </div>
+
+          {aiHealthResult && (
+            <div className={`ai-health-ai-result ${aiHealthResult.ok ? "ok" : "fail"}`}>
+              {aiHealthResult.ok
+                ? `✔ API key works — reply in ${aiHealthResult.elapsed}ms`
+                : `✘ API key failed — ${aiHealthResult.error}`}
+            </div>
+          )}
+
+          <div className="ai-health-signals">
+            {healthSignals.length === 0 && (
+              <span className="ai-health-empty">No signals yet…</span>
+            )}
+            {healthSignals.map((s, i) => (
+              <div key={i} className={`ai-health-signal ${s.ok ? "ok" : "fail"}`}>
+                <span className="ai-health-signal-dot">{s.ok ? "●" : "○"}</span>
+                <span className="ai-health-signal-time">
+                  {new Date(s.timestamp).toLocaleTimeString()}
+                </span>
+                {s.uptime !== undefined && (
+                  <span className="ai-health-signal-meta">
+                    uptime {Math.floor(s.uptime)}s
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── settings panel ──────────────────────────────────────────────── */}
       {showSettings && (
         <div className="ai-settings-panel">
 
-          {/* API key */}
           <div className="ai-settings-section">
             <label className="ai-settings-label">API Key</label>
             <div className="ai-key-row">
@@ -385,7 +523,6 @@ const AiConversation: React.FC = () => {
             </span>
           </div>
 
-          {/* System prompt */}
           <div className="ai-settings-section">
             <label className="ai-settings-label">System prompt</label>
             <textarea
@@ -396,7 +533,6 @@ const AiConversation: React.FC = () => {
             />
           </div>
 
-          {/* Word limit */}
           <div className="ai-settings-section">
             <label className="ai-settings-label">
               Reply length — <span className="ai-words-value">{maxWords} words</span>
@@ -424,7 +560,6 @@ const AiConversation: React.FC = () => {
             </div>
           </div>
 
-          {/* TTS + voice + mode */}
           <div className="ai-settings-row">
             <label className="ai-settings-check">
               <input type="checkbox" checked={ttsEnabled} onChange={(e) => setTtsEnabled(e.target.checked)} />

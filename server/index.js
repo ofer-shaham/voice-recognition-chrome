@@ -23,11 +23,91 @@ app.use((req, _res, next) => {
 });
 
 // ── health ────────────────────────────────────────────────────────────────────
-app.get('/api/health', (_req, res) => res.json({ ok: true }));
+app.get('/api/health', (_req, res) => {
+  res.json({ ok: true, timestamp: Date.now(), uptime: process.uptime() });
+});
 
 // ── config (lets client know if server has a key) ────────────────────────────
 app.get('/api/config', (_req, res) => {
   res.json({ serverHasKey: !!ENV_KEY });
+});
+
+// ── health_ai: verify the OpenRouter key actually works ───────────────────────
+app.post('/api/health_ai', async (req, res) => {
+  const { apiKey } = req.body || {};
+  const key = apiKey || ENV_KEY;
+
+  if (!key) {
+    return res.status(401).json({
+      ok: false,
+      error: 'No API key available. Set OPENROUTER_API_KEY on the server or pass one in the request body.',
+    });
+  }
+
+  const t0 = Date.now();
+  try {
+    const orRes = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${key}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': 'http://localhost:5000',
+        'X-Title': 'Voice Translation App',
+      },
+      body: JSON.stringify({
+        model: 'meta-llama/llama-3.1-8b-instruct:free',
+        messages: [{ role: 'user', content: 'Reply with the single word: OK' }],
+        max_tokens: 5,
+      }),
+    });
+
+    const elapsed = Date.now() - t0;
+
+    if (!orRes.ok) {
+      const body = await orRes.text().catch(() => '');
+      log('warn', 'health_ai: OpenRouter rejected key', { status: orRes.status, elapsed });
+      return res.status(200).json({
+        ok: false,
+        status: orRes.status,
+        error: body.slice(0, 200) || orRes.statusText,
+        elapsed,
+        timestamp: Date.now(),
+      });
+    }
+
+    const data = await orRes.json();
+    const reply = data?.choices?.[0]?.message?.content || '';
+    log('info', 'health_ai: key OK', { elapsed, reply });
+    return res.json({ ok: true, elapsed, reply, timestamp: Date.now() });
+  } catch (err) {
+    const elapsed = Date.now() - t0;
+    log('error', 'health_ai: fetch failed', { error: err.message, elapsed });
+    return res.status(500).json({ ok: false, error: err.message, elapsed, timestamp: Date.now() });
+  }
+});
+
+// ── free models: proxy OpenRouter model catalogue (avoids browser CORS) ───────
+app.get('/api/free-models', async (_req, res) => {
+  try {
+    const orRes = await fetch(
+      'https://openrouter.ai/api/frontend/models/find?active=true&fmt=cards&max_price=0&order=top-weekly',
+      { headers: { 'Accept': 'application/json' } }
+    );
+    if (!orRes.ok) {
+      return res.status(orRes.status).json({ error: 'OpenRouter returned ' + orRes.status });
+    }
+    const data = await orRes.json();
+    // Response shape: { data: { models: [...] } }
+    const rawList = data?.data?.models ?? data?.data ?? data?.models ?? data ?? [];
+    const models = rawList.map((m) => ({
+      id:    m.slug || m.id || '',
+      label: m.name || m.short_name || m.slug || '',
+    })).filter((m) => m.id);
+    res.json({ models });
+  } catch (err) {
+    log('error', 'free-models fetch failed', { error: err.message });
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ── chat proxy ────────────────────────────────────────────────────────────────
