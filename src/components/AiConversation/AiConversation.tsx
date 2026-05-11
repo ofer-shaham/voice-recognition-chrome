@@ -30,16 +30,38 @@ const VOICE_LANGS = [
   { code: "zh-CN", label: "Chinese" },
 ];
 
+const PRESET_PROMPTS = [
+  "You are a helpful, concise assistant who helps creating a story line by line",
+  "You are a poet. Reply with a single verse each time.",
+  "You are a witty comedian. Keep replies short and funny.",
+  "You are a strict teacher. Correct the user's grammar and reply briefly.",
+  "You are a philosopher. Answer every question with a deeper question.",
+  "You are a pirate. Speak in pirate slang, arrr!",
+];
+
 const LS_KEY_API = "ai_conversation_api_key";
 const LS_KEY_MODEL = "ai_conversation_model";
 const LS_KEY_WORDS = "ai_max_words";
 const LS_KEY_MODE = "ai_voice_mode";
+const LS_KEY_PROMPTS = "ai_prompt_list";
+const LS_KEY_AUTOREPLACE = "ai_autoreplace_sec";
 
 const lsGet = (key: string, fallback: string) =>
   localStorage.getItem(key) || fallback;
 const lsSet = (key: string, value: string) => {
   if (value) localStorage.setItem(key, value);
   else localStorage.removeItem(key);
+};
+const lsGetJSON = (key: string, fallback: string[]) => {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch {
+    return fallback;
+  }
+};
+const lsSetJSON = (key: string, value: unknown) => {
+  localStorage.setItem(key, JSON.stringify(value));
 };
 
 const API_BASE = process.env.REACT_APP_API_URL || "";
@@ -51,11 +73,12 @@ interface HealthSignal {
   uptime?: number;
 }
 
-interface AiHealthResult {
+interface AiHealthEntry {
   ok: boolean;
   elapsed?: number;
   error?: string;
   timestamp?: number;
+  keySuffix?: string;
 }
 
 interface FreeModel {
@@ -73,7 +96,6 @@ interface SttLogEntry {
 const getModelLabel = (modelId: string): string => {
   const match = MODEL_LIST.find((m) => m.id === modelId);
   if (match) return match.label;
-  // Extract short name from model ID like "meta-llama/llama-3.3-70b-instruct:free"
   const parts = modelId.split("/");
   const shortName = parts[parts.length - 1].replace(/:free$/, "");
   return shortName;
@@ -104,8 +126,11 @@ const AiConversation: React.FC = () => {
 
   // ── settings ───────────────────────────────────────────────────────────────
   const [showSettings, setShowSettings] = useState(false);
-  const [systemPrompt, setSystemPrompt] = useState(
-    "You are a helpful, concise assistant who helps creating a story line by line",
+  const [promptList, setPromptList] = useState<string[]>(() =>
+    lsGetJSON(LS_KEY_PROMPTS, PRESET_PROMPTS),
+  );
+  const [systemPrompt, setSystemPrompt] = useState(() =>
+    lsGetJSON(LS_KEY_PROMPTS, PRESET_PROMPTS)[0],
   );
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [voiceLang, setVoiceLang] = useState("en-US");
@@ -115,6 +140,9 @@ const AiConversation: React.FC = () => {
   const [voiceMode, setVoiceMode] = useState<"manual" | "auto">(
     () => lsGet(LS_KEY_MODE, "manual") as "manual" | "auto",
   );
+  const [autoReplaceSec, setAutoReplaceSec] = useState<number>(() =>
+    parseInt(lsGet(LS_KEY_AUTOREPLACE, "0"), 10),
+  );
 
   // ── server health indicator ────────────────────────────────────────────────
   const [healthSignals, setHealthSignals] = useState<HealthSignal[]>([]);
@@ -122,9 +150,7 @@ const AiConversation: React.FC = () => {
   const [serverAlive, setServerAlive] = useState<boolean | null>(null);
 
   // ── ai health ─────────────────────────────────────────────────────────────
-  const [aiHealthResult, setAiHealthResult] = useState<AiHealthResult | null>(
-    null,
-  );
+  const [aiHealthHistory, setAiHealthHistory] = useState<AiHealthEntry[]>([]);
   const [aiHealthLoading, setAiHealthLoading] = useState(false);
 
   // ── stt debug log ─────────────────────────────────────────────────────────
@@ -136,6 +162,11 @@ const AiConversation: React.FC = () => {
   );
   const sttDebugEndRef = useRef<HTMLDivElement>(null);
 
+  // ── auto-replace timer ─────────────────────────────────────────────────────
+  const autoReplaceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const userInteractedRef = useRef(false);
+  const regenerateFromIndexRef = useRef<(index: number) => void>(() => {});
+
   // ── refs ───────────────────────────────────────────────────────────────────
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -144,18 +175,12 @@ const AiConversation: React.FC = () => {
   const isSpeakingRef = useRef(isSpeaking);
   const voiceModeRef = useRef(voiceMode);
   const voiceLangRef = useRef(voiceLang);
-  useEffect(() => {
-    isLoadingRef.current = isLoading;
-  }, [isLoading]);
-  useEffect(() => {
-    isSpeakingRef.current = isSpeaking;
-  }, [isSpeaking]);
-  useEffect(() => {
-    voiceModeRef.current = voiceMode;
-  }, [voiceMode]);
-  useEffect(() => {
-    voiceLangRef.current = voiceLang;
-  }, [voiceLang]);
+  const autoReplaceSecRef = useRef(autoReplaceSec);
+  useEffect(() => { isLoadingRef.current = isLoading; }, [isLoading]);
+  useEffect(() => { isSpeakingRef.current = isSpeaking; }, [isSpeaking]);
+  useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
+  useEffect(() => { voiceLangRef.current = voiceLang; }, [voiceLang]);
+  useEffect(() => { autoReplaceSecRef.current = autoReplaceSec; }, [autoReplaceSec]);
 
   // ── speech recognition ────────────────────────────────────────────────────
   const {
@@ -180,7 +205,7 @@ const AiConversation: React.FC = () => {
   // ── server health polling ─────────────────────────────────────────────────
   const pingHealth = useCallback(async () => {
     try {
-      const res = await fetch(`${API_BASE}/api/health`);
+      const res = await fetch(`${API_BASE}/api/health`, { cache: "no-store" });
       if (res.ok) {
         const data = await res.json();
         const signal: HealthSignal = {
@@ -213,7 +238,7 @@ const AiConversation: React.FC = () => {
 
   // ── fetch free models ─────────────────────────────────────────────────────
   useEffect(() => {
-    fetch(`${API_BASE}/api/free-models`)
+    fetch(`${API_BASE}/api/free-models`, { cache: "no-store" })
       .then((r) => (r.ok ? r.json() : null))
       .then((data) => {
         if (data?.models?.length) setFreeModels(data.models);
@@ -224,7 +249,6 @@ const AiConversation: React.FC = () => {
   // ── ai health ping ────────────────────────────────────────────────────────
   const pingAiHealth = useCallback(async () => {
     setAiHealthLoading(true);
-    setAiHealthResult(null);
     try {
       const body: Record<string, string> = {};
       if (activeApiKey) body.apiKey = activeApiKey;
@@ -232,15 +256,35 @@ const AiConversation: React.FC = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
+        cache: "no-store",
       });
       const data = await res.json();
-      setAiHealthResult(data);
+      const keyUsed = activeApiKey || (serverHasKey ? "server" : "");
+      const keySuffix = keyUsed.length > 4
+        ? `...${keyUsed.slice(-4)}`
+        : keyUsed
+          ? keyUsed
+          : "none";
+      const entry: AiHealthEntry = {
+        ok: data.ok,
+        elapsed: data.elapsed,
+        error: data.error,
+        timestamp: Date.now(),
+        keySuffix,
+      };
+      setAiHealthHistory((prev) => [entry, ...prev].slice(0, 10));
     } catch (e: any) {
-      setAiHealthResult({ ok: false, error: e.message, timestamp: Date.now() });
+      const entry: AiHealthEntry = {
+        ok: false,
+        error: e.message,
+        timestamp: Date.now(),
+        keySuffix: "err",
+      };
+      setAiHealthHistory((prev) => [entry, ...prev].slice(0, 10));
     } finally {
       setAiHealthLoading(false);
     }
-  }, [activeApiKey]);
+  }, [activeApiKey, serverHasKey]);
 
   // ── stt debug helpers ─────────────────────────────────────────────────────
   const addSttLog = useCallback(
@@ -300,7 +344,6 @@ const AiConversation: React.FC = () => {
         }
         addSttLog("stt", evt, detail);
 
-        // update button status from real recognition events
         if (evt === "start") setSttStatus("listening");
         if (evt === "error") setSttStatus("error");
         if (evt === "end")
@@ -316,7 +359,6 @@ const AiConversation: React.FC = () => {
     };
   }, [addSttLog]);
 
-  // Auto-scroll debug panel to latest entry
   useEffect(() => {
     if (showSttDebug)
       sttDebugEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -349,11 +391,43 @@ const AiConversation: React.FC = () => {
     lsSet(LS_KEY_MODE, mode);
   };
 
+  const handleAutoReplaceChange = (val: number) => {
+    setAutoReplaceSec(val);
+    lsSet(LS_KEY_AUTOREPLACE, String(val));
+  };
+
+  // ── prompt list management ─────────────────────────────────────────────────
+  const addPrompt = useCallback((prompt: string) => {
+    const trimmed = prompt.trim();
+    if (!trimmed) return;
+    setPromptList((prev) => {
+      const next = [...prev, trimmed];
+      lsSetJSON(LS_KEY_PROMPTS, next);
+      return next;
+    });
+  }, []);
+
+  const removePrompt = useCallback((index: number) => {
+    setPromptList((prev) => {
+      const next = prev.filter((_, i) => i !== index);
+      lsSetJSON(LS_KEY_PROMPTS, next);
+      // If the removed prompt was the active one, switch to first
+      if (prev[index] === systemPromptRef.current && next.length > 0) {
+        setSystemPrompt(next[0]);
+      }
+      return next;
+    });
+  }, []);
+
+  const selectPrompt = useCallback((prompt: string) => {
+    setSystemPrompt(prompt);
+  }, []);
+
   // ── start listening helper ─────────────────────────────────────────────────
   const startListening = useCallback(() => {
     resetTranscript();
     setInputText("");
-    addSttLog("app", "▶ startListening", `lang=${voiceLangRef.current}`);
+    addSttLog("app", "startListening", `lang=${voiceLangRef.current}`);
     SpeechRecognition.startListening({
       language: voiceLangRef.current,
       interimResults: true,
@@ -370,6 +444,14 @@ const AiConversation: React.FC = () => {
     }
   }, [listening, startListening]);
 
+  // ── ensure STT is stopped ─────────────────────────────────────────────────
+  const ensureSttStopped = useCallback(() => {
+    if (listening) {
+      addSttLog("app", "stopListening", "ensuring STT off before TTS");
+      SpeechRecognition.stopListening();
+    }
+  }, [listening, addSttLog]);
+
   // ── core send ─────────────────────────────────────────────────────────────
   const sendWithText = useCallback(
     async (
@@ -384,9 +466,12 @@ const AiConversation: React.FC = () => {
     ) => {
       if (!text || isLoadingRef.current) return;
 
+      // Ensure STT is stopped before we proceed
+      ensureSttStopped();
       resetTranscript();
       setInputText("");
       setError("");
+      userInteractedRef.current = false;
 
       const userMsg: ChatMessage = { role: "user", content: text };
       const history: ChatMessage[] = [...currentMessages, userMsg];
@@ -411,11 +496,14 @@ const AiConversation: React.FC = () => {
           apiKey || undefined,
           maxTokens,
         );
-        setMessages((prev) => [...prev, { role: "assistant", content: response.content, model: response.model }]);
+        const assistantMsg: ChatMessage = { role: "assistant", content: response.content, model: response.model };
+        setMessages((prev) => [...prev, assistantMsg]);
 
         if (tts) {
+          // Ensure STT is off before TTS starts
+          ensureSttStopped();
           setIsSpeaking(true);
-          addSttLog("tts", "▶ speak", response.content.slice(0, 60));
+          addSttLog("tts", "speak", response.content.slice(0, 60));
           try {
             await freeSpeak(response.content, lang);
             addSttLog("tts", "end");
@@ -423,6 +511,17 @@ const AiConversation: React.FC = () => {
             addSttLog("tts", "error", ttsErr?.message ?? "unknown");
           }
           setIsSpeaking(false);
+        }
+
+        // Auto-replace: if user doesn't interact within X seconds, regenerate
+        if (autoReplaceSecRef.current > 0) {
+          const msgIndex = history.length; // index of the assistant message we just added
+          autoReplaceTimerRef.current = setTimeout(() => {
+            if (!userInteractedRef.current && !isLoadingRef.current) {
+              addSttLog("app", "autoReplace", `${autoReplaceSecRef.current}s timeout`);
+              regenerateFromIndexRef.current(msgIndex);
+            }
+          }, autoReplaceSecRef.current * 1000);
         }
 
         if (voiceModeRef.current === "auto") {
@@ -434,7 +533,7 @@ const AiConversation: React.FC = () => {
         setIsLoading(false);
       }
     },
-    [resetTranscript, startListening, addSttLog],
+    [resetTranscript, startListening, addSttLog, ensureSttStopped],
   );
 
   // ── ref copies to avoid stale closures ───────────────────────────────────
@@ -444,24 +543,12 @@ const AiConversation: React.FC = () => {
   const systemPromptRef = useRef(systemPrompt);
   const ttsEnabledRef = useRef(ttsEnabled);
   const maxWordsRef = useRef(maxWords);
-  useEffect(() => {
-    messagesRef.current = messages;
-  }, [messages]);
-  useEffect(() => {
-    activeModelRef.current = activeModel;
-  }, [activeModel]);
-  useEffect(() => {
-    activeApiKeyRef.current = activeApiKey;
-  }, [activeApiKey]);
-  useEffect(() => {
-    systemPromptRef.current = systemPrompt;
-  }, [systemPrompt]);
-  useEffect(() => {
-    ttsEnabledRef.current = ttsEnabled;
-  }, [ttsEnabled]);
-  useEffect(() => {
-    maxWordsRef.current = maxWords;
-  }, [maxWords]);
+  useEffect(() => { messagesRef.current = messages; }, [messages]);
+  useEffect(() => { activeModelRef.current = activeModel; }, [activeModel]);
+  useEffect(() => { activeApiKeyRef.current = activeApiKey; }, [activeApiKey]);
+  useEffect(() => { systemPromptRef.current = systemPrompt; }, [systemPrompt]);
+  useEffect(() => { ttsEnabledRef.current = ttsEnabled; }, [ttsEnabled]);
+  useEffect(() => { maxWordsRef.current = maxWords; }, [maxWords]);
 
   // ── magic keywords ────────────────────────────────────────────────────────
   const checkMagicKeywords = useCallback((text: string): boolean => {
@@ -489,9 +576,18 @@ const AiConversation: React.FC = () => {
     async (index: number) => {
       if (isLoadingRef.current) return;
 
-      let userMsgIndex = index;
+      // Clear any pending auto-replace timer
+      if (autoReplaceTimerRef.current) {
+        clearTimeout(autoReplaceTimerRef.current);
+        autoReplaceTimerRef.current = null;
+      }
+
+      // Find the user message that precedes this message
+      let userMsgIndex = -1;
       if (messages[index]?.role === "assistant") {
         userMsgIndex = index - 1;
+      } else if (messages[index]?.role === "user") {
+        userMsgIndex = index;
       }
       if (userMsgIndex < 0 || messages[userMsgIndex]?.role !== "user") return;
 
@@ -501,6 +597,10 @@ const AiConversation: React.FC = () => {
       setMessages(history);
       setIsLoading(true);
       setError("");
+      userInteractedRef.current = false;
+
+      // Ensure STT is stopped
+      ensureSttStopped();
 
       try {
         const wordInstruction = `Reply in ${maxWordsRef.current} words or fewer.`;
@@ -520,11 +620,13 @@ const AiConversation: React.FC = () => {
           activeApiKeyRef.current || undefined,
           maxTokens,
         );
-        setMessages((prev) => [...prev, { role: "assistant", content: response.content, model: response.model }]);
+        const assistantMsg: ChatMessage = { role: "assistant", content: response.content, model: response.model };
+        setMessages((prev) => [...prev, assistantMsg]);
 
         if (ttsEnabledRef.current) {
+          ensureSttStopped();
           setIsSpeaking(true);
-          addSttLog("tts", "▶ speak", response.content.slice(0, 60));
+          addSttLog("tts", "speak", response.content.slice(0, 60));
           try {
             await freeSpeak(response.content, voiceLangRef.current);
             addSttLog("tts", "end");
@@ -533,18 +635,46 @@ const AiConversation: React.FC = () => {
           }
           setIsSpeaking(false);
         }
+
+        // Auto-replace timer for regenerated message
+        if (autoReplaceSecRef.current > 0) {
+          const msgIndex = history.length;
+          autoReplaceTimerRef.current = setTimeout(() => {
+            if (!userInteractedRef.current && !isLoadingRef.current) {
+              addSttLog("app", "autoReplace", `${autoReplaceSecRef.current}s timeout`);
+              regenerateFromIndexRef.current(msgIndex);
+            }
+          }, autoReplaceSecRef.current * 1000);
+        }
+
+        if (voiceModeRef.current === "auto") {
+          setTimeout(() => startListening(), 300);
+        }
       } catch (e: any) {
         setError(e.message || "Unknown error");
       } finally {
         setIsLoading(false);
       }
     },
-    [messages, addSttLog],
+    [messages, addSttLog, ensureSttStopped, startListening],
   );
+
+  // Keep ref in sync so auto-replace timer can call it without circular deps
+  useEffect(() => {
+    regenerateFromIndexRef.current = regenerateFromIndex;
+  }, [regenerateFromIndex]);
 
   const sendMessage = useCallback(() => {
     const text = inputText.trim();
     if (!text || isLoadingRef.current) return;
+
+    // Mark user interaction to cancel auto-replace
+    userInteractedRef.current = true;
+    if (autoReplaceTimerRef.current) {
+      clearTimeout(autoReplaceTimerRef.current);
+      autoReplaceTimerRef.current = null;
+    }
+
     if (listening) SpeechRecognition.stopListening();
 
     if (checkMagicKeywords(text)) {
@@ -579,6 +709,11 @@ const AiConversation: React.FC = () => {
     ) {
       const text = transcript.trim();
       if (text) {
+        userInteractedRef.current = true;
+        if (autoReplaceTimerRef.current) {
+          clearTimeout(autoReplaceTimerRef.current);
+          autoReplaceTimerRef.current = null;
+        }
         setTimeout(() => {
           sendWithText(
             text,
@@ -596,16 +731,13 @@ const AiConversation: React.FC = () => {
   }, [listening, transcript, sendWithText]);
 
   // Auto mode: restart mic whenever it goes off and we're not busy.
-  // Watches all three blocking states so a network dropout, silence timeout,
-  // or end-of-speech event reliably restarts the mic without waiting for a
-  // voiceMode change.
   useEffect(() => {
     if (
       voiceMode === "auto" &&
       !listening &&
       !isLoading &&
       !isSpeaking &&
-      !transcript.trim() // transcript present means send is about to fire — don't race it
+      !transcript.trim()
     ) {
       const id = setTimeout(() => startListening(), 400);
       return () => clearTimeout(id);
@@ -624,6 +756,10 @@ const AiConversation: React.FC = () => {
     setError("");
     setInputText("");
     resetTranscript();
+    if (autoReplaceTimerRef.current) {
+      clearTimeout(autoReplaceTimerRef.current);
+      autoReplaceTimerRef.current = null;
+    }
   };
 
   // ── derived ────────────────────────────────────────────────────────────────
@@ -639,7 +775,6 @@ const AiConversation: React.FC = () => {
         ? "server"
         : "none";
 
-  // merged model list: free models from server + static fallback, deduplicated
   const allModels: FreeModel[] = React.useMemo(() => {
     const base = freeModels.length ? freeModels : OPENROUTER_MODELS;
     const seen = new Set(base.map((m) => m.id));
@@ -671,7 +806,6 @@ const AiConversation: React.FC = () => {
       <div className="ai-top-bar">
         <h2>AI Conversation</h2>
 
-        {/* server health dot */}
         <button
           className="ai-health-btn"
           onClick={() => {
@@ -721,7 +855,7 @@ const AiConversation: React.FC = () => {
 
         <div className="ai-top-right">
           {isSpeaking && (
-            <span className="ai-speaking-badge">🔊 speaking…</span>
+            <span className="ai-speaking-badge">speaking...</span>
           )}
           {messages.length > 0 && (
             <button className="ai-clear-btn" onClick={clearConversation}>
@@ -732,7 +866,7 @@ const AiConversation: React.FC = () => {
             className={`ai-settings-btn${showSettings ? " active" : ""}`}
             onClick={() => setShowSettings((p) => !p)}
           >
-            ⚙ Settings
+            Settings
           </button>
         </div>
       </div>
@@ -747,23 +881,33 @@ const AiConversation: React.FC = () => {
               onClick={pingAiHealth}
               disabled={aiHealthLoading}
             >
-              {aiHealthLoading ? "Pinging AI…" : "🤖 Ping AI key"}
+              {aiHealthLoading ? "Pinging AI..." : "Ping AI key"}
             </button>
           </div>
 
-          {aiHealthResult && (
-            <div
-              className={`ai-health-ai-result ${aiHealthResult.ok ? "ok" : "fail"}`}
-            >
-              {aiHealthResult.ok
-                ? `✔ API key works — reply in ${aiHealthResult.elapsed}ms`
-                : `✘ API key failed — ${aiHealthResult.error}`}
+          {aiHealthHistory.length > 0 && (
+            <div className="ai-health-ai-history">
+              {aiHealthHistory.map((entry, i) => (
+                <div
+                  key={i}
+                  className={`ai-health-ai-result ${entry.ok ? "ok" : "fail"}`}
+                >
+                  {entry.ok
+                    ? `Key ${entry.keySuffix} OK — ${entry.elapsed}ms`
+                    : `Key ${entry.keySuffix} failed — ${entry.error}`}
+                  <span className="ai-health-ai-time">
+                    {entry.timestamp
+                      ? new Date(entry.timestamp).toLocaleTimeString()
+                      : ""}
+                  </span>
+                </div>
+              ))}
             </div>
           )}
 
           <div className="ai-health-signals">
             {healthSignals.length === 0 && (
-              <span className="ai-health-empty">No signals yet…</span>
+              <span className="ai-health-empty">No signals yet...</span>
             )}
             {healthSignals.map((s, i) => (
               <div
@@ -802,7 +946,7 @@ const AiConversation: React.FC = () => {
                 placeholder={
                   serverHasKey
                     ? "Server key active — paste to override"
-                    : "sk-or-…"
+                    : "sk-or-..."
                 }
                 spellCheck={false}
                 autoComplete="off"
@@ -812,7 +956,7 @@ const AiConversation: React.FC = () => {
                 onClick={() => setShowKey((p) => !p)}
                 title={showKey ? "Hide" : "Show"}
               >
-                {showKey ? "🙈" : "👁"}
+                {showKey ? "Hide" : "Show"}
               </button>
               {keyDirty && (
                 <button
@@ -828,24 +972,23 @@ const AiConversation: React.FC = () => {
                   onClick={clearApiKey}
                   title="Remove override"
                 >
-                  ✕
+                  X
                 </button>
               )}
             </div>
             <span className="ai-key-hint">
               {keyStatus === "checking" && (
-                <span style={{ color: "#888" }}>Checking server…</span>
+                <span style={{ color: "#888" }}>Checking server...</span>
               )}
               {keyStatus === "ui" && (
-                <span style={{ color: "#4caf50" }}>✔ Using your key</span>
+                <span style={{ color: "#4caf50" }}>Using your key ...{activeApiKey.slice(-4)}</span>
               )}
               {keyStatus === "server" && (
-                <span style={{ color: "#4caf50" }}>✔ Server key active</span>
+                <span style={{ color: "#4caf50" }}>Server key active</span>
               )}
               {keyStatus === "none" && (
                 <span style={{ color: "#e94560" }}>
-                  ⚠ No key — enter one above or set OPENROUTER_API_KEY on the
-                  server
+                  No key — enter one above or set OPENROUTER_API_KEY on the server
                 </span>
               )}
             </span>
@@ -853,6 +996,55 @@ const AiConversation: React.FC = () => {
 
           <div className="ai-settings-section">
             <label className="ai-settings-label">System prompt</label>
+            <div className="ai-prompt-list">
+              {promptList.map((p, i) => (
+                <div
+                  key={i}
+                  className={`ai-prompt-item${p === systemPrompt ? " active" : ""}`}
+                  onClick={() => selectPrompt(p)}
+                  title={p}
+                >
+                  <span className="ai-prompt-text">{p}</span>
+                  <button
+                    className="ai-prompt-remove"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removePrompt(i);
+                    }}
+                    title="Remove"
+                  >
+                    X
+                  </button>
+                </div>
+              ))}
+            </div>
+            <div className="ai-prompt-add-row">
+              <input
+                className="ai-prompt-add-input"
+                placeholder="Add a new prompt..."
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    const val = (e.target as HTMLInputElement).value;
+                    if (val.trim()) {
+                      addPrompt(val.trim());
+                      (e.target as HTMLInputElement).value = "";
+                    }
+                  }
+                }}
+              />
+              <button
+                className="ai-prompt-add-btn"
+                onClick={() => {
+                  const input = document.querySelector(".ai-prompt-add-input") as HTMLInputElement;
+                  if (input?.value.trim()) {
+                    addPrompt(input.value.trim());
+                    input.value = "";
+                  }
+                }}
+              >
+                Add
+              </button>
+            </div>
             <textarea
               className="ai-settings-textarea"
               value={systemPrompt}
@@ -892,6 +1084,39 @@ const AiConversation: React.FC = () => {
             </div>
           </div>
 
+          <div className="ai-settings-section">
+            <label className="ai-settings-label">
+              Auto-replace —{" "}
+              <span className="ai-words-value">
+                {autoReplaceSec === 0 ? "Off" : `${autoReplaceSec}s`}
+              </span>
+            </label>
+            <div className="ai-words-row">
+              <span className="ai-words-edge">0</span>
+              <input
+                type="range"
+                className="ai-words-range"
+                min={0}
+                max={30}
+                step={1}
+                value={autoReplaceSec}
+                onChange={(e) => handleAutoReplaceChange(Number(e.target.value))}
+              />
+              <span className="ai-words-edge">30</span>
+              <input
+                type="number"
+                className="ai-words-number"
+                min={0}
+                max={60}
+                value={autoReplaceSec}
+                onChange={(e) => {
+                  const v = Math.min(60, Math.max(0, Number(e.target.value)));
+                  handleAutoReplaceChange(v);
+                }}
+              />
+            </div>
+          </div>
+
           <div className="ai-settings-row">
             <label className="ai-settings-check">
               <input
@@ -925,23 +1150,23 @@ const AiConversation: React.FC = () => {
           className={`ai-mode-btn${voiceMode === "manual" ? " active" : ""}`}
           onClick={() => handleVoiceModeChange("manual")}
         >
-          ✋ Manual
+          Manual
         </button>
         <button
           className={`ai-mode-btn${voiceMode === "auto" ? " active" : ""}`}
           onClick={() => handleVoiceModeChange("auto")}
         >
-          🔄 Auto
+          Auto
         </button>
         {voiceMode === "auto" && (
           <span className="ai-mode-hint">
             {isSpeaking
-              ? "AI speaking…"
+              ? "AI speaking..."
               : isLoading
-                ? "Thinking…"
+                ? "Thinking..."
                 : listening
-                  ? "Listening…"
-                  : "Starting…"}
+                  ? "Listening..."
+                  : "Starting..."}
           </span>
         )}
         <button
@@ -950,11 +1175,10 @@ const AiConversation: React.FC = () => {
           title="STT debug log"
         >
           {sttStatus === "listening"
-            ? "🎙"
+            ? "Mic"
             : sttStatus === "error"
-              ? "⚠️"
-              : "🐛"}{" "}
-          STT
+              ? "Err"
+              : "STT"}
         </button>
       </div>
 
@@ -972,21 +1196,21 @@ const AiConversation: React.FC = () => {
                 onClick={copyLogsToClipboard}
                 title="Copy all logs to clipboard"
               >
-                {copied ? "✔ Copied" : "📋 Copy"}
+                {copied ? "Copied" : "Copy"}
               </button>
               <button
                 className="ai-stt-action-btn"
                 onClick={() => setSttLogs([])}
                 title="Clear logs"
               >
-                🗑 Clear
+                Clear
               </button>
             </div>
           </div>
           <div className="ai-stt-log-list">
             {sttLogs.length === 0 && (
               <span className="ai-stt-empty">
-                No events yet — try pressing 🎤
+                No events yet — try pressing the mic button
               </span>
             )}
             {sttLogs.map((entry, i) => {
@@ -1022,12 +1246,12 @@ const AiConversation: React.FC = () => {
             <p>Start a conversation.</p>
             {voiceMode === "manual" ? (
               <p>
-                Type a message or press 🎤 to speak.
+                Type a message or press the mic button to speak.
                 <br />
                 <span style={{ fontSize: "0.8rem" }}>
                   Shift+Enter for a new line · Enter to send
                   <br />
-                  Click an AI reply to regenerate · Magic: "remove, remove, remove" deletes last
+                  Click any message to regenerate from that point · Magic: "remove, remove, remove" deletes last
                 </span>
               </p>
             ) : (
@@ -1047,16 +1271,16 @@ const AiConversation: React.FC = () => {
               )}
             </span>
             <div
-              className={`ai-message-bubble${msg.role === "assistant" ? " ai-clickable" : ""}`}
-              onClick={() => msg.role === "assistant" && regenerateFromIndex(i)}
-              title={msg.role === "assistant" ? "Click to regenerate" : undefined}
+              className="ai-message-bubble ai-clickable"
+              onClick={() => regenerateFromIndex(i)}
+              title="Click to regenerate from here"
             >
               {msg.content}
             </div>
           </div>
         ))}
-        {isLoading && <div className="ai-thinking">Thinking…</div>}
-        {error && <div className="ai-error">⚠ {error}</div>}
+        {isLoading && <div className="ai-thinking">Thinking...</div>}
+        {error && <div className="ai-error">! {error}</div>}
         <div ref={messagesEndRef} />
       </div>
 
@@ -1073,7 +1297,7 @@ const AiConversation: React.FC = () => {
           onClick={toggleListening}
           title={listening ? "Stop recording" : "Start recording"}
         >
-          🎤
+          Mic
         </button>
         <textarea
           ref={textareaRef}
@@ -1083,10 +1307,10 @@ const AiConversation: React.FC = () => {
           onKeyDown={handleKeyDown}
           placeholder={
             listening
-              ? "Listening…"
+              ? "Listening..."
               : voiceMode === "auto" && !isLoading && !isSpeaking
-                ? "Auto mode — starting mic…"
-                : "Type a message or press 🎤 to speak…"
+                ? "Auto mode — starting mic..."
+                : "Type a message or press the mic button to speak..."
           }
           rows={1}
         />
@@ -1096,7 +1320,7 @@ const AiConversation: React.FC = () => {
           disabled={!inputText.trim() || isLoading}
           title="Send"
         >
-          ➤
+          Send
         </button>
       </div>
     </div>

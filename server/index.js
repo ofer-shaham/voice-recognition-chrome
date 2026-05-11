@@ -37,6 +37,14 @@ app.use((req, _res, next) => {
   next();
 });
 
+// ── middleware: prevent caching on all API routes ──────────────────────────────
+app.use("/api", (_req, res, next) => {
+  res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.set("Pragma", "no-cache");
+  res.set("Expires", "0");
+  next();
+});
+
 // ── health ────────────────────────────────────────────────────────────────────
 app.get("/api/health", (_req, res) => {
   const now = Date.now();

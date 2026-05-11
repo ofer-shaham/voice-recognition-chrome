@@ -74,7 +74,7 @@
   border-bottom: 1px solid #0f3460;
   padding: 10px 14px;
   flex-shrink: 0;
-  max-height: 220px;
+  max-height: 280px;
   overflow-y: auto;
 }
 
@@ -108,15 +108,33 @@
 
 .ai-health-ai-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
+/* ── AI health history ── */
+.ai-health-ai-history {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
 .ai-health-ai-result {
   font-size: 0.82rem;
   padding: 6px 10px;
   border-radius: 6px;
-  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .ai-health-ai-result.ok   { background: #0d2e1a; color: #66bb6a; border: 1px solid #2e7d32; }
 .ai-health-ai-result.fail { background: #2e0a14; color: #ef9a9a; border: 1px solid #c62828; }
+
+.ai-health-ai-time {
+  font-family: monospace;
+  font-size: 0.72rem;
+  opacity: 0.6;
+  flex-shrink: 0;
+}
 
 .ai-health-signals {
   display: flex;
@@ -268,13 +286,11 @@
   transition: background 0.2s, color 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
 
-/* panel open — dim blue outline */
 .ai-stt-debug-btn.panel-open {
   border-color: #4a6fa5;
   color: #aac4ff;
 }
 
-/* mic is actively listening — green pulse */
 .ai-stt-debug-btn.stt-listening {
   border-color: #4caf50;
   color: #4caf50;
@@ -282,7 +298,6 @@
   animation: stt-pulse 1.1s ease-in-out infinite;
 }
 
-/* last session ended with an error — red */
 .ai-stt-debug-btn.stt-error {
   border-color: #e94560;
   color: #e94560;
@@ -448,6 +463,106 @@
   border-radius: 6px;
   padding: 4px 8px;
   font-size: 0.82rem;
+}
+
+/* ── prompt list ── */
+.ai-prompt-list {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-height: 140px;
+  overflow-y: auto;
+}
+
+.ai-prompt-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: #0a1225;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.ai-prompt-item:hover {
+  border-color: #0f3460;
+  background: #0f1a30;
+}
+
+.ai-prompt-item.active {
+  border-color: #e94560;
+  background: #1a0a14;
+}
+
+.ai-prompt-text {
+  flex: 1;
+  font-size: 0.78rem;
+  color: #aaa;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-prompt-item.active .ai-prompt-text {
+  color: #eee;
+}
+
+.ai-prompt-remove {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: #555;
+  font-size: 0.72rem;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: color 0.15s, background 0.15s;
+}
+
+.ai-prompt-remove:hover {
+  color: #e94560;
+  background: #2a0a14;
+}
+
+.ai-prompt-add-row {
+  display: flex;
+  gap: 6px;
+}
+
+.ai-prompt-add-input {
+  flex: 1;
+  background: #0f3460;
+  color: #eee;
+  border: 1px solid #0f3460;
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 0.82rem;
+  min-width: 0;
+  transition: border-color 0.2s;
+}
+
+.ai-prompt-add-input:focus {
+  outline: none;
+  border-color: #e94560;
+}
+
+.ai-prompt-add-btn {
+  flex-shrink: 0;
+  background: #0f3460;
+  color: #aaa;
+  border: 1px solid #0f3460;
+  border-radius: 6px;
+  padding: 5px 10px;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.ai-prompt-add-btn:hover {
+  border-color: #e94560;
+  color: #eee;
 }
 
 /* ── API key row ── */
@@ -668,12 +783,18 @@
   border-bottom-left-radius: 4px;
 }
 
+/* ── clickable messages (all messages) ── */
 .ai-message-bubble.ai-clickable {
   cursor: pointer;
   transition: background 0.15s, box-shadow 0.15s;
 }
 
-.ai-message-bubble.ai-clickable:hover {
+.ai-message.user .ai-message-bubble.ai-clickable:hover {
+  background: #c73652;
+  box-shadow: 0 0 0 1px #e94560aa;
+}
+
+.ai-message.assistant .ai-message-bubble.ai-clickable:hover {
   background: #163a6e;
   box-shadow: 0 0 0 1px #4a6fa5;
 }
@@ -764,7 +885,7 @@
   border: 2px solid #0f3460;
   background: #0f3460;
   color: #aaa;
-  font-size: 1.2rem;
+  font-size: 0.78rem;
   cursor: pointer;
   flex-shrink: 0;
   transition: all 0.2s;
@@ -799,7 +920,7 @@
   border: none;
   background: #e94560;
   color: #fff;
-  font-size: 1.1rem;
+  font-size: 0.78rem;
   cursor: pointer;
   flex-shrink: 0;
   transition: background 0.2s;
