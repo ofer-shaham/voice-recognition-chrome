@@ -165,8 +165,9 @@ exports.handler = async (event) => {
 
       const data = await orRes.json();
       const content = data?.choices?.[0]?.message?.content;
+      const actualModel = data?.model || model;
       if (!content) return json(500, { error: "No content in OpenRouter response" });
-      return json(200, { content });
+      return json(200, { content, model: actualModel });
     } catch (err) {
       return json(500, { error: err.message });
     }

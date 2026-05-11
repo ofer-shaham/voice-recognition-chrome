@@ -668,6 +668,29 @@
   border-bottom-left-radius: 4px;
 }
 
+.ai-message-bubble.ai-clickable {
+  cursor: pointer;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.ai-message-bubble.ai-clickable:hover {
+  background: #163a6e;
+  box-shadow: 0 0 0 1px #4a6fa5;
+}
+
+/* ── model signature ── */
+.ai-model-sig {
+  font-size: 0.65rem;
+  color: #5a7a9a;
+  margin-left: 6px;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  background: #0a1a2e;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
 /* ── thinking indicator ── */
 .ai-thinking {
   align-self: flex-start;

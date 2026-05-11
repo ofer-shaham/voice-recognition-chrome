@@ -15,6 +15,7 @@ import {
   chatWithAI,
   checkServerKey,
 } from "../../services/openRouterService";
+import { OPENROUTER_MODELS as MODEL_LIST } from "../../services/openRouterService";
 import { freeSpeak } from "../../utils/freeSpeak";
 import "../../styles/aiConversation.css";
 
@@ -68,6 +69,15 @@ interface SttLogEntry {
   event: string;
   detail?: string;
 }
+
+const getModelLabel = (modelId: string): string => {
+  const match = MODEL_LIST.find((m) => m.id === modelId);
+  if (match) return match.label;
+  // Extract short name from model ID like "meta-llama/llama-3.3-70b-instruct:free"
+  const parts = modelId.split("/");
+  const shortName = parts[parts.length - 1].replace(/:free$/, "");
+  return shortName;
+};
 
 const AiConversation: React.FC = () => {
   // ── conversation ───────────────────────────────────────────────────────────
@@ -395,19 +405,19 @@ const AiConversation: React.FC = () => {
         ];
 
         const maxTokens = Math.ceil(words * 2);
-        const reply = await chatWithAI(
+        const response = await chatWithAI(
           context,
           model,
           apiKey || undefined,
           maxTokens,
         );
-        setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+        setMessages((prev) => [...prev, { role: "assistant", content: response.content, model: response.model }]);
 
         if (tts) {
           setIsSpeaking(true);
-          addSttLog("tts", "▶ speak", reply.slice(0, 60));
+          addSttLog("tts", "▶ speak", response.content.slice(0, 60));
           try {
-            await freeSpeak(reply, lang);
+            await freeSpeak(response.content, lang);
             addSttLog("tts", "end");
           } catch (ttsErr: any) {
             addSttLog("tts", "error", ttsErr?.message ?? "unknown");
@@ -453,10 +463,96 @@ const AiConversation: React.FC = () => {
     maxWordsRef.current = maxWords;
   }, [maxWords]);
 
+  // ── magic keywords ────────────────────────────────────────────────────────
+  const checkMagicKeywords = useCallback((text: string): boolean => {
+    const normalized = text.trim().toLowerCase();
+    if (normalized === "remove, remove, remove") {
+      if (messages.length > 0) {
+        const last = messages[messages.length - 1];
+        const removeCount = last.role === "assistant" ? 2 : 1;
+        setMessages((prev) => prev.slice(0, Math.max(0, prev.length - removeCount)));
+      }
+      return true;
+    }
+    if (normalized === "clear, clear, clear") {
+      setMessages([]);
+      setError("");
+      setInputText("");
+      resetTranscript();
+      return true;
+    }
+    return false;
+  }, [messages, resetTranscript]);
+
+  // ── regenerate from index ─────────────────────────────────────────────────
+  const regenerateFromIndex = useCallback(
+    async (index: number) => {
+      if (isLoadingRef.current) return;
+
+      let userMsgIndex = index;
+      if (messages[index]?.role === "assistant") {
+        userMsgIndex = index - 1;
+      }
+      if (userMsgIndex < 0 || messages[userMsgIndex]?.role !== "user") return;
+
+      const truncatedMessages = messages.slice(0, userMsgIndex);
+      const userMsg = messages[userMsgIndex];
+      const history: ChatMessage[] = [...truncatedMessages, userMsg];
+      setMessages(history);
+      setIsLoading(true);
+      setError("");
+
+      try {
+        const wordInstruction = `Reply in ${maxWordsRef.current} words or fewer.`;
+        const fullPrompt = systemPromptRef.current
+          ? `${systemPromptRef.current}\n${wordInstruction}`
+          : wordInstruction;
+
+        const context: ChatMessage[] = [
+          { role: "system", content: fullPrompt },
+          ...history,
+        ];
+
+        const maxTokens = Math.ceil(maxWordsRef.current * 2);
+        const response = await chatWithAI(
+          context,
+          activeModelRef.current,
+          activeApiKeyRef.current || undefined,
+          maxTokens,
+        );
+        setMessages((prev) => [...prev, { role: "assistant", content: response.content, model: response.model }]);
+
+        if (ttsEnabledRef.current) {
+          setIsSpeaking(true);
+          addSttLog("tts", "▶ speak", response.content.slice(0, 60));
+          try {
+            await freeSpeak(response.content, voiceLangRef.current);
+            addSttLog("tts", "end");
+          } catch (ttsErr: any) {
+            addSttLog("tts", "error", ttsErr?.message ?? "unknown");
+          }
+          setIsSpeaking(false);
+        }
+      } catch (e: any) {
+        setError(e.message || "Unknown error");
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [messages, addSttLog],
+  );
+
   const sendMessage = useCallback(() => {
     const text = inputText.trim();
     if (!text || isLoadingRef.current) return;
     if (listening) SpeechRecognition.stopListening();
+
+    if (checkMagicKeywords(text)) {
+      setInputText("");
+      resetTranscript();
+      return;
+    }
+
     sendWithText(
       text,
       messagesRef.current,
@@ -467,7 +563,7 @@ const AiConversation: React.FC = () => {
       voiceLangRef.current,
       maxWordsRef.current,
     );
-  }, [inputText, listening, sendWithText]);
+  }, [inputText, listening, sendWithText, checkMagicKeywords, resetTranscript]);
 
   // ── auto mode: send when mic stops ───────────────────────────────────────
   useEffect(() => {
@@ -930,6 +1026,8 @@ const AiConversation: React.FC = () => {
                 <br />
                 <span style={{ fontSize: "0.8rem" }}>
                   Shift+Enter for a new line · Enter to send
+                  <br />
+                  Click an AI reply to regenerate · Magic: "remove, remove, remove" deletes last
                 </span>
               </p>
             ) : (
@@ -944,8 +1042,17 @@ const AiConversation: React.FC = () => {
           <div key={i} className={`ai-message ${msg.role}`}>
             <span className="ai-message-role">
               {msg.role === "user" ? "You" : "AI"}
+              {msg.role === "assistant" && msg.model && (
+                <span className="ai-model-sig">{getModelLabel(msg.model)}</span>
+              )}
             </span>
-            <div className="ai-message-bubble">{msg.content}</div>
+            <div
+              className={`ai-message-bubble${msg.role === "assistant" ? " ai-clickable" : ""}`}
+              onClick={() => msg.role === "assistant" && regenerateFromIndex(i)}
+              title={msg.role === "assistant" ? "Click to regenerate" : undefined}
+            >
+              {msg.content}
+            </div>
           </div>
         ))}
         {isLoading && <div className="ai-thinking">Thinking…</div>}

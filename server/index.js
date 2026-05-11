@@ -204,6 +204,7 @@ app.post("/api/chat", async (req, res) => {
 
     const data = await orRes.json();
     const content = data?.choices?.[0]?.message?.content;
+    const actualModel = data?.model || model;
 
     if (!content) {
       log("error", "Empty content in OpenRouter response", { data });
@@ -214,12 +215,13 @@ app.post("/api/chat", async (req, res) => {
 
     log("info", "OpenRouter OK", {
       model,
+      actualModel,
       elapsed,
       promptTokens: data.usage?.prompt_tokens,
       completionTokens: data.usage?.completion_tokens,
     });
 
-    res.json({ content });
+    res.json({ content, model: actualModel });
   } catch (err) {
     const elapsed = Date.now() - t0;
     log("error", "OpenRouter fetch failed", { error: err.message, elapsed });

@@ -1,6 +1,7 @@
 export interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
+  model?: string;
 }
 
 export interface OpenRouterModel {
@@ -48,13 +49,18 @@ export const checkServerKey = async (): Promise<boolean> => {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+export interface ChatResponse {
+  content: string;
+  model: string;
+}
+
 export const chatWithAI = async (
   messages: ChatMessage[],
   model: string,
   apiKey?: string,
   maxTokens?: number,
   maxRetries = 3,
-): Promise<string> => {
+): Promise<ChatResponse> => {
   const body: Record<string, unknown> = { messages, model };
   if (apiKey)    body.apiKey    = apiKey;
   if (maxTokens) body.maxTokens = maxTokens;
@@ -87,7 +93,7 @@ export const chatWithAI = async (
 
       const data = await res.json();
       if (!data.content) throw new Error('No content in server response');
-      return data.content;
+      return { content: data.content, model: data.model || model };
 
     } catch (e: any) {
       // Re-throw immediately on client errors (they won't have been caught above)
