@@ -32,7 +32,7 @@ app.get('/api/config', (_req, res) => {
 
 // ── chat proxy ────────────────────────────────────────────────────────────────
 app.post('/api/chat', async (req, res) => {
-  const { messages, model, apiKey } = req.body || {};
+  const { messages, model, apiKey, maxTokens } = req.body || {};
 
   if (!Array.isArray(messages) || !model) {
     return res.status(400).json({ error: 'messages (array) and model (string) are required' });
@@ -46,7 +46,12 @@ app.post('/api/chat', async (req, res) => {
   }
 
   const keySource = apiKey ? 'ui' : 'server-env';
-  log('info', 'OpenRouter request', { model, messages: messages.length, keySource });
+  log('info', 'OpenRouter request', { model, messages: messages.length, keySource, maxTokens });
+
+  const orBody = { model, messages };
+  if (maxTokens && Number.isInteger(maxTokens) && maxTokens > 0) {
+    orBody.max_tokens = maxTokens;
+  }
 
   const t0 = Date.now();
   try {
@@ -58,7 +63,7 @@ app.post('/api/chat', async (req, res) => {
         'HTTP-Referer': req.headers.referer || req.headers.origin || 'http://localhost:5000',
         'X-Title': 'Voice Translation App',
       },
-      body: JSON.stringify({ model, messages }),
+      body: JSON.stringify(orBody),
     });
 
     const elapsed = Date.now() - t0;

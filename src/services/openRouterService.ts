@@ -6,31 +6,34 @@ export interface ChatMessage {
 export interface OpenRouterModel {
   id: string;
   label: string;
-  free: boolean;
 }
 
 export const OPENROUTER_MODELS: OpenRouterModel[] = [
-  { id: 'meta-llama/llama-3.1-8b-instruct:free',  label: 'Llama 3.1 8B (free)',   free: true  },
-  { id: 'meta-llama/llama-3.3-70b-instruct:free',  label: 'Llama 3.3 70B (free)',  free: true  },
-  { id: 'google/gemma-3-4b-it:free',               label: 'Gemma 3 4B (free)',     free: true  },
-  { id: 'mistralai/mistral-7b-instruct:free',       label: 'Mistral 7B (free)',     free: true  },
-  { id: 'deepseek/deepseek-chat',                   label: 'DeepSeek Chat',         free: false },
-  { id: 'openai/gpt-4o-mini',                       label: 'GPT-4o Mini',           free: false },
-  { id: 'anthropic/claude-3-haiku',                 label: 'Claude 3 Haiku',        free: false },
-  { id: 'google/gemini-flash-1.5',                  label: 'Gemini Flash 1.5',      free: false },
+  { id: 'openrouter/auto:free',                        label: 'OpenRouter Auto (free)'       },
+  { id: 'meta-llama/llama-3.1-8b-instruct:free',       label: 'Llama 3.1 8B'                },
+  { id: 'meta-llama/llama-3.3-70b-instruct:free',      label: 'Llama 3.3 70B'               },
+  { id: 'meta-llama/llama-4-scout:free',               label: 'Llama 4 Scout'               },
+  { id: 'meta-llama/llama-4-maverick:free',            label: 'Llama 4 Maverick'            },
+  { id: 'google/gemma-3-4b-it:free',                   label: 'Gemma 3 4B'                  },
+  { id: 'google/gemma-3-12b-it:free',                  label: 'Gemma 3 12B'                 },
+  { id: 'google/gemma-3-27b-it:free',                  label: 'Gemma 3 27B'                 },
+  { id: 'mistralai/mistral-7b-instruct:free',          label: 'Mistral 7B'                  },
+  { id: 'deepseek/deepseek-r1:free',                   label: 'DeepSeek R1'                 },
+  { id: 'deepseek/deepseek-chat-v3-0324:free',         label: 'DeepSeek Chat v3'            },
+  { id: 'qwen/qwen-2.5-72b-instruct:free',             label: 'Qwen 2.5 72B'                },
+  { id: 'qwen/qwen3-8b:free',                          label: 'Qwen3 8B'                    },
+  { id: 'microsoft/phi-4-reasoning:free',              label: 'Phi-4 Reasoning'             },
+  { id: 'nousresearch/hermes-3-llama-3.1-405b:free',  label: 'Hermes 3 Llama 405B'         },
 ];
 
 export const DEFAULT_MODEL = OPENROUTER_MODELS[0].id;
 
-// In development CRA proxies /api/* → http://localhost:3001 (see package.json "proxy").
-// In Docker the build arg REACT_APP_API_URL=http://localhost:3001 is baked in.
 const API_BASE = process.env.REACT_APP_API_URL || '';
 
 export const checkServerKey = async (): Promise<boolean> => {
-  // Retry a few times — server may not be up the instant the page loads
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
-      const res  = await fetch(`${API_BASE}/api/config`);
+      const res = await fetch(`${API_BASE}/api/config`);
       if (res.ok) {
         const data = await res.json();
         return !!data.serverHasKey;
@@ -43,17 +46,15 @@ export const checkServerKey = async (): Promise<boolean> => {
   return false;
 };
 
-/**
- * Send a chat request through the local proxy server.
- * @param apiKey  Optional UI-provided key.  If omitted the server uses its env var.
- */
 export const chatWithAI = async (
   messages: ChatMessage[],
   model: string,
   apiKey?: string,
+  maxTokens?: number,
 ): Promise<string> => {
   const body: Record<string, unknown> = { messages, model };
-  if (apiKey) body.apiKey = apiKey;
+  if (apiKey)    body.apiKey    = apiKey;
+  if (maxTokens) body.maxTokens = maxTokens;
 
   const res = await fetch(`${API_BASE}/api/chat`, {
     method:  'POST',

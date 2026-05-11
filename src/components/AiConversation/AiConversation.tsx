@@ -29,8 +29,10 @@ const VOICE_LANGS = [
   { code: "zh-CN", label: "Chinese" },
 ];
 
-const LS_KEY_API   = "ai_conversation_api_key";
-const LS_KEY_MODEL = "ai_conversation_model";
+const LS_KEY_API      = "ai_conversation_api_key";
+const LS_KEY_MODEL    = "ai_conversation_model";
+const LS_KEY_WORDS    = "ai_max_words";
+const LS_KEY_MODE     = "ai_voice_mode";
 
 const lsGet = (key: string, fallback: string) =>
   localStorage.getItem(key) || fallback;
@@ -62,10 +64,24 @@ const AiConversation: React.FC = () => {
   const [systemPrompt, setSystemPrompt] = useState("You are a helpful, concise assistant.");
   const [ttsEnabled,   setTtsEnabled]   = useState(true);
   const [voiceLang,    setVoiceLang]    = useState("en-US");
+  const [maxWords,     setMaxWords]     = useState<number>(() =>
+    parseInt(lsGet(LS_KEY_WORDS, "12"), 10));
+  const [voiceMode,    setVoiceMode]    = useState<"manual" | "auto">(() =>
+    lsGet(LS_KEY_MODE, "manual") as "manual" | "auto");
 
   // ── refs ───────────────────────────────────────────────────────────────────
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const textareaRef    = useRef<HTMLTextAreaElement>(null);
+  const messagesEndRef  = useRef<HTMLDivElement>(null);
+  const textareaRef     = useRef<HTMLTextAreaElement>(null);
+  const prevListeningRef = useRef(false);
+  // live copies for use inside effects without stale closures
+  const isLoadingRef  = useRef(isLoading);
+  const isSpeakingRef = useRef(isSpeaking);
+  const voiceModeRef  = useRef(voiceMode);
+  const voiceLangRef  = useRef(voiceLang);
+  useEffect(() => { isLoadingRef.current  = isLoading;  }, [isLoading]);
+  useEffect(() => { isSpeakingRef.current = isSpeaking; }, [isSpeaking]);
+  useEffect(() => { voiceModeRef.current  = voiceMode;  }, [voiceMode]);
+  useEffect(() => { voiceLangRef.current  = voiceLang;  }, [voiceLang]);
 
   // ── speech recognition ────────────────────────────────────────────────────
   const {
@@ -78,7 +94,6 @@ const AiConversation: React.FC = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
-
   useEffect(() => {
     checkServerKey().then(setServerHasKey);
   }, []);
@@ -100,54 +115,158 @@ const AiConversation: React.FC = () => {
 
   const clearApiKey = useCallback(() => commitApiKey(""), [commitApiKey]);
 
-  // ── mic ────────────────────────────────────────────────────────────────────
+  const handleMaxWordsChange = (val: number) => {
+    setMaxWords(val);
+    lsSet(LS_KEY_WORDS, String(val));
+  };
+
+  const handleVoiceModeChange = (mode: "manual" | "auto") => {
+    setVoiceMode(mode);
+    lsSet(LS_KEY_MODE, mode);
+  };
+
+  // ── start listening helper ─────────────────────────────────────────────────
+  const startListening = useCallback(() => {
+    resetTranscript();
+    setInputText("");
+    SpeechRecognition.startListening({
+      language: voiceLangRef.current,
+      interimResults: true,
+      continuous: false,
+    });
+  }, [resetTranscript]);
+
+  // ── mic toggle ────────────────────────────────────────────────────────────
   const toggleListening = useCallback(() => {
     if (listening) {
       SpeechRecognition.stopListening();
     } else {
-      resetTranscript();
-      setInputText("");
-      SpeechRecognition.startListening({ language: voiceLang, interimResults: true, continuous: false });
+      startListening();
     }
-  }, [listening, resetTranscript, voiceLang]);
+  }, [listening, startListening]);
 
-  // ── send ───────────────────────────────────────────────────────────────────
-  const sendMessage = useCallback(async () => {
-    const text = inputText.trim();
-    if (!text || isLoading) return;
+  // ── core send (accepts text directly to avoid stale closures) ─────────────
+  const sendWithText = useCallback(async (
+    text: string,
+    currentMessages: ChatMessage[],
+    model: string,
+    apiKey: string,
+    prompt: string,
+    tts: boolean,
+    lang: string,
+    words: number,
+  ) => {
+    if (!text || isLoadingRef.current) return;
 
-    if (listening) SpeechRecognition.stopListening();
     resetTranscript();
     setInputText("");
     setError("");
 
     const userMsg: ChatMessage   = { role: "user", content: text };
-    const history: ChatMessage[] = [...messages, userMsg];
+    const history: ChatMessage[] = [...currentMessages, userMsg];
     setMessages(history);
     setIsLoading(true);
 
     try {
-      const context = systemPrompt
-        ? [{ role: "system" as const, content: systemPrompt }, ...history]
-        : history;
+      const wordInstruction = `Reply in ${words} words or fewer.`;
+      const fullPrompt      = prompt
+        ? `${prompt}\n${wordInstruction}`
+        : wordInstruction;
 
-      const reply = await chatWithAI(context, activeModel, activeApiKey || undefined);
+      const context: ChatMessage[] = [
+        { role: "system", content: fullPrompt },
+        ...history,
+      ];
+
+      const maxTokens = Math.ceil(words * 2);
+      const reply = await chatWithAI(context, model, apiKey || undefined, maxTokens);
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
 
-      if (ttsEnabled) {
+      if (tts) {
         setIsSpeaking(true);
-        await freeSpeak(reply, voiceLang).catch(console.error);
+        await freeSpeak(reply, lang).catch(console.error);
         setIsSpeaking(false);
+      }
+
+      // auto mode: restart mic after AI finishes speaking
+      if (voiceModeRef.current === "auto") {
+        setTimeout(() => startListening(), 300);
       }
     } catch (e: any) {
       setError(e.message || "Unknown error");
     } finally {
       setIsLoading(false);
     }
-  }, [
-    inputText, isLoading, listening, messages, resetTranscript,
-    activeModel, activeApiKey, systemPrompt, ttsEnabled, voiceLang,
-  ]);
+  }, [resetTranscript, startListening]);
+
+  // ── public sendMessage uses current state ──────────────────────────────────
+  const messagesRef    = useRef(messages);
+  const activeModelRef = useRef(activeModel);
+  const activeApiKeyRef = useRef(activeApiKey);
+  const systemPromptRef = useRef(systemPrompt);
+  const ttsEnabledRef  = useRef(ttsEnabled);
+  const maxWordsRef    = useRef(maxWords);
+  useEffect(() => { messagesRef.current     = messages;     }, [messages]);
+  useEffect(() => { activeModelRef.current  = activeModel;  }, [activeModel]);
+  useEffect(() => { activeApiKeyRef.current = activeApiKey; }, [activeApiKey]);
+  useEffect(() => { systemPromptRef.current = systemPrompt; }, [systemPrompt]);
+  useEffect(() => { ttsEnabledRef.current   = ttsEnabled;   }, [ttsEnabled]);
+  useEffect(() => { maxWordsRef.current     = maxWords;     }, [maxWords]);
+
+  const sendMessage = useCallback(() => {
+    const text = inputText.trim();
+    if (!text || isLoadingRef.current) return;
+    if (listening) SpeechRecognition.stopListening();
+    sendWithText(
+      text,
+      messagesRef.current,
+      activeModelRef.current,
+      activeApiKeyRef.current,
+      systemPromptRef.current,
+      ttsEnabledRef.current,
+      voiceLangRef.current,
+      maxWordsRef.current,
+    );
+  }, [inputText, listening, sendWithText]);
+
+  // ── auto mode: send when mic stops and transcript has content ─────────────
+  useEffect(() => {
+    const wasListening = prevListeningRef.current;
+    prevListeningRef.current = listening;
+
+    if (
+      voiceModeRef.current === "auto" &&
+      wasListening &&
+      !listening &&
+      !isLoadingRef.current &&
+      !isSpeakingRef.current
+    ) {
+      const text = transcript.trim();
+      if (text) {
+        setTimeout(() => {
+          sendWithText(
+            text,
+            messagesRef.current,
+            activeModelRef.current,
+            activeApiKeyRef.current,
+            systemPromptRef.current,
+            ttsEnabledRef.current,
+            voiceLangRef.current,
+            maxWordsRef.current,
+          );
+        }, 150);
+      }
+    }
+  }, [listening, transcript, sendWithText]);
+
+  // ── auto mode: start mic automatically when mode is enabled ───────────────
+  useEffect(() => {
+    if (voiceMode === "auto" && !listening && !isLoading && !isSpeaking) {
+      setTimeout(() => startListening(), 400);
+    }
+    // only trigger when voiceMode changes
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voiceMode]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
@@ -163,9 +282,9 @@ const AiConversation: React.FC = () => {
   const keyDirty   = uiApiKey   !== activeApiKey;
 
   const keyStatus: "ui" | "server" | "none" | "checking" =
-    activeApiKey    ? "ui"
+    activeApiKey      ? "ui"
     : serverHasKey === null ? "checking"
-    : serverHasKey  ? "server"
+    : serverHasKey    ? "server"
     : "none";
 
   if (!browserSupportsSpeechRecognition) {
@@ -277,14 +396,42 @@ const AiConversation: React.FC = () => {
             />
           </div>
 
-          {/* TTS + voice */}
+          {/* Word limit */}
+          <div className="ai-settings-section">
+            <label className="ai-settings-label">
+              Reply length — <span className="ai-words-value">{maxWords} words</span>
+            </label>
+            <div className="ai-words-row">
+              <span className="ai-words-edge">5</span>
+              <input
+                type="range"
+                className="ai-words-range"
+                min={5} max={20} step={1}
+                value={maxWords}
+                onChange={(e) => handleMaxWordsChange(Number(e.target.value))}
+              />
+              <span className="ai-words-edge">20</span>
+              <input
+                type="number"
+                className="ai-words-number"
+                min={5} max={20}
+                value={maxWords}
+                onChange={(e) => {
+                  const v = Math.min(20, Math.max(5, Number(e.target.value)));
+                  handleMaxWordsChange(v);
+                }}
+              />
+            </div>
+          </div>
+
+          {/* TTS + voice + mode */}
           <div className="ai-settings-row">
             <label className="ai-settings-check">
               <input type="checkbox" checked={ttsEnabled} onChange={(e) => setTtsEnabled(e.target.checked)} />
               Read replies aloud
             </label>
             <label className="ai-settings-check">
-              Voice language:
+              Voice:
               <select className="ai-lang-select" value={voiceLang} onChange={(e) => setVoiceLang(e.target.value)}>
                 {VOICE_LANGS.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
               </select>
@@ -294,14 +441,41 @@ const AiConversation: React.FC = () => {
         </div>
       )}
 
+      {/* ── mode bar ────────────────────────────────────────────────────── */}
+      <div className="ai-mode-bar">
+        <button
+          className={`ai-mode-btn${voiceMode === "manual" ? " active" : ""}`}
+          onClick={() => handleVoiceModeChange("manual")}
+        >
+          ✋ Manual
+        </button>
+        <button
+          className={`ai-mode-btn${voiceMode === "auto" ? " active" : ""}`}
+          onClick={() => handleVoiceModeChange("auto")}
+        >
+          🔄 Auto
+        </button>
+        {voiceMode === "auto" && (
+          <span className="ai-mode-hint">
+            {isSpeaking  ? "AI speaking…" :
+             isLoading   ? "Thinking…" :
+             listening   ? "Listening…" :
+                           "Waiting…"}
+          </span>
+        )}
+      </div>
+
       {/* ── messages ────────────────────────────────────────────────────── */}
       <div className="ai-messages">
         {messages.length === 0 && !isLoading && (
           <div className="ai-empty">
             <p>Start a conversation.</p>
-            <p>Type a message or press 🎤 to speak.<br />
-              <span style={{ fontSize: "0.8rem" }}>Shift+Enter for a new line · Enter to send</span>
-            </p>
+            {voiceMode === "manual"
+              ? <p>Type a message or press 🎤 to speak.<br />
+                  <span style={{ fontSize: "0.8rem" }}>Shift+Enter for a new line · Enter to send</span>
+                </p>
+              : <p>Auto mode is on — just speak and the AI will reply automatically.</p>
+            }
           </div>
         )}
         {messages.map((msg, i) => (
