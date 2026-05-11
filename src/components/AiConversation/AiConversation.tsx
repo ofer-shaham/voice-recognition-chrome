@@ -110,6 +110,7 @@ const AiConversation: React.FC = () => {
   const [sttLogs,      setSttLogs]      = useState<SttLogEntry[]>([]);
   const [showSttDebug, setShowSttDebug] = useState(false);
   const [copied,       setCopied]       = useState(false);
+  const [sttStatus,    setSttStatus]    = useState<"idle" | "listening" | "error">("idle");
   const sttDebugEndRef = useRef<HTMLDivElement>(null);
 
   // ── refs ───────────────────────────────────────────────────────────────────
@@ -230,6 +231,11 @@ const AiConversation: React.FC = () => {
           detail = Array.from(results).map((r: SpeechRecognitionResult) => r[0].transcript).join(" ").slice(0, 80);
         }
         addSttLog(evt, detail);
+
+        // update button status from real recognition events
+        if (evt === "start")  setSttStatus("listening");
+        if (evt === "error")  setSttStatus("error");
+        if (evt === "end")    setSttStatus((prev) => prev === "listening" ? "idle" : prev);
       };
       recognition.addEventListener(evt, handlers[evt]);
     });
@@ -669,11 +675,11 @@ const AiConversation: React.FC = () => {
           </span>
         )}
         <button
-          className={`ai-mode-btn ai-stt-debug-btn${showSttDebug ? " active" : ""}`}
+          className={`ai-mode-btn ai-stt-debug-btn${showSttDebug ? " panel-open" : ""} stt-${sttStatus}`}
           onClick={() => setShowSttDebug((p) => !p)}
           title="STT debug log"
         >
-          🐛 STT
+          {sttStatus === "listening" ? "🎙" : sttStatus === "error" ? "⚠️" : "🐛"} STT
         </button>
       </div>
 
