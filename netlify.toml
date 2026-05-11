@@ -1,6 +1,16 @@
-# https://docs.netlify.com/configure-builds/file-based-configuration/#sample-netlify-toml-file
-# The following redirect is intended for use with most SPAs
-# that handle routing internally.
+[build]
+  command = "npm run build"
+  publish = "build"
+  functions = "netlify/functions"
+
+# Rewrite /api/* to the serverless function
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/api/:splat"
+  status = 200
+  force = true
+
+# SPA fallback — must be last
 [[redirects]]
   from = "/*"
   to = "/index.html"
