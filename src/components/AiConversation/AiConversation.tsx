@@ -340,12 +340,22 @@ const AiConversation: React.FC = () => {
     }
   }, [listening, transcript, sendWithText]);
 
+  // Auto mode: restart mic whenever it goes off and we're not busy.
+  // Watches all three blocking states so a network dropout, silence timeout,
+  // or end-of-speech event reliably restarts the mic without waiting for a
+  // voiceMode change.
   useEffect(() => {
-    if (voiceMode === "auto" && !listening && !isLoading && !isSpeaking) {
-      setTimeout(() => startListening(), 400);
+    if (
+      voiceMode === "auto" &&
+      !listening &&
+      !isLoading &&
+      !isSpeaking &&
+      !transcript.trim() // transcript present means send is about to fire — don't race it
+    ) {
+      const id = setTimeout(() => startListening(), 400);
+      return () => clearTimeout(id);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [voiceMode]);
+  }, [voiceMode, listening, isLoading, isSpeaking, transcript, startListening]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
