@@ -143,9 +143,10 @@
 .ai-health-signal-dot  { font-size: 0.6rem; flex-shrink: 0; }
 .ai-health-signal-time { font-family: monospace; flex-shrink: 0; }
 
-.ai-health-signal-meta {
-  color: #555;
-  font-size: 0.72rem;
+.ai-health-signal-age {
+  font-family: monospace;
+  font-size: 0.78rem;
+  opacity: 0.75;
 }
 
 /* ── model selector ── */

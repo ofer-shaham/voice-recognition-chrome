@@ -46,6 +46,7 @@ const API_BASE = process.env.REACT_APP_API_URL || "";
 interface HealthSignal {
   timestamp: number;
   ok: boolean;
+  age?: string;
   uptime?: number;
 }
 
@@ -133,7 +134,7 @@ const AiConversation: React.FC = () => {
       const res = await fetch(`${API_BASE}/api/health`);
       if (res.ok) {
         const data = await res.json();
-        const signal: HealthSignal = { timestamp: data.timestamp ?? Date.now(), ok: true, uptime: data.uptime };
+        const signal: HealthSignal = { timestamp: data.timestamp ?? Date.now(), ok: true, age: data.age, uptime: data.uptime };
         setHealthSignals((prev) => [signal, ...prev].slice(0, 20));
         setServerAlive(true);
       } else {
@@ -474,10 +475,8 @@ const AiConversation: React.FC = () => {
                 <span className="ai-health-signal-time">
                   {new Date(s.timestamp).toLocaleTimeString()}
                 </span>
-                {s.uptime !== undefined && (
-                  <span className="ai-health-signal-meta">
-                    uptime {Math.floor(s.uptime)}s
-                  </span>
+                {s.age && (
+                  <span className="ai-health-signal-age">up {s.age}</span>
                 )}
               </div>
             ))}
