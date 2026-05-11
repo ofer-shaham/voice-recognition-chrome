@@ -143,6 +143,7 @@ const AiConversation: React.FC = () => {
   const [autoReplaceSec, setAutoReplaceSec] = useState<number>(() =>
     parseInt(lsGet(LS_KEY_AUTOREPLACE, "0"), 10),
   );
+  const [showPromptAccordion, setShowPromptAccordion] = useState(false);
 
   // ── server health indicator ────────────────────────────────────────────────
   const [healthSignals, setHealthSignals] = useState<HealthSignal[]>([]);
@@ -995,62 +996,75 @@ const AiConversation: React.FC = () => {
           </div>
 
           <div className="ai-settings-section">
-            <label className="ai-settings-label">System prompt</label>
-            <div className="ai-prompt-list">
-              {promptList.map((p, i) => (
-                <div
-                  key={i}
-                  className={`ai-prompt-item${p === systemPrompt ? " active" : ""}`}
-                  onClick={() => selectPrompt(p)}
-                  title={p}
-                >
-                  <span className="ai-prompt-text">{p}</span>
-                  <button
-                    className="ai-prompt-remove"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removePrompt(i);
+            <button
+              className="ai-prompt-accordion-btn"
+              onClick={() => setShowPromptAccordion((p) => !p)}
+            >
+              <span className="ai-prompt-accordion-title">System prompt</span>
+              <span className={`ai-prompt-accordion-toggle${showPromptAccordion ? " open" : ""}`}>
+                ▼
+              </span>
+            </button>
+
+            {showPromptAccordion && (
+              <div className="ai-prompt-accordion-content">
+                <div className="ai-prompt-list">
+                  {promptList.map((p, i) => (
+                    <div
+                      key={i}
+                      className={`ai-prompt-item${p === systemPrompt ? " active" : ""}`}
+                      onClick={() => selectPrompt(p)}
+                      title={p}
+                    >
+                      <span className="ai-prompt-text">{p}</span>
+                      <button
+                        className="ai-prompt-remove"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removePrompt(i);
+                        }}
+                        title="Remove"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <div className="ai-prompt-add-row">
+                  <input
+                    className="ai-prompt-add-input"
+                    placeholder="Add a new prompt..."
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        const val = (e.target as HTMLInputElement).value;
+                        if (val.trim()) {
+                          addPrompt(val.trim());
+                          (e.target as HTMLInputElement).value = "";
+                        }
+                      }
                     }}
-                    title="Remove"
+                  />
+                  <button
+                    className="ai-prompt-add-btn"
+                    onClick={() => {
+                      const input = document.querySelector(".ai-prompt-add-input") as HTMLInputElement;
+                      if (input?.value.trim()) {
+                        addPrompt(input.value.trim());
+                        input.value = "";
+                      }
+                    }}
                   >
-                    X
+                    Add
                   </button>
                 </div>
-              ))}
-            </div>
-            <div className="ai-prompt-add-row">
-              <input
-                className="ai-prompt-add-input"
-                placeholder="Add a new prompt..."
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    const val = (e.target as HTMLInputElement).value;
-                    if (val.trim()) {
-                      addPrompt(val.trim());
-                      (e.target as HTMLInputElement).value = "";
-                    }
-                  }
-                }}
-              />
-              <button
-                className="ai-prompt-add-btn"
-                onClick={() => {
-                  const input = document.querySelector(".ai-prompt-add-input") as HTMLInputElement;
-                  if (input?.value.trim()) {
-                    addPrompt(input.value.trim());
-                    input.value = "";
-                  }
-                }}
-              >
-                Add
-              </button>
-            </div>
-            <textarea
-              className="ai-settings-textarea"
-              value={systemPrompt}
-              onChange={(e) => setSystemPrompt(e.target.value)}
-              placeholder="e.g. You are a helpful assistant."
-            />
+                <textarea
+                  className="ai-settings-textarea"
+                  value={systemPrompt}
+                  onChange={(e) => setSystemPrompt(e.target.value)}
+                  placeholder="e.g. You are a helpful assistant."
+                />
+              </div>
+            )}
           </div>
 
           <div className="ai-settings-section">
