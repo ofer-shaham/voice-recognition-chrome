@@ -64,6 +64,7 @@ interface FreeModel {
 
 interface SttLogEntry {
   ts: number;
+  source: "stt" | "tts" | "app";
   event: string;
   detail?: string;
 }
@@ -198,15 +199,15 @@ const AiConversation: React.FC = () => {
   }, [activeApiKey]);
 
   // ── stt debug helpers ─────────────────────────────────────────────────────
-  const addSttLog = useCallback((event: string, detail?: string) => {
-    setSttLogs((prev) => [...prev, { ts: Date.now(), event, detail }].slice(-300));
+  const addSttLog = useCallback((source: "stt" | "tts" | "app", event: string, detail?: string) => {
+    setSttLogs((prev) => [...prev, { ts: Date.now(), source, event, detail }].slice(-300));
   }, []);
 
   const copyLogsToClipboard = useCallback(() => {
     const text = sttLogs.map((e) => {
       const d = new Date(e.ts);
       const ts = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}.${String(d.getMilliseconds()).padStart(3,"0")}`;
-      return `[${ts}] ${e.event}${e.detail ? ` — ${e.detail}` : ""}`;
+      return `[${ts}] [${e.source.toUpperCase()}] ${e.event}${e.detail ? ` — ${e.detail}` : ""}`;
     }).join("\n");
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
@@ -230,7 +231,7 @@ const AiConversation: React.FC = () => {
           const results = (e as any).results as SpeechRecognitionResultList;
           detail = Array.from(results).map((r: SpeechRecognitionResult) => r[0].transcript).join(" ").slice(0, 80);
         }
-        addSttLog(evt, detail);
+        addSttLog("stt", evt, detail);
 
         // update button status from real recognition events
         if (evt === "start")  setSttStatus("listening");
@@ -281,7 +282,7 @@ const AiConversation: React.FC = () => {
   const startListening = useCallback(() => {
     resetTranscript();
     setInputText("");
-    addSttLog("▶ startListening", `lang=${voiceLangRef.current}`);
+    addSttLog("app", "▶ startListening", `lang=${voiceLangRef.current}`);
     SpeechRecognition.startListening({
       language: voiceLangRef.current,
       interimResults: true,
@@ -335,7 +336,13 @@ const AiConversation: React.FC = () => {
 
       if (tts) {
         setIsSpeaking(true);
-        await freeSpeak(reply, lang).catch(console.error);
+        addSttLog("tts", "▶ speak", reply.slice(0, 60));
+        try {
+          await freeSpeak(reply, lang);
+          addSttLog("tts", "end");
+        } catch (ttsErr: any) {
+          addSttLog("tts", "error", ttsErr?.message ?? "unknown");
+        }
         setIsSpeaking(false);
       }
 
@@ -347,7 +354,7 @@ const AiConversation: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [resetTranscript, startListening]);
+  }, [resetTranscript, startListening, addSttLog]);
 
   // ── ref copies to avoid stale closures ───────────────────────────────────
   const messagesRef     = useRef(messages);
@@ -687,7 +694,7 @@ const AiConversation: React.FC = () => {
       {showSttDebug && (
         <div className="ai-stt-panel">
           <div className="ai-stt-panel-header">
-            <span className="ai-stt-panel-title">STT events <span className="ai-stt-count">{sttLogs.length}</span></span>
+            <span className="ai-stt-panel-title">Voice events <span className="ai-stt-count">{sttLogs.length}</span></span>
             <div className="ai-stt-panel-actions">
               <button
                 className="ai-stt-action-btn"
@@ -714,10 +721,10 @@ const AiConversation: React.FC = () => {
               const ts = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}.${String(d.getMilliseconds()).padStart(3,"0")}`;
               const isError = entry.event === "error";
               const isResult = entry.event === "result";
-              const isApp = entry.event.startsWith("▶");
               return (
-                <div key={i} className={`ai-stt-entry${isError ? " err" : isResult ? " res" : isApp ? " app" : ""}`}>
+                <div key={i} className={`ai-stt-entry src-${entry.source}${isError ? " err" : isResult ? " res" : ""}`}>
                   <span className="ai-stt-ts">{ts}</span>
+                  <span className={`ai-stt-badge badge-${entry.source}`}>{entry.source.toUpperCase()}</span>
                   <span className="ai-stt-evt">{entry.event}</span>
                   {entry.detail && <span className="ai-stt-detail">{entry.detail}</span>}
                 </div>

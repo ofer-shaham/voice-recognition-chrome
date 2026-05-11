@@ -235,9 +235,8 @@
   font-family: monospace;
 }
 
-.ai-stt-entry.err  { color: #e94560; background: #1a0810; }
-.ai-stt-entry.res  { color: #4caf50; }
-.ai-stt-entry.app  { color: #7986cb; }
+.ai-stt-entry.err { color: #e94560; background: #1a0810; }
+.ai-stt-entry.res { color: #4caf50; }
 
 .ai-stt-ts   { color: #3a5060; flex-shrink: 0; }
 .ai-stt-evt  { color: inherit; font-weight: 600; flex-shrink: 0; }
@@ -247,8 +246,22 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 260px;
+  max-width: 240px;
 }
+
+/* source badges */
+.ai-stt-badge {
+  flex-shrink: 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border-radius: 3px;
+  padding: 0 4px;
+  line-height: 1.5;
+}
+.badge-stt { background: #0d3050; color: #5ab4f0; }
+.badge-tts { background: #2a1a40; color: #b57bee; }
+.badge-app { background: #1a2a10; color: #8bc34a; }
 
 .ai-stt-debug-btn {
   margin-left: auto;
