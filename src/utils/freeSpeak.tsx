@@ -16,7 +16,6 @@ const loadVoices = (): Promise<SpeechSynthesisVoice[]> => {
             }
         };
         speechSynthesis.addEventListener('voiceschanged', onChanged);
-        // Fallback: resolve with whatever is available after 2s
         setTimeout(() => {
             speechSynthesis.removeEventListener('voiceschanged', onChanged);
             resolve(speechSynthesis.getVoices());
@@ -25,39 +24,38 @@ const loadVoices = (): Promise<SpeechSynthesisVoice[]> => {
 };
 
 export const freeSpeak = (text: string, toLang: string = 'en-US'): Promise<void> => {
-    console.log('freeSpeak', { text, toLang })
     return new Promise(async (resolve: any, reject: any) => {
         const utterance = new SpeechSynthesisUtterance(text);
+
+        // Set language first so the browser uses it even if no matching voice is found
+        utterance.lang = toLang;
 
         const voices = await loadVoices();
         populateAvailableVoices(voices);
 
-        const voice = getVoice(toLang, isMobile)
+        const voice = getVoice(toLang, isMobile);
         if (!voice) {
-            console.warn('no voice found for language, using browser default:', toLang)
+            console.warn('no voice found for language, using browser default with lang set:', toLang);
         } else {
             utterance.voice = voice;
+            // Re-assert lang after assigning voice, as some browsers reset it
+            utterance.lang = toLang;
         }
-        utterance.lang = toLang;
 
         utterance.onerror = function (event: SpeechSynthesisErrorEvent) {
             console.error(
-                `An error has occurred with the speech synthesis: ${event.error}`, { event }, { utterance }, { speechSynthesis }
+                `Speech synthesis error: ${event.error}`, { event }
             );
-            reject(event.error)
-        }
-        utterance.onboundary = function (ev) { console.info('onboundary', { ev }) }
-        utterance.onmark = function (ev) { console.info('onmark', { ev }) }
-        utterance.onpause = function (ev) { console.info('onpause', { ev }) }
-        utterance.onresume = function (ev) { console.info('onresume', { ev }) }
-        utterance.onend = function (ev) {
-            resolve()
-        }
+            reject(event.error);
+        };
+        utterance.onend = function () {
+            resolve();
+        };
         try {
             speechSynthesis.speak(utterance);
         } catch (e) {
-            console.error(e)
-            reject('3.' + e)
+            console.error(e);
+            reject('3.' + e);
         }
-    })
-}
+    });
+};

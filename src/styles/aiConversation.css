@@ -612,6 +612,13 @@
   animation: ai-pulse 1s ease-in-out infinite;
 }
 
+.ai-mic-btn.auto-ready {
+  background: #1a3a20;
+  border-color: #388e3c;
+  color: #81c784;
+  animation: ai-pulse 1.8s ease-in-out infinite;
+}
+
 .ai-mic-btn:hover {
   border-color: #e94560;
   color: #eee;

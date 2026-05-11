@@ -1,13 +1,11 @@
 import React, { lazy, Suspense } from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import Footer from "./components/Footer";
 import "./styles/App.css";
 
-// Lazy load components
 const Intro = lazy(() => import("./components/Intro"));
 const YoutubeTranscriptParser = lazy(
-  () =>
-    import("./components/YoutubeTranscriptNavigator/YoutubeTranscriptParser")
+  () => import("./components/YoutubeTranscriptNavigator/YoutubeTranscriptParser")
 );
 const ProverbList = lazy(() => import("./components/Proverbs/Proverbs"));
 const SimultaneousTranslation = lazy(
@@ -17,13 +15,17 @@ const AiConversation = lazy(
   () => import("./components/AiConversation/AiConversation")
 );
 
-// Loading component
 const Loading = () => <div>Loading...</div>;
 
-function App() {
+const ROUTES_WITHOUT_FOOTER = ["/ai-conversation"];
+
+function AppInner() {
+  const location = useLocation();
+  const showFooter = !ROUTES_WITHOUT_FOOTER.includes(location.pathname);
+
   return (
-    <Router>
-      <div className="App-content">
+    <>
+      <div className={showFooter ? "App-content" : ""}>
         <Suspense fallback={<Loading />}>
           <Routes>
             <Route path="/" element={<Intro />} />
@@ -37,7 +39,15 @@ function App() {
           </Routes>
         </Suspense>
       </div>
-      <Footer />
+      {showFooter && <Footer />}
+    </>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <AppInner />
     </Router>
   );
 }

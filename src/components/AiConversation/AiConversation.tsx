@@ -591,10 +591,10 @@ const AiConversation: React.FC = () => {
         </button>
         {voiceMode === "auto" && (
           <span className="ai-mode-hint">
-            {isSpeaking  ? "AI speaking…" :
-             isLoading   ? "Thinking…" :
-             listening   ? "Listening…" :
-                           "Waiting…"}
+            {isSpeaking ? "AI speaking…" :
+             isLoading  ? "Thinking…"   :
+             listening  ? "Listening…"  :
+                          "Starting…"}
           </span>
         )}
       </div>
@@ -626,7 +626,13 @@ const AiConversation: React.FC = () => {
       {/* ── input bar ───────────────────────────────────────────────────── */}
       <div className="ai-input-bar">
         <button
-          className={`ai-mic-btn${listening ? " listening" : ""}`}
+          className={`ai-mic-btn${
+            listening
+              ? " listening"
+              : voiceMode === "auto" && !isLoading && !isSpeaking
+              ? " auto-ready"
+              : ""
+          }`}
           onClick={toggleListening}
           title={listening ? "Stop recording" : "Start recording"}
         >🎤</button>
@@ -636,7 +642,12 @@ const AiConversation: React.FC = () => {
           value={inputText}
           onChange={(e) => setInputText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={listening ? "Listening…" : "Type a message or press 🎤 to speak…"}
+          placeholder={
+            listening ? "Listening…" :
+            voiceMode === "auto" && !isLoading && !isSpeaking
+              ? "Auto mode — starting mic…"
+              : "Type a message or press 🎤 to speak…"
+          }
           rows={1}
         />
         <button

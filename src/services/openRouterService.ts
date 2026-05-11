@@ -46,28 +46,61 @@ export const checkServerKey = async (): Promise<boolean> => {
   return false;
 };
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 export const chatWithAI = async (
   messages: ChatMessage[],
   model: string,
   apiKey?: string,
   maxTokens?: number,
+  maxRetries = 3,
 ): Promise<string> => {
   const body: Record<string, unknown> = { messages, model };
   if (apiKey)    body.apiKey    = apiKey;
   if (maxTokens) body.maxTokens = maxTokens;
 
-  const res = await fetch(`${API_BASE}/api/chat`, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(body),
-  });
+  let lastError: Error = new Error('Unknown error');
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }));
-    throw new Error(err.error || `Server error ${res.status}`);
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await fetch(`${API_BASE}/api/chat`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify(body),
+      });
+
+      // Don't retry on client errors (4xx) — bad key, bad request, etc.
+      if (res.status >= 400 && res.status < 500) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error || `Server error ${res.status}`);
+      }
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        lastError = new Error(err.error || `Server error ${res.status}`);
+        if (attempt < maxRetries) {
+          await sleep(600 * Math.pow(2, attempt));
+          continue;
+        }
+        throw lastError;
+      }
+
+      const data = await res.json();
+      if (!data.content) throw new Error('No content in server response');
+      return data.content;
+
+    } catch (e: any) {
+      // Re-throw immediately on client errors (they won't have been caught above)
+      if (e.message && /^Server error 4/.test(e.message)) throw e;
+
+      lastError = e instanceof Error ? e : new Error(String(e));
+      if (attempt < maxRetries) {
+        await sleep(600 * Math.pow(2, attempt));
+        continue;
+      }
+      throw lastError;
+    }
   }
 
-  const data = await res.json();
-  if (!data.content) throw new Error('No content in server response');
-  return data.content;
+  throw lastError;
 };
