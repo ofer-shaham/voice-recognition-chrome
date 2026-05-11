@@ -62,6 +62,12 @@ interface FreeModel {
   label: string;
 }
 
+interface SttLogEntry {
+  ts: number;
+  event: string;
+  detail?: string;
+}
+
 const AiConversation: React.FC = () => {
   // ── conversation ───────────────────────────────────────────────────────────
   const [messages,   setMessages]   = useState<ChatMessage[]>([]);
@@ -99,6 +105,12 @@ const AiConversation: React.FC = () => {
   // ── ai health ─────────────────────────────────────────────────────────────
   const [aiHealthResult,  setAiHealthResult]  = useState<AiHealthResult | null>(null);
   const [aiHealthLoading, setAiHealthLoading] = useState(false);
+
+  // ── stt debug log ─────────────────────────────────────────────────────────
+  const [sttLogs,      setSttLogs]      = useState<SttLogEntry[]>([]);
+  const [showSttDebug, setShowSttDebug] = useState(false);
+  const [copied,       setCopied]       = useState(false);
+  const sttDebugEndRef = useRef<HTMLDivElement>(null);
 
   // ── refs ───────────────────────────────────────────────────────────────────
   const messagesEndRef   = useRef<HTMLDivElement>(null);
@@ -184,6 +196,54 @@ const AiConversation: React.FC = () => {
     }
   }, [activeApiKey]);
 
+  // ── stt debug helpers ─────────────────────────────────────────────────────
+  const addSttLog = useCallback((event: string, detail?: string) => {
+    setSttLogs((prev) => [...prev, { ts: Date.now(), event, detail }].slice(-300));
+  }, []);
+
+  const copyLogsToClipboard = useCallback(() => {
+    const text = sttLogs.map((e) => {
+      const d = new Date(e.ts);
+      const ts = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}.${String(d.getMilliseconds()).padStart(3,"0")}`;
+      return `[${ts}] ${e.event}${e.detail ? ` — ${e.detail}` : ""}`;
+    }).join("\n");
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    }).catch(console.error);
+  }, [sttLogs]);
+
+  // Attach raw SpeechRecognition events for debug logging
+  useEffect(() => {
+    const recognition = SpeechRecognition.getRecognition() as any;
+    if (!recognition) return;
+
+    const RAW_EVENTS = ["start","end","error","audiostart","audioend","speechstart","speechend","nomatch","result"];
+    const handlers: Record<string, EventListener> = {};
+
+    RAW_EVENTS.forEach((evt) => {
+      handlers[evt] = (e: Event) => {
+        let detail: string | undefined;
+        if (evt === "error")  detail = (e as any).error ?? "unknown";
+        if (evt === "result") {
+          const results = (e as any).results as SpeechRecognitionResultList;
+          detail = Array.from(results).map((r: SpeechRecognitionResult) => r[0].transcript).join(" ").slice(0, 80);
+        }
+        addSttLog(evt, detail);
+      };
+      recognition.addEventListener(evt, handlers[evt]);
+    });
+
+    return () => {
+      RAW_EVENTS.forEach((evt) => recognition.removeEventListener(evt, handlers[evt]));
+    };
+  }, [addSttLog]);
+
+  // Auto-scroll debug panel to latest entry
+  useEffect(() => {
+    if (showSttDebug) sttDebugEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [sttLogs, showSttDebug]);
+
   // ── helpers ────────────────────────────────────────────────────────────────
   const commitModel = useCallback((val: string) => {
     const v = val.trim() || DEFAULT_MODEL;
@@ -215,12 +275,13 @@ const AiConversation: React.FC = () => {
   const startListening = useCallback(() => {
     resetTranscript();
     setInputText("");
+    addSttLog("▶ startListening", `lang=${voiceLangRef.current}`);
     SpeechRecognition.startListening({
       language: voiceLangRef.current,
       interimResults: true,
       continuous: false,
     });
-  }, [resetTranscript]);
+  }, [resetTranscript, addSttLog]);
 
   // ── mic toggle ────────────────────────────────────────────────────────────
   const toggleListening = useCallback(() => {
@@ -607,7 +668,59 @@ const AiConversation: React.FC = () => {
                           "Starting…"}
           </span>
         )}
+        <button
+          className={`ai-mode-btn ai-stt-debug-btn${showSttDebug ? " active" : ""}`}
+          onClick={() => setShowSttDebug((p) => !p)}
+          title="STT debug log"
+        >
+          🐛 STT
+        </button>
       </div>
+
+      {/* ── stt debug panel ──────────────────────────────────────────────── */}
+      {showSttDebug && (
+        <div className="ai-stt-panel">
+          <div className="ai-stt-panel-header">
+            <span className="ai-stt-panel-title">STT events <span className="ai-stt-count">{sttLogs.length}</span></span>
+            <div className="ai-stt-panel-actions">
+              <button
+                className="ai-stt-action-btn"
+                onClick={copyLogsToClipboard}
+                title="Copy all logs to clipboard"
+              >
+                {copied ? "✔ Copied" : "📋 Copy"}
+              </button>
+              <button
+                className="ai-stt-action-btn"
+                onClick={() => setSttLogs([])}
+                title="Clear logs"
+              >
+                🗑 Clear
+              </button>
+            </div>
+          </div>
+          <div className="ai-stt-log-list">
+            {sttLogs.length === 0 && (
+              <span className="ai-stt-empty">No events yet — try pressing 🎤</span>
+            )}
+            {sttLogs.map((entry, i) => {
+              const d = new Date(entry.ts);
+              const ts = `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}.${String(d.getMilliseconds()).padStart(3,"0")}`;
+              const isError = entry.event === "error";
+              const isResult = entry.event === "result";
+              const isApp = entry.event.startsWith("▶");
+              return (
+                <div key={i} className={`ai-stt-entry${isError ? " err" : isResult ? " res" : isApp ? " app" : ""}`}>
+                  <span className="ai-stt-ts">{ts}</span>
+                  <span className="ai-stt-evt">{entry.event}</span>
+                  {entry.detail && <span className="ai-stt-detail">{entry.detail}</span>}
+                </div>
+              );
+            })}
+            <div ref={sttDebugEndRef} />
+          </div>
+        </div>
+      )}
 
       {/* ── messages ────────────────────────────────────────────────────── */}
       <div className="ai-messages">
