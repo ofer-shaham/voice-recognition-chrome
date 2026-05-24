@@ -1,5 +1,6 @@
 const express = require("express");
 const cors = require("cors");
+const fs = require("fs");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -237,11 +238,64 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
+// ── port-squatter cleanup ─────────────────────────────────────────────────────
+function killPortOwner(port) {
+  try {
+    let inode = null;
+    for (const file of ["/proc/net/tcp6", "/proc/net/tcp"]) {
+      try {
+        const lines = fs.readFileSync(file, "utf8").split("\n").slice(1);
+        for (const line of lines) {
+          const parts = line.trim().split(/\s+/);
+          if (parts.length < 10) continue;
+          const portHex = (parts[1] || "").split(":")[1];
+          if (portHex && parseInt(portHex, 16) === port) {
+            inode = parts[9];
+            break;
+          }
+        }
+        if (inode) break;
+      } catch (_) {}
+    }
+    if (!inode || inode === "0") return false;
+
+    for (const pid of fs.readdirSync("/proc").filter((d) => /^\d+$/.test(d))) {
+      try {
+        for (const fd of fs.readdirSync(`/proc/${pid}/fd`)) {
+          try {
+            if (fs.readlinkSync(`/proc/${pid}/fd/${fd}`) === `socket:[${inode}]`) {
+              process.kill(Number(pid), "SIGKILL");
+              log("warn", `Killed stale process ${pid} that was holding port ${port}`);
+              return true;
+            }
+          } catch (_) {}
+        }
+      } catch (_) {}
+    }
+  } catch (_) {}
+  return false;
+}
+
 // ── start ─────────────────────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  log("info", `Server listening on port ${PORT}`);
-  log(
-    "info",
-    `API key source: ${ENV_KEY ? "OPENROUTER_API_KEY env var" : "none (UI must provide key)"}`,
-  );
-});
+function startServer(attempt) {
+  const server = app.listen(PORT, () => {
+    log("info", `Server listening on port ${PORT}`);
+    log(
+      "info",
+      `API key source: ${ENV_KEY ? "OPENROUTER_API_KEY env var" : "none (UI must provide key)"}`,
+    );
+  });
+
+  server.on("error", (err) => {
+    if (err.code === "EADDRINUSE" && attempt < 3) {
+      log("warn", `Port ${PORT} already in use (attempt ${attempt}) — freeing it…`);
+      killPortOwner(PORT);
+      setTimeout(() => startServer(attempt + 1), 600);
+    } else {
+      log("error", `Failed to bind port ${PORT}: ${err.message}`);
+      process.exit(1);
+    }
+  });
+}
+
+startServer(1);
