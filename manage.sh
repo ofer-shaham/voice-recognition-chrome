@@ -635,7 +635,18 @@ native_status() {
     local name="${pair%%:*}" rest="${pair#*:}"
     local pidfile="${rest%%:*}" port="${rest##*:}"
     if native_is_running "$pidfile"; then
-      info "$name  Running (PID $(cat "$pidfile")) → http://localhost:$port"
+      info "$name  Running (PID $(cat "$pidfile"), managed) → http://localhost:$port"
+    elif ! port_is_free "$port"; then
+      # Port is occupied — find the PID via /proc even without a PID file
+      local pid; pid=$(pid_on_port "$port") || true
+      local cmd=""
+      [[ -n "${pid:-}" ]] && cmd=$(cat "/proc/${pid}/comm" 2>/dev/null || echo "?")
+      if [[ -n "${pid:-}" ]]; then
+        info "$name  Running (PID ${pid} [${cmd}], external) → http://localhost:$port"
+      else
+        info "$name  Running (port ${port} in use) → http://localhost:$port"
+      fi
+      [[ -f "$pidfile" ]] && rm -f "$pidfile"
     else
       warn "$name  Stopped"
       [[ -f "$pidfile" ]] && rm -f "$pidfile"
