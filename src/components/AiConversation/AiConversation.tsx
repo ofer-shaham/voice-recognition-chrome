@@ -31,6 +31,7 @@ const VOICE_LANGS = [
 ];
 
 const PRESET_PROMPTS = [
+  "You are a playful storytelling companion for a child. Build a fun, imaginative story one sentence at a time, using simple words and a warm, encouraging tone.",
   "You are a helpful, concise assistant who helps creating a story line by line",
   "You are a poet. Reply with a single verse each time.",
   "You are a witty comedian. Keep replies short and funny.",
@@ -145,6 +146,10 @@ const AiConversation: React.FC = () => {
   );
   const [showPromptAccordion, setShowPromptAccordion] = useState(false);
 
+  // ── api key warning banner ─────────────────────────────────────────────────
+  const [apiKeyWarning, setApiKeyWarning] = useState<string | null>(null);
+  const [apiKeyWarningDismissed, setApiKeyWarningDismissed] = useState(false);
+
   // ── server health indicator ────────────────────────────────────────────────
   const [healthSignals, setHealthSignals] = useState<HealthSignal[]>([]);
   const [showHealthPanel, setShowHealthPanel] = useState(false);
@@ -201,6 +206,31 @@ const AiConversation: React.FC = () => {
   }, [messages, isLoading]);
   useEffect(() => {
     checkServerKey().then(setServerHasKey);
+  }, []);
+
+  // ── auto-check AI key on load ──────────────────────────────────────────────
+  useEffect(() => {
+    const savedKey = lsGet(LS_KEY_API, "");
+    const body: Record<string, string> = {};
+    if (savedKey) body.apiKey = savedKey;
+    fetch(`${API_BASE}/api/health_ai`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      cache: "no-store",
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (!data.ok) {
+          setApiKeyWarning(
+            data.error?.slice(0, 120) || "AI service unavailable",
+          );
+        }
+      })
+      .catch(() => {
+        setApiKeyWarning("Could not reach the AI service — check your connection.");
+      });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── server health polling ─────────────────────────────────────────────────
@@ -504,10 +534,10 @@ const AiConversation: React.FC = () => {
           // Ensure STT is off before TTS starts
           ensureSttStopped();
           setIsSpeaking(true);
-          addSttLog("tts", "speak", response.content.slice(0, 60));
+          addSttLog("tts", "speak", `lang=${lang} — ${response.content.slice(0, 50)}`);
           try {
             await freeSpeak(response.content, lang);
-            addSttLog("tts", "end");
+            addSttLog("tts", "end", `lang=${lang}`);
           } catch (ttsErr: any) {
             addSttLog("tts", "error", ttsErr?.message ?? "unknown");
           }
@@ -627,10 +657,10 @@ const AiConversation: React.FC = () => {
         if (ttsEnabledRef.current) {
           ensureSttStopped();
           setIsSpeaking(true);
-          addSttLog("tts", "speak", response.content.slice(0, 60));
+          addSttLog("tts", "speak", `lang=${voiceLangRef.current} — ${response.content.slice(0, 50)}`);
           try {
             await freeSpeak(response.content, voiceLangRef.current);
-            addSttLog("tts", "end");
+            addSttLog("tts", "end", `lang=${voiceLangRef.current}`);
           } catch (ttsErr: any) {
             addSttLog("tts", "error", ttsErr?.message ?? "unknown");
           }
@@ -872,6 +902,29 @@ const AiConversation: React.FC = () => {
         </div>
       </div>
 
+      {/* ── api key warning banner ───────────────────────────────────────── */}
+      {apiKeyWarning && !apiKeyWarningDismissed && (
+        <div className="ai-key-warning">
+          <span className="ai-key-warning-icon">⚠</span>
+          <span className="ai-key-warning-text">
+            No working API key — {apiKeyWarning}.{" "}
+            <button
+              className="ai-key-warning-action"
+              onClick={() => setShowSettings(true)}
+            >
+              Enter key in Settings
+            </button>
+          </span>
+          <button
+            className="ai-key-warning-dismiss"
+            onClick={() => setApiKeyWarningDismissed(true)}
+            title="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* ── health panel ─────────────────────────────────────────────────── */}
       {showHealthPanel && (
         <div className="ai-health-panel">
@@ -1078,20 +1131,20 @@ const AiConversation: React.FC = () => {
                 type="range"
                 className="ai-words-range"
                 min={5}
-                max={20}
+                max={50}
                 step={1}
                 value={maxWords}
                 onChange={(e) => handleMaxWordsChange(Number(e.target.value))}
               />
-              <span className="ai-words-edge">20</span>
+              <span className="ai-words-edge">50</span>
               <input
                 type="number"
                 className="ai-words-number"
                 min={5}
-                max={20}
+                max={50}
                 value={maxWords}
                 onChange={(e) => {
-                  const v = Math.min(20, Math.max(5, Number(e.target.value)));
+                  const v = Math.min(50, Math.max(5, Number(e.target.value)));
                   handleMaxWordsChange(v);
                 }}
               />
@@ -1161,16 +1214,14 @@ const AiConversation: React.FC = () => {
       {/* ── mode bar ────────────────────────────────────────────────────── */}
       <div className="ai-mode-bar">
         <button
-          className={`ai-mode-btn${voiceMode === "manual" ? " active" : ""}`}
-          onClick={() => handleVoiceModeChange("manual")}
+          className={`ai-mode-toggle${voiceMode === "auto" ? " is-auto" : ""}`}
+          onClick={() => handleVoiceModeChange(voiceMode === "manual" ? "auto" : "manual")}
+          title={voiceMode === "manual" ? "Switch to Auto mode" : "Switch to Manual mode"}
         >
-          Manual
-        </button>
-        <button
-          className={`ai-mode-btn${voiceMode === "auto" ? " active" : ""}`}
-          onClick={() => handleVoiceModeChange("auto")}
-        >
-          Auto
+          <span className="ai-mode-toggle-knob" />
+          <span className="ai-mode-toggle-label">
+            {voiceMode === "manual" ? "Manual" : "Auto"}
+          </span>
         </button>
         {voiceMode === "auto" && (
           <span className="ai-mode-hint">
@@ -1184,15 +1235,14 @@ const AiConversation: React.FC = () => {
           </span>
         )}
         <button
-          className={`ai-mode-btn ai-stt-debug-btn${showSttDebug ? " panel-open" : ""} stt-${sttStatus}`}
+          className={`ai-logs-btn${showSttDebug ? " panel-open" : ""} stt-${sttStatus}`}
           onClick={() => setShowSttDebug((p) => !p)}
-          title="STT debug log"
+          title="Voice event log"
         >
-          {sttStatus === "listening"
-            ? "Mic"
-            : sttStatus === "error"
-              ? "Err"
-              : "STT"}
+          Logs {showSttDebug ? "▲" : "▼"}
+          {sttLogs.length > 0 && (
+            <span className="ai-logs-count">{sttLogs.length}</span>
+          )}
         </button>
       </div>
 

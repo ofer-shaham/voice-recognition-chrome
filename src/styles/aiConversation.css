@@ -686,41 +686,174 @@
 .ai-mode-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 6px 12px;
   background: #12192e;
   border-bottom: 1px solid #0f3460;
   flex-shrink: 0;
 }
 
-.ai-mode-btn {
+/* pill toggle */
+.ai-mode-toggle {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   background: #0f3460;
-  color: #888;
   border: 1px solid #0f3460;
   border-radius: 20px;
-  padding: 4px 14px;
-  font-size: 0.8rem;
+  padding: 4px 12px 4px 6px;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: background 0.25s, border-color 0.25s;
+  flex-shrink: 0;
+}
+
+.ai-mode-toggle.is-auto {
+  background: #193d20;
+  border-color: #388e3c;
+}
+
+.ai-mode-toggle-knob {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #555;
+  transition: background 0.25s, box-shadow 0.25s;
+  flex-shrink: 0;
+}
+
+.ai-mode-toggle.is-auto .ai-mode-toggle-knob {
+  background: #4caf50;
+  box-shadow: 0 0 6px #4caf5088;
+}
+
+.ai-mode-toggle-label {
+  font-size: 0.8rem;
+  color: #888;
+  transition: color 0.2s;
   white-space: nowrap;
 }
 
-.ai-mode-btn:hover {
-  border-color: #e94560;
-  color: #eee;
-}
-
-.ai-mode-btn.active {
-  background: #e94560;
-  border-color: #e94560;
-  color: #fff;
+.ai-mode-toggle.is-auto .ai-mode-toggle-label {
+  color: #81c784;
 }
 
 .ai-mode-hint {
   font-size: 0.78rem;
   color: #4caf50;
-  margin-left: 6px;
   animation: ai-pulse 1.2s ease-in-out infinite;
+}
+
+/* logs button */
+.ai-logs-btn {
+  margin-left: auto;
+  background: #0a1628;
+  color: #666;
+  border: 1px solid #1a2a40;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.77rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: border-color 0.2s, color 0.2s, box-shadow 0.2s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.ai-logs-btn:hover {
+  border-color: #4a6fa5;
+  color: #aac4ff;
+}
+
+.ai-logs-btn.panel-open {
+  border-color: #4a6fa5;
+  color: #aac4ff;
+  background: #0d1e38;
+}
+
+.ai-logs-btn.stt-listening {
+  border-color: #4caf50;
+  color: #4caf50;
+  box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.25);
+  animation: stt-pulse 1.1s ease-in-out infinite;
+}
+
+.ai-logs-btn.stt-error {
+  border-color: #e94560;
+  color: #e94560;
+}
+
+.ai-logs-count {
+  background: #1a3050;
+  color: #7aa0cc;
+  border-radius: 8px;
+  padding: 0 5px;
+  font-size: 0.68rem;
+  min-width: 16px;
+  text-align: center;
+}
+
+.ai-logs-btn.stt-listening .ai-logs-count {
+  background: #1a3a1a;
+  color: #4caf50;
+}
+
+/* ── api key warning banner ── */
+.ai-key-warning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #2a1205;
+  border-bottom: 1px solid #8b4000;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.ai-key-warning-icon {
+  font-size: 0.95rem;
+  color: #f5a623;
+  flex-shrink: 0;
+}
+
+.ai-key-warning-text {
+  flex: 1;
+  font-size: 0.82rem;
+  color: #d4956a;
+  min-width: 0;
+  line-height: 1.4;
+}
+
+.ai-key-warning-action {
+  background: none;
+  border: none;
+  color: #f5a623;
+  font-size: 0.82rem;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+  font-weight: 600;
+}
+
+.ai-key-warning-action:hover {
+  color: #ffbe57;
+}
+
+.ai-key-warning-dismiss {
+  background: none;
+  border: none;
+  color: #6a4a2a;
+  font-size: 0.78rem;
+  cursor: pointer;
+  padding: 2px 5px;
+  border-radius: 3px;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.ai-key-warning-dismiss:hover {
+  color: #d4956a;
 }
 
 /* ── word limit ── */
