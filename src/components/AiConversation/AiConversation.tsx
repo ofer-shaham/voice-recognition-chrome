@@ -379,10 +379,14 @@ const AiConversation: React.FC = () => {
 
   // ── ai health ping ────────────────────────────────────────────────────────
   const pingAiHealth = useCallback(async () => {
+    // Use the key currently in the input field (uiApiKey) if present,
+    // falling back to the already-saved activeApiKey. This lets users
+    // test a key they've typed before hitting Save.
+    const effectiveKey = uiApiKey.trim() || activeApiKey;
     setAiHealthLoading(true);
     try {
       const body: Record<string, string> = {};
-      if (activeApiKey) body.apiKey = activeApiKey;
+      if (effectiveKey) body.apiKey = effectiveKey;
       const res = await fetch(`${API_BASE}/api/health_ai`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -390,7 +394,7 @@ const AiConversation: React.FC = () => {
         cache: "no-store",
       });
       const data = await res.json();
-      const keyUsed = activeApiKey || (serverHasKey ? "server" : "");
+      const keyUsed = effectiveKey || (serverHasKey ? "server" : "");
       const keySuffix = keyUsed.length > 4
         ? `...${keyUsed.slice(-4)}`
         : keyUsed
@@ -415,7 +419,7 @@ const AiConversation: React.FC = () => {
     } finally {
       setAiHealthLoading(false);
     }
-  }, [activeApiKey, serverHasKey]);
+  }, [uiApiKey, activeApiKey, serverHasKey]);
 
   // ── stt debug helpers ─────────────────────────────────────────────────────
   const addSttLog = useCallback(
