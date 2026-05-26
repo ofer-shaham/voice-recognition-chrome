@@ -1,6 +1,6 @@
 @keyframes zerochrome-pulse-bg {
   0%, 100% { background-color: #16141a; }
-  50% { background-color: #231b29; }
+  50%       { background-color: #231b29; }
 }
 
 .zerochrome-recording {
@@ -41,23 +41,73 @@
   box-shadow: 0 0 15px rgba(232, 230, 240, 0.05);
 }
 
-.zerochrome-input input::placeholder {
+.zerochrome-input textarea::placeholder {
   color: rgba(232, 230, 240, 0.2);
 }
 
-.zerochrome-scrollbar::-webkit-scrollbar {
-  width: 6px;
-}
-
-.zerochrome-scrollbar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
+.zerochrome-scrollbar::-webkit-scrollbar { width: 6px; }
+.zerochrome-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .zerochrome-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(232, 230, 240, 0.1);
   border-radius: 10px;
 }
-
 .zerochrome-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(232, 230, 240, 0.2);
+}
+
+/* language bar fades in when input is focused */
+.zerochrome-lang-bar {
+  opacity: 0.2;
+  transition: opacity 0.3s ease;
+}
+.zerochrome-input:focus-within + * .zerochrome-lang-bar,
+.zerochrome-lang-bar:hover {
+  opacity: 1;
+}
+
+/* language select — unstyled, blends into prose */
+.zc-lang-select {
+  background: transparent;
+  color: #a39ea8;
+  border: none;
+  font-size: 0.72rem;
+  cursor: pointer;
+  outline: none;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  font-weight: 600;
+  padding: 0 2px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.zc-lang-select:hover { color: #e8e6f0; }
+.zc-lang-select option { background: #1a1625; color: #e8e6f0; }
+
+/* hold-to-delete progress bar */
+.zc-msg-wrap {
+  position: relative;
+  cursor: default;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.zc-msg-wrap.holding {
+  opacity: 0.4;
+}
+
+.zc-hold-bar {
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  height: 1px;
+  width: 0%;
+  background: #e94560;
+  transition: none;
+  border-radius: 1px;
+}
+
+/* downstream messages fade when a hold is in progress */
+.zc-msg-downstream {
+  opacity: 0.25;
+  transition: opacity 0.15s;
 }
