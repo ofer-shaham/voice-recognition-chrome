@@ -13,10 +13,11 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   background: #16213e;
   border-bottom: 1px solid #0f3460;
   flex-shrink: 0;
+  flex-wrap: wrap;
 }
 
 .ai-top-bar h2 {
@@ -415,6 +416,35 @@
 
 .ai-play-btn.stop:hover {
   background: #e9456022;
+}
+
+/* ── tts toggle in top bar ── */
+.ai-tts-toggle-top {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+.ai-tts-toggle-top input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: #4caf50;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.ai-tts-toggle-icon {
+  font-size: 1rem;
+  line-height: 1;
+  opacity: 0.55;
+  transition: opacity 0.2s;
+}
+
+.ai-tts-toggle-top:has(input:checked) .ai-tts-toggle-icon {
+  opacity: 1;
 }
 
 .ai-top-right {
@@ -1220,9 +1250,115 @@
 .ai-send-btn:hover    { background: #c73652; }
 .ai-send-btn:disabled { background: #555; cursor: not-allowed; }
 
-@media (max-width: 480px) {
-  .ai-message { max-width: 93%; }
-  .ai-message-bubble { font-size: 1rem; }
+/* ── mobile responsive ── */
+@media (max-width: 600px) {
+  /* Top bar wraps into rows */
+  .ai-top-bar {
+    gap: 6px;
+    padding: 8px 8px 6px;
+  }
+
+  .ai-top-bar h2 {
+    font-size: 0.9rem;
+  }
+
+  /* Model input takes its own full row */
+  .ai-model-wrap {
+    order: 10;
+    width: 100%;
+    flex-basis: 100%;
+  }
+
+  /* Language bar takes its own full row, wraps internally */
+  .ai-lang-bar {
+    order: 11;
+    width: 100%;
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .ai-lang-select-top {
+    max-width: none;
+    flex: 1;
+    min-width: 70px;
+    font-size: 0.8rem;
+    padding: 5px 4px;
+  }
+
+  .ai-lang-bar-arrow {
+    font-size: 0.9rem;
+  }
+
+  /* Top-right controls stay on the first row with title */
+  .ai-top-right {
+    margin-left: auto;
+    gap: 5px;
+  }
+
+  .ai-speaking-badge {
+    display: none;
+  }
+
+  .ai-clear-btn {
+    padding: 4px 8px;
+    font-size: 0.75rem;
+  }
+
+  .ai-settings-btn {
+    padding: 5px 8px;
+    font-size: 0.9rem;
+  }
+
+  .ai-play-btn {
+    padding: 4px 7px;
+    font-size: 0.85rem;
+  }
+
+  /* Mode bar tighter on mobile */
+  .ai-mode-bar {
+    padding: 5px 8px;
+    gap: 6px;
+  }
+
+  /* Messages full-width */
+  .ai-message {
+    max-width: 93%;
+  }
+
+  .ai-message-bubble {
+    font-size: 0.95rem;
+    padding: 8px 12px;
+  }
+
+  /* Input bar bigger touch targets */
+  .ai-input-bar {
+    padding: 8px;
+    gap: 6px;
+  }
+
+  .ai-input-bar textarea {
+    font-size: 1rem;
+    min-height: 44px;
+  }
+
+  .ai-mic-btn,
+  .ai-send-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 0.85rem;
+  }
+
+  /* Settings panel scrollable on mobile */
+  .ai-settings-panel {
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+
+  /* Health panel narrower on mobile */
+  .ai-health-panel {
+    padding: 8px 10px;
+  }
 }
 
 /* ── playing highlight ── */

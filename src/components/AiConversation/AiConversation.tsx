@@ -940,13 +940,17 @@ const AiConversation: React.FC = () => {
   }, [listening, transcript, sendWithText]);
 
   // Auto mode: restart mic whenever it goes off and we're not busy.
+  // Skip on mobile — mobile browsers fire `end` immediately when no speech
+  // is detected, which causes an infinite start→end→start loop. On mobile,
+  // the mic is restarted explicitly after the AI finishes speaking.
   useEffect(() => {
     if (
       voiceMode === "auto" &&
       !listening &&
       !isLoading &&
       !isSpeaking &&
-      !transcript.trim()
+      !transcript.trim() &&
+      !isMobile
     ) {
       const id = setTimeout(() => startListening(), 400);
       return () => clearTimeout(id);
@@ -1204,6 +1208,14 @@ const AiConversation: React.FC = () => {
         </div>
 
         <div className="ai-top-right">
+          <label className="ai-tts-toggle-top" title="Read AI replies aloud">
+            <input
+              type="checkbox"
+              checked={ttsEnabled}
+              onChange={(e) => setTtsEnabled(e.target.checked)}
+            />
+            <span className="ai-tts-toggle-icon">🔊</span>
+          </label>
           {isSpeaking && (
             <span className="ai-speaking-badge">speaking...</span>
           )}
@@ -1231,7 +1243,7 @@ const AiConversation: React.FC = () => {
             className={`ai-settings-btn${showSettings ? " active" : ""}`}
             onClick={() => setShowSettings((p) => !p)}
           >
-            Settings
+            ⚙
           </button>
         </div>
       </div>
