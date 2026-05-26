@@ -574,7 +574,9 @@ const AiConversation: React.FC = () => {
         const wordInstruction = `Reply in ${words} words or fewer.`;
         const vocabInstruction =
           VOCAB_LEVELS.find((v) => v.level === vocabLevelRef.current)?.instruction ?? "";
-        const fullPrompt = [prompt, wordInstruction, vocabInstruction]
+        const aiLangLabel = VOICE_LANGS.find((l) => l.code === aiLangRef.current)?.label ?? "English";
+        const langInstruction = `Always write your reply in ${aiLangLabel}. Do not use any other language.`;
+        const fullPrompt = [prompt, wordInstruction, vocabInstruction, langInstruction]
           .filter(Boolean)
           .join("\n");
 
@@ -702,9 +704,11 @@ const AiConversation: React.FC = () => {
 
       try {
         const wordInstruction = `Reply in ${maxWordsRef.current} words or fewer.`;
-        const fullPrompt = systemPromptRef.current
-          ? `${systemPromptRef.current}\n${wordInstruction}`
-          : wordInstruction;
+        const regenLangLabel = VOICE_LANGS.find((l) => l.code === aiLangRef.current)?.label ?? "English";
+        const regenLangInstruction = `Always write your reply in ${regenLangLabel}. Do not use any other language.`;
+        const fullPrompt = [systemPromptRef.current, wordInstruction, regenLangInstruction]
+          .filter(Boolean)
+          .join("\n");
 
         const context: ChatMessage[] = [
           { role: "system", content: fullPrompt },
@@ -885,21 +889,50 @@ const AiConversation: React.FC = () => {
     setPlaybackPaused(false);
   }, []);
 
-  const playStory = useCallback(async () => {
-    if (messagesRef.current.length === 0) return;
+  const playStory = useCallback(() => {
+    const msgs = messagesRef.current;
+    if (msgs.length === 0) return;
+
+    speechSynthesis.cancel();
     playbackCancelRef.current = false;
     setIsPlayingStory(true);
     setPlaybackPaused(false);
-    for (const msg of messagesRef.current) {
-      if (playbackCancelRef.current) break;
-      const langCode = msg.lang_code || (msg.role === "user" ? sttLangRef.current : aiLangRef.current);
+
+    const voices = speechSynthesis.getVoices();
+
+    msgs.forEach((msg, idx) => {
+      const langCode =
+        msg.lang_code ||
+        (msg.role === "user" ? sttLangRef.current : aiLangRef.current);
       const rate = ttsRatesRef.current[langCode] ?? 1.0;
-      try {
-        await freeSpeak(msg.content, langCode, rate);
-      } catch {}
-    }
-    setIsPlayingStory(false);
-    setPlaybackPaused(false);
+
+      const utterance = new SpeechSynthesisUtterance(msg.content);
+      utterance.lang = langCode;
+      utterance.rate = Math.max(0.1, Math.min(10, rate));
+
+      const baseLang = langCode.split("-")[0].toLowerCase();
+      const voice =
+        voices.find((v) => v.lang === langCode) ||
+        voices.find((v) => v.lang.replace("_", "-") === langCode) ||
+        voices.find((v) => v.lang.split(/[-_]/)[0].toLowerCase() === baseLang);
+      if (voice) {
+        utterance.voice = voice;
+        utterance.lang = langCode;
+      }
+
+      if (idx === msgs.length - 1) {
+        utterance.onend = () => {
+          setIsPlayingStory(false);
+          setPlaybackPaused(false);
+        };
+        utterance.onerror = () => {
+          setIsPlayingStory(false);
+          setPlaybackPaused(false);
+        };
+      }
+
+      speechSynthesis.speak(utterance);
+    });
   }, []);
 
   const togglePlaybackPause = useCallback(() => {
