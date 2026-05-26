@@ -31,6 +31,7 @@ const VOICE_LANGS = [
 ];
 
 const PRESET_PROMPTS = [
+  "You are a language conversation partner using the comprehensible input method. Use only vocabulary the learner already knows. Recycle words and sentence structures repeatedly. If you must introduce a new word, use it several times and make its meaning clear from context. Never use rare, advanced, or idiomatic expressions unless the learner introduces them first.",
   "You are a playful storytelling companion for a child. Build a fun, imaginative story one sentence at a time, using simple words and a warm, encouraging tone.",
   "You are a helpful, concise assistant who helps creating a story line by line",
   "You are a poet. Reply with a single verse each time.",
@@ -40,12 +41,50 @@ const PRESET_PROMPTS = [
   "You are a pirate. Speak in pirate slang, arrr!",
 ];
 
+const VOCAB_LEVELS = [
+  {
+    level: 1,
+    label: "Controlled",
+    hint: "Only familiar words — maximum repetition, zero new words",
+    instruction:
+      "VOCABULARY RULE: Use only the simplest, most common words. Repeat key words and phrases many times within your reply. Do NOT introduce any new vocabulary. If you need a concept that requires an unfamiliar word, describe it using only words already used in this conversation.",
+  },
+  {
+    level: 2,
+    label: "Beginner",
+    hint: "High repetition — at most 1 new word, always explained",
+    instruction:
+      "VOCABULARY RULE: Use simple, familiar vocabulary with high repetition. You may introduce at most 1 new word per reply — use it at least twice and immediately explain it using simpler words the learner already knows.",
+  },
+  {
+    level: 3,
+    label: "Elementary",
+    hint: "Some new words — explained through context",
+    instruction:
+      "VOCABULARY RULE: Use moderately simple vocabulary. Repeat important words often. You may introduce at most 2 new words per reply — each should appear multiple times and be clear from context.",
+  },
+  {
+    level: 4,
+    label: "Intermediate",
+    hint: "Varied vocabulary, occasional repetition",
+    instruction:
+      "VOCABULARY RULE: Use varied but not advanced vocabulary. Repeat key terms when helpful. New words may appear naturally; avoid rare or idiomatic expressions.",
+  },
+  {
+    level: 5,
+    label: "Natural",
+    hint: "No restrictions — native-speed conversation",
+    instruction: "",
+  },
+];
+
 const LS_KEY_API = "ai_conversation_api_key";
 const LS_KEY_MODEL = "ai_conversation_model";
 const LS_KEY_WORDS = "ai_max_words";
 const LS_KEY_MODE = "ai_voice_mode";
 const LS_KEY_PROMPTS = "ai_prompt_list";
 const LS_KEY_AUTOREPLACE = "ai_autoreplace_sec";
+const LS_KEY_VOCAB_LEVEL = "ai_vocab_level";
 
 const lsGet = (key: string, fallback: string) =>
   localStorage.getItem(key) || fallback;
@@ -143,6 +182,9 @@ const AiConversation: React.FC = () => {
   );
   const [autoReplaceSec, setAutoReplaceSec] = useState<number>(() =>
     parseInt(lsGet(LS_KEY_AUTOREPLACE, "0"), 10),
+  );
+  const [vocabLevel, setVocabLevel] = useState<number>(() =>
+    parseInt(lsGet(LS_KEY_VOCAB_LEVEL, "3"), 10),
   );
   const [showPromptAccordion, setShowPromptAccordion] = useState(false);
 
@@ -427,6 +469,11 @@ const AiConversation: React.FC = () => {
     lsSet(LS_KEY_AUTOREPLACE, String(val));
   };
 
+  const handleVocabLevelChange = (val: number) => {
+    setVocabLevel(val);
+    lsSet(LS_KEY_VOCAB_LEVEL, String(val));
+  };
+
   // ── prompt list management ─────────────────────────────────────────────────
   const addPrompt = useCallback((prompt: string) => {
     const trimmed = prompt.trim();
@@ -511,9 +558,11 @@ const AiConversation: React.FC = () => {
 
       try {
         const wordInstruction = `Reply in ${words} words or fewer.`;
-        const fullPrompt = prompt
-          ? `${prompt}\n${wordInstruction}`
-          : wordInstruction;
+        const vocabInstruction =
+          VOCAB_LEVELS.find((v) => v.level === vocabLevelRef.current)?.instruction ?? "";
+        const fullPrompt = [prompt, wordInstruction, vocabInstruction]
+          .filter(Boolean)
+          .join("\n");
 
         const context: ChatMessage[] = [
           { role: "system", content: fullPrompt },
@@ -574,12 +623,14 @@ const AiConversation: React.FC = () => {
   const systemPromptRef = useRef(systemPrompt);
   const ttsEnabledRef = useRef(ttsEnabled);
   const maxWordsRef = useRef(maxWords);
+  const vocabLevelRef = useRef(vocabLevel);
   useEffect(() => { messagesRef.current = messages; }, [messages]);
   useEffect(() => { activeModelRef.current = activeModel; }, [activeModel]);
   useEffect(() => { activeApiKeyRef.current = activeApiKey; }, [activeApiKey]);
   useEffect(() => { systemPromptRef.current = systemPrompt; }, [systemPrompt]);
   useEffect(() => { ttsEnabledRef.current = ttsEnabled; }, [ttsEnabled]);
   useEffect(() => { maxWordsRef.current = maxWords; }, [maxWords]);
+  useEffect(() => { vocabLevelRef.current = vocabLevel; }, [vocabLevel]);
 
   // ── magic keywords ────────────────────────────────────────────────────────
   const checkMagicKeywords = useCallback((text: string): boolean => {
@@ -1149,6 +1200,31 @@ const AiConversation: React.FC = () => {
                 }}
               />
             </div>
+          </div>
+
+          <div className="ai-settings-section">
+            <label className="ai-settings-label">
+              Vocabulary level —{" "}
+              <span className="ai-words-value">
+                {VOCAB_LEVELS.find((v) => v.level === vocabLevel)?.label}
+              </span>
+            </label>
+            <div className="ai-words-row">
+              <span className="ai-words-edge">1</span>
+              <input
+                type="range"
+                className="ai-words-range ai-vocab-range"
+                min={1}
+                max={5}
+                step={1}
+                value={vocabLevel}
+                onChange={(e) => handleVocabLevelChange(Number(e.target.value))}
+              />
+              <span className="ai-words-edge">5</span>
+            </div>
+            <p className="ai-vocab-hint">
+              {VOCAB_LEVELS.find((v) => v.level === vocabLevel)?.hint}
+            </p>
           </div>
 
           <div className="ai-settings-section">

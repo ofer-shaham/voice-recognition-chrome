@@ -856,6 +856,18 @@
   color: #d4956a;
 }
 
+/* ── vocabulary level ── */
+.ai-vocab-range {
+  accent-color: #4caf50;
+}
+
+.ai-vocab-hint {
+  margin: 4px 0 0;
+  font-size: 0.75rem;
+  color: #888;
+  line-height: 1.4;
+}
+
 /* ── word limit ── */
 .ai-words-row {
   display: flex;
