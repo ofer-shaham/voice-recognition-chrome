@@ -3,6 +3,7 @@ export interface ChatMessage {
   content: string;
   model?: string;
   lang_code?: string;
+  translation?: string;
 }
 
 export interface OpenRouterModel {

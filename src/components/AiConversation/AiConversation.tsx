@@ -16,7 +16,9 @@ import {
   checkServerKey,
 } from "../../services/openRouterService";
 import { OPENROUTER_MODELS as MODEL_LIST } from "../../services/openRouterService";
-import { freeSpeak } from "../../utils/freeSpeak";
+import { freeSpeak, findVoice } from "../../utils/freeSpeak";
+import { translate } from "../../utils/translate";
+import { isMobile } from "../../services/isMobile";
 import "../../styles/aiConversation.css";
 
 const VOICE_LANGS = [
@@ -88,6 +90,9 @@ const LS_KEY_VOCAB_LEVEL = "ai_vocab_level";
 const LS_KEY_STT_LANG = "ai_stt_lang";
 const LS_KEY_AI_LANG = "ai_ai_lang";
 const LS_KEY_TTS_RATES = "ai_tts_rates";
+const LS_KEY_TRANSLATE_TO = "ai_translate_to";
+const LS_KEY_REPEAT_LINES = "ai_repeat_lines";
+const LS_KEY_SELECTED_VOICES = "ai_selected_voices";
 
 const lsGet = (key: string, fallback: string) =>
   localStorage.getItem(key) || fallback;
@@ -184,6 +189,17 @@ const AiConversation: React.FC = () => {
   });
   const [isPlayingStory, setIsPlayingStory] = useState(false);
   const [playbackPaused, setPlaybackPaused] = useState(false);
+  const [playingMsgIndex, setPlayingMsgIndex] = useState<number | null>(null);
+  const [playingCharIndex, setPlayingCharIndex] = useState<number | null>(null);
+  const [translateToLang, setTranslateToLang] = useState(() => lsGet(LS_KEY_TRANSLATE_TO, ""));
+  const [repeatFromLines, setRepeatFromLines] = useState<number>(() =>
+    parseInt(lsGet(LS_KEY_REPEAT_LINES, "0"), 10),
+  );
+  const [selectedVoiceNames, setSelectedVoiceNames] = useState<Record<string, string>>(() => {
+    try { return JSON.parse(localStorage.getItem(LS_KEY_SELECTED_VOICES) || "{}"); }
+    catch { return {}; }
+  });
+  const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
   const [maxWords, setMaxWords] = useState<number>(() =>
     parseInt(lsGet(LS_KEY_WORDS, "12"), 10),
   );
@@ -237,6 +253,10 @@ const AiConversation: React.FC = () => {
   const ttsRatesRef = useRef(ttsRates);
   const playbackCancelRef = useRef(false);
   const autoReplaceSecRef = useRef(autoReplaceSec);
+  const selectedVoiceNamesRef = useRef(selectedVoiceNames);
+  const translateToLangRef = useRef(translateToLang);
+  const repeatFromLinesRef = useRef(repeatFromLines);
+  const translationCacheRef = useRef<Map<string, string>>(new Map());
   useEffect(() => { isLoadingRef.current = isLoading; }, [isLoading]);
   useEffect(() => { isSpeakingRef.current = isSpeaking; }, [isSpeaking]);
   useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
@@ -244,6 +264,25 @@ const AiConversation: React.FC = () => {
   useEffect(() => { aiLangRef.current = aiLang; }, [aiLang]);
   useEffect(() => { ttsRatesRef.current = ttsRates; }, [ttsRates]);
   useEffect(() => { autoReplaceSecRef.current = autoReplaceSec; }, [autoReplaceSec]);
+  useEffect(() => { selectedVoiceNamesRef.current = selectedVoiceNames; }, [selectedVoiceNames]);
+  useEffect(() => { translateToLangRef.current = translateToLang; }, [translateToLang]);
+  useEffect(() => { repeatFromLinesRef.current = repeatFromLines; }, [repeatFromLines]);
+
+  // Load available browser voices
+  useEffect(() => {
+    const load = () => setAvailableVoices(speechSynthesis.getVoices());
+    load();
+    speechSynthesis.addEventListener("voiceschanged", load);
+    return () => speechSynthesis.removeEventListener("voiceschanged", load);
+  }, []);
+
+  // Scroll to playing message
+  useEffect(() => {
+    if (playingMsgIndex !== null) {
+      const el = document.querySelectorAll(".ai-message")[playingMsgIndex];
+      el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, [playingMsgIndex]);
 
   // ── speech recognition ────────────────────────────────────────────────────
   const {
@@ -489,6 +528,44 @@ const AiConversation: React.FC = () => {
     lsSet(LS_KEY_VOCAB_LEVEL, String(val));
   };
 
+  const handleVoiceNameChange = useCallback((langCode: string, voiceName: string) => {
+    setSelectedVoiceNames((prev) => {
+      const next = { ...prev, [langCode]: voiceName };
+      localStorage.setItem(LS_KEY_SELECTED_VOICES, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const handleTranslateToChange = (lang: string) => {
+    setTranslateToLang(lang);
+    lsSet(LS_KEY_TRANSLATE_TO, lang);
+  };
+
+  const handleRepeatFromLinesChange = (val: number) => {
+    setRepeatFromLines(val);
+    lsSet(LS_KEY_REPEAT_LINES, String(val));
+  };
+
+  const translateResponse = useCallback(
+    async (content: string, fromLang: string, toLang: string): Promise<string> => {
+      if (!toLang) return "";
+      const fromBase = fromLang.split("-")[0].toLowerCase();
+      const toBase = toLang.split("-")[0].toLowerCase();
+      if (fromBase === toBase) return "";
+      const cacheKey = `${content}||${fromBase}||${toBase}`;
+      const cached = translationCacheRef.current.get(cacheKey);
+      if (cached !== undefined) return cached;
+      try {
+        const result = await translate({ finalTranscriptProxy: content, fromLang: fromBase, toLang: toBase });
+        translationCacheRef.current.set(cacheKey, result);
+        return result;
+      } catch {
+        return "";
+      }
+    },
+    [],
+  );
+
   // ── prompt list management ─────────────────────────────────────────────────
   const addPrompt = useCallback((prompt: string) => {
     const trimmed = prompt.trim();
@@ -576,7 +653,10 @@ const AiConversation: React.FC = () => {
           VOCAB_LEVELS.find((v) => v.level === vocabLevelRef.current)?.instruction ?? "";
         const aiLangLabel = VOICE_LANGS.find((l) => l.code === aiLangRef.current)?.label ?? "English";
         const langInstruction = `Always write your reply in ${aiLangLabel}. Do not use any other language.`;
-        const fullPrompt = [prompt, wordInstruction, vocabInstruction, langInstruction]
+        const repeatInstruction = repeatFromLinesRef.current > 0
+          ? `REPETITION RULE: Only reuse vocabulary from the last ${repeatFromLinesRef.current} message exchange${repeatFromLinesRef.current === 1 ? "" : "s"}. Ignore vocabulary from earlier exchanges.`
+          : "";
+        const fullPrompt = [prompt, wordInstruction, vocabInstruction, langInstruction, repeatInstruction]
           .filter(Boolean)
           .join("\n");
 
@@ -595,15 +675,27 @@ const AiConversation: React.FC = () => {
         const assistantMsg: ChatMessage = { role: "assistant", content: response.content, model: response.model, lang_code: aiLangRef.current };
         setMessages((prev) => [...prev, assistantMsg]);
 
+        // Translate if a target language is selected
+        if (translateToLangRef.current && translateToLangRef.current !== aiLangRef.current) {
+          translateResponse(response.content, aiLangRef.current, translateToLangRef.current)
+            .then((translation) => {
+              if (translation) {
+                setMessages((prev) =>
+                  prev.map((m, idx) => idx === prev.length - 1 ? { ...m, translation } : m),
+                );
+              }
+            });
+        }
+
         if (tts) {
-          // Ensure STT is off before TTS starts
           ensureSttStopped();
           setIsSpeaking(true);
           const spkLang = aiLangRef.current;
           const spkRate = ttsRatesRef.current[spkLang] ?? 1.0;
+          const spkVoiceName = selectedVoiceNamesRef.current[spkLang];
           addSttLog("tts", "speak", `lang=${spkLang} rate=${spkRate} — ${response.content.slice(0, 50)}`);
           try {
-            await freeSpeak(response.content, spkLang, spkRate);
+            await freeSpeak(response.content, spkLang, spkRate, spkVoiceName);
             addSttLog("tts", "end", `lang=${spkLang}`);
           } catch (ttsErr: any) {
             addSttLog("tts", "error", ttsErr?.message ?? "unknown");
@@ -631,7 +723,7 @@ const AiConversation: React.FC = () => {
         setIsLoading(false);
       }
     },
-    [resetTranscript, startListening, addSttLog, ensureSttStopped],
+    [resetTranscript, startListening, addSttLog, ensureSttStopped, translateResponse],
   );
 
   // ── ref copies to avoid stale closures ───────────────────────────────────
@@ -706,7 +798,10 @@ const AiConversation: React.FC = () => {
         const wordInstruction = `Reply in ${maxWordsRef.current} words or fewer.`;
         const regenLangLabel = VOICE_LANGS.find((l) => l.code === aiLangRef.current)?.label ?? "English";
         const regenLangInstruction = `Always write your reply in ${regenLangLabel}. Do not use any other language.`;
-        const fullPrompt = [systemPromptRef.current, wordInstruction, regenLangInstruction]
+        const regenRepeatInstruction = repeatFromLinesRef.current > 0
+          ? `REPETITION RULE: Only reuse vocabulary from the last ${repeatFromLinesRef.current} message exchange${repeatFromLinesRef.current === 1 ? "" : "s"}. Ignore vocabulary from earlier exchanges.`
+          : "";
+        const fullPrompt = [systemPromptRef.current, wordInstruction, regenLangInstruction, regenRepeatInstruction]
           .filter(Boolean)
           .join("\n");
 
@@ -725,14 +820,26 @@ const AiConversation: React.FC = () => {
         const assistantMsg: ChatMessage = { role: "assistant", content: response.content, model: response.model, lang_code: aiLangRef.current };
         setMessages((prev) => [...prev, assistantMsg]);
 
+        if (translateToLangRef.current && translateToLangRef.current !== aiLangRef.current) {
+          translateResponse(response.content, aiLangRef.current, translateToLangRef.current)
+            .then((translation) => {
+              if (translation) {
+                setMessages((prev) =>
+                  prev.map((m, idx) => idx === prev.length - 1 ? { ...m, translation } : m),
+                );
+              }
+            });
+        }
+
         if (ttsEnabledRef.current) {
           ensureSttStopped();
           setIsSpeaking(true);
           const spkLang2 = aiLangRef.current;
           const spkRate2 = ttsRatesRef.current[spkLang2] ?? 1.0;
+          const spkVoiceName2 = selectedVoiceNamesRef.current[spkLang2];
           addSttLog("tts", "speak", `lang=${spkLang2} rate=${spkRate2} — ${response.content.slice(0, 50)}`);
           try {
-            await freeSpeak(response.content, spkLang2, spkRate2);
+            await freeSpeak(response.content, spkLang2, spkRate2, spkVoiceName2);
             addSttLog("tts", "end", `lang=${spkLang2}`);
           } catch (ttsErr: any) {
             addSttLog("tts", "error", ttsErr?.message ?? "unknown");
@@ -760,7 +867,7 @@ const AiConversation: React.FC = () => {
         setIsLoading(false);
       }
     },
-    [messages, addSttLog, ensureSttStopped, startListening],
+    [messages, addSttLog, ensureSttStopped, startListening, translateResponse],
   );
 
   // Keep ref in sync so auto-replace timer can call it without circular deps
@@ -887,16 +994,21 @@ const AiConversation: React.FC = () => {
     speechSynthesis.cancel();
     setIsPlayingStory(false);
     setPlaybackPaused(false);
+    setPlayingMsgIndex(null);
+    setPlayingCharIndex(null);
   }, []);
 
   const playStory = useCallback(() => {
     const msgs = messagesRef.current;
     if (msgs.length === 0) return;
 
+    SpeechRecognition.stopListening();
     speechSynthesis.cancel();
     playbackCancelRef.current = false;
     setIsPlayingStory(true);
     setPlaybackPaused(false);
+    setPlayingMsgIndex(null);
+    setPlayingCharIndex(null);
 
     const voices = speechSynthesis.getVoices();
 
@@ -910,26 +1022,42 @@ const AiConversation: React.FC = () => {
       utterance.lang = langCode;
       utterance.rate = Math.max(0.1, Math.min(10, rate));
 
-      const baseLang = langCode.split("-")[0].toLowerCase();
-      const voice =
-        voices.find((v) => v.lang === langCode) ||
-        voices.find((v) => v.lang.replace("_", "-") === langCode) ||
-        voices.find((v) => v.lang.split(/[-_]/)[0].toLowerCase() === baseLang);
+      const savedVoiceName = selectedVoiceNamesRef.current[langCode];
+      const voice = savedVoiceName
+        ? (voices.find((v) => v.name === savedVoiceName) ?? findVoice(voices, langCode, isMobile))
+        : findVoice(voices, langCode, isMobile);
       if (voice) {
         utterance.voice = voice;
         utterance.lang = langCode;
       }
 
-      if (idx === msgs.length - 1) {
-        utterance.onend = () => {
+      utterance.onstart = () => {
+        setPlayingMsgIndex(idx);
+        setPlayingCharIndex(null);
+      };
+      utterance.onboundary = (event) => {
+        if (event.name === "word") {
+          setPlayingCharIndex(event.charIndex);
+        }
+      };
+
+      const isLast = idx === msgs.length - 1;
+      utterance.onend = () => {
+        if (isLast) {
           setIsPlayingStory(false);
           setPlaybackPaused(false);
-        };
-        utterance.onerror = () => {
+          setPlayingMsgIndex(null);
+          setPlayingCharIndex(null);
+        }
+      };
+      utterance.onerror = () => {
+        if (isLast) {
           setIsPlayingStory(false);
           setPlaybackPaused(false);
-        };
-      }
+          setPlayingMsgIndex(null);
+          setPlayingCharIndex(null);
+        }
+      };
 
       speechSynthesis.speak(utterance);
     });
@@ -1056,6 +1184,19 @@ const AiConversation: React.FC = () => {
             title="AI reply language (TTS)"
             onChange={(e) => { setAiLang(e.target.value); lsSet(LS_KEY_AI_LANG, e.target.value); }}
           >
+            {VOICE_LANGS.map((l) => (
+              <option key={l.code} value={l.code}>{l.label}</option>
+            ))}
+          </select>
+          <span className="ai-lang-bar-arrow">→</span>
+          <span className="ai-lang-bar-label" title="Translate AI reply to">📝</span>
+          <select
+            className="ai-lang-select-top"
+            value={translateToLang}
+            title="Translate AI reply to this language (leave blank to disable)"
+            onChange={(e) => handleTranslateToChange(e.target.value)}
+          >
+            <option value="">No translation</option>
             {VOICE_LANGS.map((l) => (
               <option key={l.code} value={l.code}>{l.label}</option>
             ))}
@@ -1431,6 +1572,69 @@ const AiConversation: React.FC = () => {
               </div>
             ))}
           </div>
+
+          <div className="ai-settings-section">
+            <label className="ai-settings-label">Voice per language</label>
+            {VOICE_LANGS.map((l) => {
+              const langVoices = availableVoices.filter((v) =>
+                v.lang === l.code ||
+                v.lang.replace("_", "-") === l.code ||
+                v.lang.split(/[-_]/)[0].toLowerCase() === l.code.split("-")[0].toLowerCase(),
+              );
+              return (
+                <div key={l.code} className="ai-voice-row">
+                  <span className="ai-tts-rate-lang">{l.label}</span>
+                  <select
+                    className="ai-voice-select"
+                    value={selectedVoiceNames[l.code] ?? ""}
+                    onChange={(e) => handleVoiceNameChange(l.code, e.target.value)}
+                  >
+                    <option value="">Auto</option>
+                    {langVoices.map((v) => (
+                      <option key={v.name} value={v.name}>{v.name}</option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="ai-settings-section">
+            <label className="ai-settings-label">
+              Vocabulary recycling —{" "}
+              <span className="ai-words-value">
+                {repeatFromLines === 0 ? "All lines" : `Last ${repeatFromLines} exchanges`}
+              </span>
+            </label>
+            <div className="ai-words-row">
+              <span className="ai-words-edge">All</span>
+              <input
+                type="range"
+                className="ai-words-range"
+                min={0}
+                max={10}
+                step={1}
+                value={repeatFromLines}
+                onChange={(e) => handleRepeatFromLinesChange(Number(e.target.value))}
+              />
+              <span className="ai-words-edge">10</span>
+              <input
+                type="number"
+                className="ai-words-number"
+                min={0}
+                max={20}
+                value={repeatFromLines}
+                onChange={(e) =>
+                  handleRepeatFromLinesChange(Math.max(0, Number(e.target.value)))
+                }
+              />
+            </div>
+            <p className="ai-vocab-hint">
+              {repeatFromLines === 0
+                ? "Reuse vocabulary from the entire conversation."
+                : `Only reuse vocabulary from the last ${repeatFromLines} message exchange${repeatFromLines === 1 ? "" : "s"}.`}
+            </p>
+          </div>
         </div>
       )}
 
@@ -1549,23 +1753,42 @@ const AiConversation: React.FC = () => {
             )}
           </div>
         )}
-        {messages.map((msg, i) => (
-          <div key={i} className={`ai-message ${msg.role}`}>
-            <span className="ai-message-role">
-              {msg.role === "user" ? "You" : "AI"}
-              {msg.role === "assistant" && msg.model && (
-                <span className="ai-model-sig">{getModelLabel(msg.model)}</span>
+        {messages.map((msg, i) => {
+          const isPlaying = playingMsgIndex === i;
+          const isAi = msg.role === "assistant";
+          return (
+            <div key={i} className={`ai-message ${msg.role}${isPlaying ? " ai-msg-playing" : ""}`}>
+              <span className="ai-message-role">
+                {isAi ? "AI" : "You"}
+                {isAi && msg.model && (
+                  <span className="ai-model-sig">{getModelLabel(msg.model)}</span>
+                )}
+              </span>
+              <div
+                className="ai-message-bubble ai-clickable"
+                onClick={() => isAi ? regenerateFromIndex(i) : deleteFromLine(i + 1)}
+                title={isAi ? "Click to regenerate from here" : "Click to remove all lines after this"}
+              >
+                {isPlaying && playingCharIndex !== null
+                  ? (() => {
+                      let pos = 0;
+                      return msg.content.split(/(\s+)/).map((token, ti) => {
+                        const start = pos;
+                        pos += token.length;
+                        const hl = /\S/.test(token) && playingCharIndex >= start && playingCharIndex < pos;
+                        return hl
+                          ? <mark key={ti} className="ai-word-playing">{token}</mark>
+                          : <span key={ti}>{token}</span>;
+                      });
+                    })()
+                  : msg.content}
+              </div>
+              {msg.translation && (
+                <div className="ai-translation">{msg.translation}</div>
               )}
-            </span>
-            <div
-              className="ai-message-bubble ai-clickable"
-              onClick={() => deleteFromLine(i + 1)}
-              title="Click to remove all lines after this"
-            >
-              {msg.content}
             </div>
-          </div>
-        ))}
+          );
+        })}
         {isLoading && <div className="ai-thinking">Thinking...</div>}
         {error && <div className="ai-error">! {error}</div>}
         <div ref={messagesEndRef} />
