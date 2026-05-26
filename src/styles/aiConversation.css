@@ -953,6 +953,47 @@
   color: #d4956a;
 }
 
+/* ── mic denied banner ── */
+.ai-mic-denied-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #1a0a2e;
+  border-bottom: 1px solid #6a3a9e;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.ai-mic-denied-icon {
+  font-size: 0.95rem;
+  flex-shrink: 0;
+  opacity: 0.8;
+}
+
+.ai-mic-denied-text {
+  flex: 1;
+  font-size: 0.82rem;
+  color: #c4a0e8;
+  min-width: 0;
+  line-height: 1.4;
+}
+
+.ai-mic-denied-retry {
+  background: none;
+  border: none;
+  color: #b57bee;
+  font-size: 0.82rem;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+  font-weight: 600;
+}
+
+.ai-mic-denied-retry:hover {
+  color: #d4a8ff;
+}
+
 /* ── tts rate per language ── */
 .ai-tts-rate-row {
   display: flex;

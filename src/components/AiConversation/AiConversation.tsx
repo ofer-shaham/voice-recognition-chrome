@@ -227,6 +227,10 @@ const AiConversation: React.FC = () => {
   const [aiHealthHistory, setAiHealthHistory] = useState<AiHealthEntry[]>([]);
   const [aiHealthLoading, setAiHealthLoading] = useState(false);
 
+  // ── mic permission ────────────────────────────────────────────────────────
+  const [micDenied, setMicDenied] = useState(false);
+  const micDeniedRef = useRef(false);
+
   // ── stt debug log ─────────────────────────────────────────────────────────
   const [sttLogs, setSttLogs] = useState<SttLogEntry[]>([]);
   const [showSttDebug, setShowSttDebug] = useState(false);
@@ -472,7 +476,16 @@ const AiConversation: React.FC = () => {
         addSttLog("stt", evt, detail);
 
         if (evt === "start") setSttStatus("listening");
-        if (evt === "error") setSttStatus("error");
+        if (evt === "error") {
+          setSttStatus("error");
+          // Stop all restart loops when the user denies microphone access
+          const errCode = (e as any).error ?? "";
+          if (errCode === "not-allowed" || errCode === "service-not-allowed") {
+            micDeniedRef.current = true;
+            setMicDenied(true);
+            SpeechRecognition.stopListening();
+          }
+        }
         if (evt === "end")
           setSttStatus((prev) => (prev === "listening" ? "idle" : prev));
       };
@@ -595,6 +608,8 @@ const AiConversation: React.FC = () => {
 
   // ── start listening helper ─────────────────────────────────────────────────
   const startListening = useCallback(() => {
+    // Never re-prompt if the user already denied microphone access
+    if (micDeniedRef.current) return;
     resetTranscript();
     setInputText("");
     addSttLog("app", "startListening", `lang=${sttLangRef.current}`);
@@ -943,6 +958,7 @@ const AiConversation: React.FC = () => {
   // Skip on mobile — mobile browsers fire `end` immediately when no speech
   // is detected, which causes an infinite start→end→start loop. On mobile,
   // the mic is restarted explicitly after the AI finishes speaking.
+  // Also skip entirely if the user has denied microphone access.
   useEffect(() => {
     if (
       voiceMode === "auto" &&
@@ -950,12 +966,13 @@ const AiConversation: React.FC = () => {
       !isLoading &&
       !isSpeaking &&
       !transcript.trim() &&
-      !isMobile
+      !isMobile &&
+      !micDenied
     ) {
       const id = setTimeout(() => startListening(), 400);
       return () => clearTimeout(id);
     }
-  }, [voiceMode, listening, isLoading, isSpeaking, transcript, startListening]);
+  }, [voiceMode, listening, isLoading, isSpeaking, transcript, startListening, micDenied]);
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -1268,6 +1285,26 @@ const AiConversation: React.FC = () => {
           >
             ✕
           </button>
+        </div>
+      )}
+
+      {/* ── mic denied banner ───────────────────────────────────────────── */}
+      {micDenied && (
+        <div className="ai-mic-denied-banner">
+          <span className="ai-mic-denied-icon">🎤</span>
+          <span className="ai-mic-denied-text">
+            Microphone access was denied. Enable it in your browser settings, then{" "}
+            <button
+              className="ai-mic-denied-retry"
+              onClick={() => {
+                micDeniedRef.current = false;
+                setMicDenied(false);
+              }}
+            >
+              try again
+            </button>
+            .
+          </span>
         </div>
       )}
 
