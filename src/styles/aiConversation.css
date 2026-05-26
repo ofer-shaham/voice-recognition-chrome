@@ -1171,6 +1171,21 @@
   padding: 1px 5px;
 }
 
+/* ── debug key tag (shown in #debug mode) ── */
+.ai-key-sig {
+  font-size: 0.62rem;
+  color: #a0c060;
+  margin-left: 5px;
+  font-weight: 600;
+  font-family: monospace;
+  letter-spacing: 0;
+  text-transform: none;
+  background: #0d1e0a;
+  border: 1px solid #2a4a1a;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
 /* ── thinking indicator ── */
 .ai-thinking {
   align-self: flex-start;

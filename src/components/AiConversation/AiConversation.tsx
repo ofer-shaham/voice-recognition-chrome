@@ -19,6 +19,7 @@ import { OPENROUTER_MODELS as MODEL_LIST } from "../../services/openRouterServic
 import { freeSpeak, findVoice } from "../../utils/freeSpeak";
 import { translate } from "../../utils/translate";
 import { isMobile } from "../../services/isMobile";
+import { show_debug_toggle_button } from "../../consts/config";
 import "../../styles/aiConversation.css";
 
 const VOICE_LANGS = [
@@ -226,6 +227,16 @@ const AiConversation: React.FC = () => {
   // ── ai health ─────────────────────────────────────────────────────────────
   const [aiHealthHistory, setAiHealthHistory] = useState<AiHealthEntry[]>([]);
   const [aiHealthLoading, setAiHealthLoading] = useState(false);
+
+  // ── debug mode (hash-based) ───────────────────────────────────────────────
+  const [isDebugMode, setIsDebugMode] = useState(
+    () => window.location.hash === "#debug",
+  );
+  useEffect(() => {
+    const onHash = () => setIsDebugMode(window.location.hash === "#debug");
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []);
 
   // ── mic permission ────────────────────────────────────────────────────────
   const [micDenied, setMicDenied] = useState(false);
@@ -691,7 +702,7 @@ const AiConversation: React.FC = () => {
           apiKey || undefined,
           maxTokens,
         );
-        const assistantMsg: ChatMessage = { role: "assistant", content: response.content, model: response.model, lang_code: aiLangRef.current };
+        const assistantMsg: ChatMessage = { role: "assistant", content: response.content, model: response.model, lang_code: aiLangRef.current, keySuffix: response.keySuffix };
         setMessages((prev) => [...prev, assistantMsg]);
 
         // Translate if a target language is selected
@@ -836,7 +847,7 @@ const AiConversation: React.FC = () => {
           activeApiKeyRef.current || undefined,
           maxTokens,
         );
-        const assistantMsg: ChatMessage = { role: "assistant", content: response.content, model: response.model, lang_code: aiLangRef.current };
+        const assistantMsg: ChatMessage = { role: "assistant", content: response.content, model: response.model, lang_code: aiLangRef.current, keySuffix: response.keySuffix };
         setMessages((prev) => [...prev, assistantMsg]);
 
         if (translateToLangRef.current && translateToLangRef.current !== aiLangRef.current) {
@@ -1724,6 +1735,19 @@ const AiConversation: React.FC = () => {
             <span className="ai-logs-count">{sttLogs.length}</span>
           )}
         </button>
+        {show_debug_toggle_button && (
+          <button
+            className={`ai-logs-btn${isDebugMode ? " panel-open" : ""}`}
+            onClick={() => {
+              const next = !isDebugMode;
+              window.location.hash = next ? "debug" : "";
+              setIsDebugMode(next);
+            }}
+            title={isDebugMode ? "Disable debug mode" : "Enable debug mode (#debug)"}
+          >
+            {isDebugMode ? "DBG ●" : "DBG"}
+          </button>
+        )}
       </div>
 
       {/* ── stt debug panel ──────────────────────────────────────────────── */}
@@ -1815,6 +1839,9 @@ const AiConversation: React.FC = () => {
                 {isAi ? "AI" : "You"}
                 {isAi && msg.model && (
                   <span className="ai-model-sig">{getModelLabel(msg.model)}</span>
+                )}
+                {isDebugMode && isAi && msg.keySuffix && (
+                  <span className="ai-key-sig" title="Last 4 chars of OpenRouter key used">{msg.keySuffix}</span>
                 )}
               </span>
               <div

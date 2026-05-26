@@ -39,3 +39,7 @@ export const bookExample = {
     fromLang: 'ar-EG', toLang: 'he-IL'
 }
 // https://www.youtube.com/watch?v=K3WX2hBtewM&t=657s
+
+// Show the debug mode toggle button in the AI Conversation UI.
+// Set to false to hide it in production.
+export const show_debug_toggle_button = true;

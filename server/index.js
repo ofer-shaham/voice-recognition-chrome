@@ -86,7 +86,7 @@ app.post("/api/health_ai", async (req, res) => {
         "X-Title": "Voice Translation App",
       },
       body: JSON.stringify({
-        model: "meta-llama/llama-3.1-8b-instruct",
+        model: "meta-llama/llama-3.1-8b-instruct:free",
         messages: [{ role: "user", content: "Reply with the single word: OK" }],
         max_tokens: 5,
       }),
@@ -221,15 +221,18 @@ app.post("/api/chat", async (req, res) => {
         .json({ error: "No content in OpenRouter response" });
     }
 
+    const keySuffix = key.length > 4 ? `...${key.slice(-4)}` : key ? "***" : "none";
+
     log("info", "OpenRouter OK", {
       model,
       actualModel,
       elapsed,
+      keySuffix,
       promptTokens: data.usage?.prompt_tokens,
       completionTokens: data.usage?.completion_tokens,
     });
 
-    res.json({ content, model: actualModel });
+    res.json({ content, model: actualModel, keySuffix });
   } catch (err) {
     const elapsed = Date.now() - t0;
     log("error", "OpenRouter fetch failed", { error: err.message, elapsed });

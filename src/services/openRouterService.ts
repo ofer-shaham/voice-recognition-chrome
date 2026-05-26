@@ -4,6 +4,7 @@ export interface ChatMessage {
   model?: string;
   lang_code?: string;
   translation?: string;
+  keySuffix?: string;
 }
 
 export interface OpenRouterModel {
@@ -54,6 +55,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export interface ChatResponse {
   content: string;
   model: string;
+  keySuffix?: string;
 }
 
 export const chatWithAI = async (
@@ -95,7 +97,7 @@ export const chatWithAI = async (
 
       const data = await res.json();
       if (!data.content) throw new Error('No content in server response');
-      return { content: data.content, model: data.model || model };
+      return { content: data.content, model: data.model || model, keySuffix: data.keySuffix };
 
     } catch (e: any) {
       // Re-throw immediately on client errors (they won't have been caught above)
