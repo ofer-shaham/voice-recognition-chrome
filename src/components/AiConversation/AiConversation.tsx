@@ -85,6 +85,9 @@ const LS_KEY_MODE = "ai_voice_mode";
 const LS_KEY_PROMPTS = "ai_prompt_list";
 const LS_KEY_AUTOREPLACE = "ai_autoreplace_sec";
 const LS_KEY_VOCAB_LEVEL = "ai_vocab_level";
+const LS_KEY_STT_LANG = "ai_stt_lang";
+const LS_KEY_AI_LANG = "ai_ai_lang";
+const LS_KEY_TTS_RATES = "ai_tts_rates";
 
 const lsGet = (key: string, fallback: string) =>
   localStorage.getItem(key) || fallback;
@@ -173,7 +176,14 @@ const AiConversation: React.FC = () => {
     lsGetJSON(LS_KEY_PROMPTS, PRESET_PROMPTS)[0],
   );
   const [ttsEnabled, setTtsEnabled] = useState(true);
-  const [voiceLang, setVoiceLang] = useState("en-US");
+  const [sttLang, setSttLang] = useState(() => lsGet(LS_KEY_STT_LANG, "en-US"));
+  const [aiLang, setAiLang] = useState(() => lsGet(LS_KEY_AI_LANG, "en-US"));
+  const [ttsRates, setTtsRates] = useState<Record<string, number>>(() => {
+    try { return JSON.parse(localStorage.getItem(LS_KEY_TTS_RATES) || "{}"); }
+    catch { return {}; }
+  });
+  const [isPlayingStory, setIsPlayingStory] = useState(false);
+  const [playbackPaused, setPlaybackPaused] = useState(false);
   const [maxWords, setMaxWords] = useState<number>(() =>
     parseInt(lsGet(LS_KEY_WORDS, "12"), 10),
   );
@@ -222,12 +232,17 @@ const AiConversation: React.FC = () => {
   const isLoadingRef = useRef(isLoading);
   const isSpeakingRef = useRef(isSpeaking);
   const voiceModeRef = useRef(voiceMode);
-  const voiceLangRef = useRef(voiceLang);
+  const sttLangRef = useRef(sttLang);
+  const aiLangRef = useRef(aiLang);
+  const ttsRatesRef = useRef(ttsRates);
+  const playbackCancelRef = useRef(false);
   const autoReplaceSecRef = useRef(autoReplaceSec);
   useEffect(() => { isLoadingRef.current = isLoading; }, [isLoading]);
   useEffect(() => { isSpeakingRef.current = isSpeaking; }, [isSpeaking]);
   useEffect(() => { voiceModeRef.current = voiceMode; }, [voiceMode]);
-  useEffect(() => { voiceLangRef.current = voiceLang; }, [voiceLang]);
+  useEffect(() => { sttLangRef.current = sttLang; }, [sttLang]);
+  useEffect(() => { aiLangRef.current = aiLang; }, [aiLang]);
+  useEffect(() => { ttsRatesRef.current = ttsRates; }, [ttsRates]);
   useEffect(() => { autoReplaceSecRef.current = autoReplaceSec; }, [autoReplaceSec]);
 
   // ── speech recognition ────────────────────────────────────────────────────
@@ -505,9 +520,9 @@ const AiConversation: React.FC = () => {
   const startListening = useCallback(() => {
     resetTranscript();
     setInputText("");
-    addSttLog("app", "startListening", `lang=${voiceLangRef.current}`);
+    addSttLog("app", "startListening", `lang=${sttLangRef.current}`);
     SpeechRecognition.startListening({
-      language: voiceLangRef.current,
+      language: sttLangRef.current,
       interimResults: true,
       continuous: false,
     });
@@ -539,7 +554,6 @@ const AiConversation: React.FC = () => {
       apiKey: string,
       prompt: string,
       tts: boolean,
-      lang: string,
       words: number,
     ) => {
       if (!text || isLoadingRef.current) return;
@@ -551,7 +565,7 @@ const AiConversation: React.FC = () => {
       setError("");
       userInteractedRef.current = false;
 
-      const userMsg: ChatMessage = { role: "user", content: text };
+      const userMsg: ChatMessage = { role: "user", content: text, lang_code: sttLangRef.current };
       const history: ChatMessage[] = [...currentMessages, userMsg];
       setMessages(history);
       setIsLoading(true);
@@ -576,17 +590,19 @@ const AiConversation: React.FC = () => {
           apiKey || undefined,
           maxTokens,
         );
-        const assistantMsg: ChatMessage = { role: "assistant", content: response.content, model: response.model };
+        const assistantMsg: ChatMessage = { role: "assistant", content: response.content, model: response.model, lang_code: aiLangRef.current };
         setMessages((prev) => [...prev, assistantMsg]);
 
         if (tts) {
           // Ensure STT is off before TTS starts
           ensureSttStopped();
           setIsSpeaking(true);
-          addSttLog("tts", "speak", `lang=${lang} — ${response.content.slice(0, 50)}`);
+          const spkLang = aiLangRef.current;
+          const spkRate = ttsRatesRef.current[spkLang] ?? 1.0;
+          addSttLog("tts", "speak", `lang=${spkLang} rate=${spkRate} — ${response.content.slice(0, 50)}`);
           try {
-            await freeSpeak(response.content, lang);
-            addSttLog("tts", "end", `lang=${lang}`);
+            await freeSpeak(response.content, spkLang, spkRate);
+            addSttLog("tts", "end", `lang=${spkLang}`);
           } catch (ttsErr: any) {
             addSttLog("tts", "error", ttsErr?.message ?? "unknown");
           }
@@ -702,16 +718,18 @@ const AiConversation: React.FC = () => {
           activeApiKeyRef.current || undefined,
           maxTokens,
         );
-        const assistantMsg: ChatMessage = { role: "assistant", content: response.content, model: response.model };
+        const assistantMsg: ChatMessage = { role: "assistant", content: response.content, model: response.model, lang_code: aiLangRef.current };
         setMessages((prev) => [...prev, assistantMsg]);
 
         if (ttsEnabledRef.current) {
           ensureSttStopped();
           setIsSpeaking(true);
-          addSttLog("tts", "speak", `lang=${voiceLangRef.current} — ${response.content.slice(0, 50)}`);
+          const spkLang2 = aiLangRef.current;
+          const spkRate2 = ttsRatesRef.current[spkLang2] ?? 1.0;
+          addSttLog("tts", "speak", `lang=${spkLang2} rate=${spkRate2} — ${response.content.slice(0, 50)}`);
           try {
-            await freeSpeak(response.content, voiceLangRef.current);
-            addSttLog("tts", "end", `lang=${voiceLangRef.current}`);
+            await freeSpeak(response.content, spkLang2, spkRate2);
+            addSttLog("tts", "end", `lang=${spkLang2}`);
           } catch (ttsErr: any) {
             addSttLog("tts", "error", ttsErr?.message ?? "unknown");
           }
@@ -772,7 +790,6 @@ const AiConversation: React.FC = () => {
       activeApiKeyRef.current,
       systemPromptRef.current,
       ttsEnabledRef.current,
-      voiceLangRef.current,
       maxWordsRef.current,
     );
   }, [inputText, listening, sendWithText, checkMagicKeywords, resetTranscript]);
@@ -804,7 +821,6 @@ const AiConversation: React.FC = () => {
             activeApiKeyRef.current,
             systemPromptRef.current,
             ttsEnabledRef.current,
-            voiceLangRef.current,
             maxWordsRef.current,
           );
         }, 150);
@@ -838,11 +854,63 @@ const AiConversation: React.FC = () => {
     setError("");
     setInputText("");
     resetTranscript();
+    stopPlayback();
     if (autoReplaceTimerRef.current) {
       clearTimeout(autoReplaceTimerRef.current);
       autoReplaceTimerRef.current = null;
     }
   };
+
+  const deleteFromLine = useCallback((fromIndex: number) => {
+    if (autoReplaceTimerRef.current) {
+      clearTimeout(autoReplaceTimerRef.current);
+      autoReplaceTimerRef.current = null;
+    }
+    setMessages((prev) => prev.slice(0, fromIndex));
+    setError("");
+  }, []);
+
+  const handleTtsRateChange = useCallback((langCode: string, rate: number) => {
+    setTtsRates((prev) => {
+      const next = { ...prev, [langCode]: rate };
+      localStorage.setItem(LS_KEY_TTS_RATES, JSON.stringify(next));
+      return next;
+    });
+  }, []);
+
+  const stopPlayback = useCallback(() => {
+    playbackCancelRef.current = true;
+    speechSynthesis.cancel();
+    setIsPlayingStory(false);
+    setPlaybackPaused(false);
+  }, []);
+
+  const playStory = useCallback(async () => {
+    if (messagesRef.current.length === 0) return;
+    playbackCancelRef.current = false;
+    setIsPlayingStory(true);
+    setPlaybackPaused(false);
+    for (const msg of messagesRef.current) {
+      if (playbackCancelRef.current) break;
+      const langCode = msg.lang_code || (msg.role === "user" ? sttLangRef.current : aiLangRef.current);
+      const rate = ttsRatesRef.current[langCode] ?? 1.0;
+      try {
+        await freeSpeak(msg.content, langCode, rate);
+      } catch {}
+    }
+    setIsPlayingStory(false);
+    setPlaybackPaused(false);
+  }, []);
+
+  const togglePlaybackPause = useCallback(() => {
+    if (playbackPaused) {
+      speechSynthesis.resume();
+      setPlaybackPaused(false);
+    } else {
+      speechSynthesis.pause();
+      setPlaybackPaused(true);
+    }
+  }, [playbackPaused]);
 
   // ── derived ────────────────────────────────────────────────────────────────
   const isInterim = listening && !!interimTranscript;
@@ -935,9 +1003,50 @@ const AiConversation: React.FC = () => {
           )}
         </div>
 
+        <div className="ai-lang-bar">
+          <span className="ai-lang-bar-label" title="Your speaking language">🎤</span>
+          <select
+            className="ai-lang-select-top"
+            value={sttLang}
+            title="Your speaking language (microphone)"
+            onChange={(e) => { setSttLang(e.target.value); lsSet(LS_KEY_STT_LANG, e.target.value); }}
+          >
+            {VOICE_LANGS.map((l) => (
+              <option key={l.code} value={l.code}>{l.label}</option>
+            ))}
+          </select>
+          <span className="ai-lang-bar-arrow">→</span>
+          <span className="ai-lang-bar-label" title="AI reply language">🔊</span>
+          <select
+            className="ai-lang-select-top"
+            value={aiLang}
+            title="AI reply language (TTS)"
+            onChange={(e) => { setAiLang(e.target.value); lsSet(LS_KEY_AI_LANG, e.target.value); }}
+          >
+            {VOICE_LANGS.map((l) => (
+              <option key={l.code} value={l.code}>{l.label}</option>
+            ))}
+          </select>
+        </div>
+
         <div className="ai-top-right">
           {isSpeaking && (
             <span className="ai-speaking-badge">speaking...</span>
+          )}
+          {messages.length > 0 && !isPlayingStory && (
+            <button className="ai-play-btn" onClick={playStory} title="Play story">▶</button>
+          )}
+          {isPlayingStory && (
+            <>
+              <button
+                className={`ai-play-btn${playbackPaused ? " paused" : ""}`}
+                onClick={togglePlaybackPause}
+                title={playbackPaused ? "Resume" : "Pause"}
+              >
+                {playbackPaused ? "▶" : "⏸"}
+              </button>
+              <button className="ai-play-btn stop" onClick={stopPlayback} title="Stop">■</button>
+            </>
           )}
           {messages.length > 0 && (
             <button className="ai-clear-btn" onClick={clearConversation}>
@@ -1269,20 +1378,25 @@ const AiConversation: React.FC = () => {
               />
               Read replies aloud
             </label>
-            <label className="ai-settings-check">
-              Voice:
-              <select
-                className="ai-lang-select"
-                value={voiceLang}
-                onChange={(e) => setVoiceLang(e.target.value)}
-              >
-                {VOICE_LANGS.map((l) => (
-                  <option key={l.code} value={l.code}>
-                    {l.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+          </div>
+
+          <div className="ai-settings-section">
+            <label className="ai-settings-label">Playback speed per language</label>
+            {VOICE_LANGS.map((l) => (
+              <div key={l.code} className="ai-tts-rate-row">
+                <span className="ai-tts-rate-lang">{l.label}</span>
+                <input
+                  type="range"
+                  className="ai-words-range"
+                  min={0.5}
+                  max={2.0}
+                  step={0.05}
+                  value={ttsRates[l.code] ?? 1.0}
+                  onChange={(e) => handleTtsRateChange(l.code, Number(e.target.value))}
+                />
+                <span className="ai-tts-rate-value">{(ttsRates[l.code] ?? 1.0).toFixed(2)}×</span>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -1391,7 +1505,7 @@ const AiConversation: React.FC = () => {
                 <span style={{ fontSize: "0.8rem" }}>
                   Shift+Enter for a new line · Enter to send
                   <br />
-                  Click any message to regenerate from that point · Magic: "remove, remove, remove" deletes last
+                  Click any message to remove everything after it · Magic: "remove, remove, remove" deletes last
                 </span>
               </p>
             ) : (
@@ -1412,8 +1526,8 @@ const AiConversation: React.FC = () => {
             </span>
             <div
               className="ai-message-bubble ai-clickable"
-              onClick={() => regenerateFromIndex(i)}
-              title="Click to regenerate from here"
+              onClick={() => deleteFromLine(i + 1)}
+              title="Click to remove all lines after this"
             >
               {msg.content}
             </div>

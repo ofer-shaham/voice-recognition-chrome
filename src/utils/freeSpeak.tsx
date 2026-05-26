@@ -48,7 +48,7 @@ const findVoice = (voices: SpeechSynthesisVoice[], lang: string, mobile: boolean
     return null;
 };
 
-export const freeSpeak = (text: string, toLang: string = 'en-US'): Promise<void> => {
+export const freeSpeak = (text: string, toLang: string = 'en-US', rate: number = 1.0): Promise<void> => {
     return new Promise(async (resolve: any, reject: any) => {
         // Cancel any ongoing speech first to avoid queue issues
         speechSynthesis.cancel();
@@ -57,6 +57,7 @@ export const freeSpeak = (text: string, toLang: string = 'en-US'): Promise<void>
 
         // Always set lang explicitly — this is the primary language control
         utterance.lang = toLang;
+        utterance.rate = Math.max(0.1, Math.min(10, rate));
 
         const voices = await loadVoices();
         populateAvailableVoices(voices);

@@ -350,6 +350,73 @@
 .ai-model-apply:hover { background: #c73652; }
 
 /* right-side cluster in top bar */
+/* ── language bar (top bar) ── */
+.ai-lang-bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.ai-lang-bar-label {
+  font-size: 0.85rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.ai-lang-bar-arrow {
+  font-size: 0.75rem;
+  color: #555;
+  flex-shrink: 0;
+}
+
+.ai-lang-select-top {
+  background: #0f3460;
+  color: #ccc;
+  border: 1px solid #1a4580;
+  border-radius: 5px;
+  padding: 4px 5px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  max-width: 90px;
+}
+
+.ai-lang-select-top:focus {
+  outline: none;
+  border-color: #e94560;
+}
+
+/* ── play/pause/stop buttons ── */
+.ai-play-btn {
+  background: #0f3460;
+  border: 1px solid #1a4580;
+  color: #4caf50;
+  border-radius: 5px;
+  padding: 4px 9px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.ai-play-btn:hover {
+  background: #1a4580;
+  color: #6dff6d;
+}
+
+.ai-play-btn.paused {
+  color: #f5a623;
+}
+
+.ai-play-btn.stop {
+  color: #e94560;
+  border-color: #e9456044;
+}
+
+.ai-play-btn.stop:hover {
+  background: #e9456022;
+}
+
 .ai-top-right {
   display: flex;
   align-items: center;
@@ -854,6 +921,29 @@
 
 .ai-key-warning-dismiss:hover {
   color: #d4956a;
+}
+
+/* ── tts rate per language ── */
+.ai-tts-rate-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.ai-tts-rate-lang {
+  font-size: 0.78rem;
+  color: #999;
+  min-width: 68px;
+  flex-shrink: 0;
+}
+
+.ai-tts-rate-value {
+  font-size: 0.78rem;
+  color: #ccc;
+  min-width: 36px;
+  text-align: right;
+  flex-shrink: 0;
 }
 
 /* ── vocabulary level ── */
