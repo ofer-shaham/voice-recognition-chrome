@@ -240,6 +240,102 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
+// ── SRT helpers ───────────────────────────────────────────────────────────────
+const { fetchTranscript } = require("youtube-transcript-plus");
+
+function padN(n, len) { return String(n).padStart(len, "0"); }
+function msToSrtTime(ms) {
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  const s = Math.floor((ms % 60000) / 1000);
+  const x = Math.floor(ms % 1000);
+  return `${padN(h,2)}:${padN(m,2)}:${padN(s,2)},${padN(x,3)}`;
+}
+function segmentsToSrt(segments) {
+  return segments
+    .map((seg, i) => {
+      const start = msToSrtTime(Math.round(seg.offset * 1000));
+      const end   = msToSrtTime(Math.round((seg.offset + seg.duration) * 1000));
+      return `${i + 1}\n${start} --> ${end}\n${seg.text}`;
+    })
+    .join("\n\n");
+}
+
+// ── /api/srt — fetch YouTube transcript as SRT text ───────────────────────────
+// Query params: videoId (required), lang (optional, default 'en')
+app.get("/api/srt", async (req, res) => {
+  const { videoId, lang } = req.query;
+  if (!videoId) return res.status(400).json({ error: "videoId is required" });
+  const langCode = String(lang || "en").split("-")[0];
+
+  let method1Error = null;
+
+  // Method 1: youtube-transcript-plus (CommonJS, faster)
+  try {
+    const segments = await fetchTranscript(String(videoId), { lang: langCode });
+    const srt = segmentsToSrt(segments);
+    log("info", "SRT method1 OK", { videoId, lang: langCode, segments: segments.length });
+    return res.type("text/plain; charset=utf-8").send(srt);
+  } catch (e1) {
+    method1Error = e1.message;
+    log("warn", "SRT method1 failed, trying method2", { videoId, lang: langCode, error: e1.message });
+  }
+
+  // Method 2: youtube-transcript-api-js (ESM, supports auto-translate)
+  try {
+    const { YouTubeTranscriptApi, SRTFormatter } = await import("youtube-transcript-api-js");
+    const api  = new YouTubeTranscriptApi();
+    const list = await api.list(String(videoId));
+    let transcript;
+    try {
+      transcript = list.findTranscript([langCode]);
+    } catch {
+      // try auto-translate from English
+      const base = list.findTranscript(["en", "ar", "he", "fr", "es", "de"]);
+      transcript = base.isTranslatable ? base.translate(langCode) : base;
+    }
+    const fetched = await transcript.fetch();
+    const srt = new SRTFormatter().formatTranscript(fetched);
+    log("info", "SRT method2 OK", { videoId, lang: langCode });
+    return res.type("text/plain; charset=utf-8").send(srt);
+  } catch (e2) {
+    log("error", "SRT both methods failed", { videoId, lang: langCode, e1: method1Error, e2: e2.message });
+    return res.status(500).json({
+      error: `Could not fetch transcript. Method1: ${method1Error}. Method2: ${e2.message}`,
+    });
+  }
+});
+
+// ── /api/tts — server-side Google TTS proxy (avoids browser CORS/UA blocks) ───
+// Query params: text (required), lang (required, short code like 'ar', 'he', 'en')
+app.get("/api/tts", async (req, res) => {
+  const { text, lang } = req.query;
+  if (!text || !lang) return res.status(400).json({ error: "text and lang are required" });
+  const shortLang  = String(lang).split("-")[0];
+  const encoded    = encodeURIComponent(String(text).slice(0, 200));
+  const ttsUrl     = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${shortLang}&client=tw-ob&q=${encoded}`;
+
+  try {
+    const upstream = await fetch(ttsUrl, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      },
+    });
+    if (!upstream.ok) {
+      log("warn", "TTS upstream error", { status: upstream.status, lang: shortLang });
+      return res.status(upstream.status).json({ error: `TTS upstream returned ${upstream.status}` });
+    }
+    const buf = Buffer.from(await upstream.arrayBuffer());
+    log("info", "TTS OK", { lang: shortLang, bytes: buf.length, textLen: String(text).length });
+    res.set("Content-Type", "audio/mpeg");
+    res.set("Cache-Control", "public, max-age=3600");
+    res.send(buf);
+  } catch (err) {
+    log("error", "TTS fetch failed", { error: err.message, lang: shortLang });
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ── start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, () => {
   log("info", `Server listening on port ${PORT}`);

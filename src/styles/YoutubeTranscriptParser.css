@@ -851,3 +851,154 @@
   color: #2a4055;
   font-size: 0.8rem;
 }
+
+/* ── YouTube fetch tab ── */
+.yt-yt-fetch-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.yt-yt-fetch-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #5a7a90;
+  line-height: 1.4;
+}
+
+.yt-yt-fetch-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.yt-yt-id-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border-radius: 14px;
+  background: #1a3a5c;
+  border: 1px solid #2a6090;
+  color: #70c8ff;
+  font-family: monospace;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+/* ── Job history tab ── */
+.yt-jobs-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.yt-jobs-save-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.yt-jobs-empty {
+  padding: 14px 0;
+  text-align: center;
+  color: #3a5570;
+  font-size: 0.83rem;
+  font-style: italic;
+}
+
+.yt-jobs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.yt-job-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid #1e2d3d;
+  background: #0f1923;
+  transition: border-color 0.15s;
+}
+.yt-job-item:hover { border-color: #2a4060; }
+
+.yt-job-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.yt-job-title {
+  font-size: 0.88rem;
+  color: #c0d8f0;
+  cursor: text;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.15s;
+}
+.yt-job-title:hover { color: #70c8ff; }
+
+.yt-job-title-input {
+  font-size: 0.88rem;
+  background: #16202e;
+  border: 1px solid #3a8fd0;
+  border-radius: 4px;
+  color: #e8eaf0;
+  padding: 2px 6px;
+  outline: none;
+  width: 100%;
+}
+
+.yt-job-meta {
+  font-size: 0.7rem;
+  color: #3a5570;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.yt-job-url {
+  color: #2a6090;
+  font-family: monospace;
+}
+
+.yt-job-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.yt-job-load-btn {
+  padding: 4px 10px;
+  border-radius: 5px;
+  border: 1px solid #2a6090;
+  background: #162540;
+  color: #70c8ff;
+  font-size: 0.75rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.yt-job-load-btn:hover { background: #1a3a5c; border-color: #3a8fd0; }
+
+.yt-job-del-btn {
+  padding: 4px 8px;
+  border-radius: 5px;
+  border: 1px solid #3a2030;
+  background: transparent;
+  color: #5a3040;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.yt-job-del-btn:hover { background: #2a0f18; border-color: #e94560; color: #e94560; }

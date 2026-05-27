@@ -9,6 +9,7 @@ import { convertTimeToSeconds } from "../../utils/YoutubeUtils";
 import { freeSpeak } from "../../utils/freeSpeak";
 import { populateAvailableVoices } from "../../utils/getVoice";
 import { useAvailableVoices } from "../../hooks/useAvailableVoices";
+import { useYtHistory } from "../../hooks/useYtHistory";
 
 const MAX_LINES = 50;
 
@@ -136,7 +137,7 @@ function YoutubeTranscriptParser() {
   const videoUrlParam = searchParams.get("videoUrl");
 
   // ── input / config state ──────────────────────────────────────────────────
-  const [inputTab, setInputTab] = useState<"url" | "paste">("url");
+  const [inputTab, setInputTab] = useState<"url" | "paste" | "youtube" | "jobs">("url");
   const [srtUrl,   setSrtUrl]   = useState(urlParam   || bookExample.url);
   const [pasteText, setPasteText] = useState("");
   const [fromLang, setFromLang] = useState(fromLangParam || bookExample.fromLang);
@@ -180,6 +181,17 @@ function YoutubeTranscriptParser() {
   // Google TTS usage counters
   const [gttsCount, setGttsCount] = useState(0);
   const [gttsChars, setGttsChars] = useState(0);
+
+  // YouTube SRT fetch (📺 tab)
+  const [ytFetchLang,    setYtFetchLang]    = useState(fromLang);
+  const [ytFetchLoading, setYtFetchLoading] = useState(false);
+  const [ytFetchError,   setYtFetchError]   = useState("");
+
+  // Job history (📂 tab)
+  const { jobs, saveJob, deleteJob, updateTitle } = useYtHistory();
+  const [saveTitle,      setSaveTitle]      = useState("");
+  const [editingId,      setEditingId]      = useState<string | null>(null);
+  const [editingTitle,   setEditingTitle]   = useState("");
 
   // ── pagination / selection ────────────────────────────────────────────────
   const [selectedLine, setSelectedLine] = useState<number | null>(null);
@@ -268,6 +280,52 @@ function YoutubeTranscriptParser() {
     logEvent(`Pasted ${parsed.length} lines`);
   };
 
+  // ── YouTube SRT fetch ─────────────────────────────────────────────────────
+  const handleYtFetch = useCallback(async () => {
+    if (!videoId) { setYtFetchError("Enter a YouTube URL / video ID first"); return; }
+    setYtFetchError(""); setYtFetchLoading(true); setLines([]);
+    const langCode = ytFetchLang.split("-")[0];
+    logEvent(`📺 Fetching YouTube SRT: ${videoId} [${langCode}]`);
+    try {
+      const r = await fetch(`/api/srt?videoId=${encodeURIComponent(videoId)}&lang=${langCode}`);
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({ error: r.statusText }));
+        throw new Error(j.error || `HTTP ${r.status}`);
+      }
+      const raw = await r.text();
+      const parsed = parseContent(raw);
+      if (!parsed.length) throw new Error("No lines parsed from transcript");
+      setLines(buildLines(parsed)); setCurrentPage(1);
+      logEvent(`📺 Loaded ${parsed.length} lines from YouTube [${langCode}]`);
+      setSrtUrl(""); // clear URL field so it's clear this was fetched from YouTube
+    } catch (e: any) {
+      setYtFetchError(e.message);
+      logEvent(`📺 Fetch failed: ${e.message}`, "error");
+    } finally {
+      setYtFetchLoading(false);
+    }
+  }, [videoId, ytFetchLang, buildLines, logEvent]);
+
+  // ── job history helpers ────────────────────────────────────────────────────
+  const handleSaveJob = useCallback(() => {
+    const title = saveTitle.trim() ||
+      (srtUrl ? srtUrl.split("/").pop()?.replace(/\.[^.]+$/, "") || srtUrl : `YouTube ${videoId}`) ||
+      new Date().toLocaleString();
+    saveJob({ title, srtUrl, fromLang, toLang, videoUrl });
+    setSaveTitle("");
+    logEvent(`💾 Saved job: "${title}"`);
+  }, [saveTitle, srtUrl, fromLang, toLang, videoUrl, saveJob, logEvent, videoId]);
+
+  const handleLoadJob = useCallback((job: import("../../hooks/useYtHistory").YtJob) => {
+    setSrtUrl(job.srtUrl);
+    setFromLang(job.fromLang);
+    setToLang(job.toLang);
+    setVideoUrl(job.videoUrl);
+    setInputTab("url");
+    setLines([]); setLoadError("");
+    logEvent(`📂 Loaded job: "${job.title}"`);
+  }, []);
+
   // ── extra SRT columns ─────────────────────────────────────────────────────
   const handleAddExtraSrt = useCallback(async () => {
     const id    = `extra_${Date.now()}`;
@@ -353,11 +411,11 @@ function YoutubeTranscriptParser() {
           voices.find(v => v.lang.split(/[-_]/)[0].toLowerCase() === baseLang) ||
           null;
 
-        // ── Google TTS fallback when no browser voice matches ──────────────
+        // ── Server-side TTS proxy fallback when no browser voice matches ────
         if (!voice && voices.length > 0) {
           const shortLang = lang.split("-")[0];
-          const url = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${shortLang}&client=tw-ob&q=${encodeURIComponent(text.slice(0, 200))}`;
-          logEvent(`  🌐 Google TTS [${lang}]: "${text.slice(0, 35)}…"`, "warn");
+          const url = `/api/tts?lang=${shortLang}&text=${encodeURIComponent(text.slice(0, 200))}`;
+          logEvent(`  🌐 Server TTS [${lang}]: "${text.slice(0, 35)}…"`, "warn");
           setGttsCount(c => c + 1);
           setGttsChars(c => c + Math.min(text.length, 200));
           const audio = new Audio(url);
@@ -595,22 +653,96 @@ function YoutubeTranscriptParser() {
       {/* ── input card ── */}
       <div className="yt-input-card">
         <div className="yt-tabs">
-          <button className={`yt-tab${inputTab === "url"   ? " active" : ""}`} onClick={() => setInputTab("url")}>🔗 URL</button>
-          <button className={`yt-tab${inputTab === "paste" ? " active" : ""}`} onClick={() => setInputTab("paste")}>📋 Paste SRT</button>
+          <button className={`yt-tab${inputTab === "url"     ? " active" : ""}`} onClick={() => setInputTab("url")}>🔗 URL</button>
+          <button className={`yt-tab${inputTab === "paste"   ? " active" : ""}`} onClick={() => setInputTab("paste")}>📋 Paste SRT</button>
+          <button className={`yt-tab${inputTab === "youtube" ? " active" : ""}`} onClick={() => setInputTab("youtube")}>📺 YouTube</button>
+          <button className={`yt-tab${inputTab === "jobs"    ? " active" : ""}`} onClick={() => setInputTab("jobs")}>
+            📂 Jobs{jobs.length > 0 ? ` (${jobs.length})` : ""}
+          </button>
         </div>
 
-        {inputTab === "url" ? (
+        {inputTab === "url" && (
           <div className="yt-url-row">
             <input className="yt-url-input" type="text" value={srtUrl}
               onChange={(e) => setSrtUrl(e.target.value)} placeholder="https://example.com/subtitles.srt" />
             <button className="yt-load-btn" onClick={handleLoad} disabled={loading}>{loading ? "Loading…" : "Load"}</button>
           </div>
-        ) : (
+        )}
+
+        {inputTab === "paste" && (
           <div className="yt-paste-area">
             <textarea className="yt-paste-textarea" value={pasteText}
               onChange={(e) => setPasteText(e.target.value)}
               placeholder={"Paste SRT content here…\n\n1\n00:00:01,000 --> 00:00:04,000\nHello world"} rows={8} />
             <button className="yt-load-btn" onClick={handlePasteLoad}>Parse</button>
+          </div>
+        )}
+
+        {/* ── 📺 YouTube fetch tab ── */}
+        {inputTab === "youtube" && (
+          <div className="yt-yt-fetch-panel">
+            <p className="yt-yt-fetch-hint">
+              Fetch the transcript directly from YouTube using the video ID below.
+              Enter the video URL in the meta row first.
+            </p>
+            {videoId ? (
+              <div className="yt-yt-fetch-row">
+                <span className="yt-yt-id-pill">📺 {videoId}</span>
+                <select className="yt-select" value={ytFetchLang}
+                  onChange={(e) => setYtFetchLang(e.target.value)}>
+                  {LANG_OPTIONS.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
+                </select>
+                <button className="yt-load-btn" onClick={handleYtFetch} disabled={ytFetchLoading}>
+                  {ytFetchLoading ? "Fetching…" : "Fetch Transcript"}
+                </button>
+              </div>
+            ) : (
+              <div className="yt-error">⚠ Enter a YouTube URL or video ID in the meta row first</div>
+            )}
+            {ytFetchError && <div className="yt-error" style={{ marginTop: 6 }}>⚠ {ytFetchError}</div>}
+          </div>
+        )}
+
+        {/* ── 📂 Job history tab ── */}
+        {inputTab === "jobs" && (
+          <div className="yt-jobs-panel">
+            <div className="yt-jobs-save-row">
+              <input className="yt-url-input" type="text" value={saveTitle}
+                onChange={(e) => setSaveTitle(e.target.value)}
+                placeholder="Job title (auto-generated if blank)" />
+              <button className="yt-load-btn" onClick={handleSaveJob}>💾 Save current</button>
+            </div>
+            {jobs.length === 0 ? (
+              <div className="yt-jobs-empty">No saved jobs yet — load an SRT and click Save.</div>
+            ) : (
+              <div className="yt-jobs-list">
+                {jobs.map(job => (
+                  <div key={job.id} className="yt-job-item">
+                    <div className="yt-job-left">
+                      {editingId === job.id ? (
+                        <input className="yt-job-title-input" value={editingTitle}
+                          onChange={(e) => setEditingTitle(e.target.value)}
+                          onBlur={() => { updateTitle(job.id, editingTitle); setEditingId(null); }}
+                          onKeyDown={(e) => { if (e.key === "Enter") { updateTitle(job.id, editingTitle); setEditingId(null); } }}
+                          autoFocus />
+                      ) : (
+                        <span className="yt-job-title"
+                          onClick={() => { setEditingId(job.id); setEditingTitle(job.title); }}
+                          title="Click to rename">{job.title}</span>
+                      )}
+                      <span className="yt-job-meta">
+                        {new Date(job.createdAt).toLocaleDateString()} · {job.fromLang} → {job.toLang}
+                        {job.srtUrl && <> · <span className="yt-job-url">{job.srtUrl.split("/").pop()}</span></>}
+                      </span>
+                    </div>
+                    <div className="yt-job-actions">
+                      <button className="yt-job-load-btn" onClick={() => handleLoadJob(job)}>▶ Load</button>
+                      <button className="yt-job-del-btn" onClick={() => deleteJob(job.id)}>✕</button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
