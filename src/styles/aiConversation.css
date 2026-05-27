@@ -69,14 +69,90 @@
   50%       { transform: scale(1.35); opacity: 0.75; }
 }
 
-/* ── health panel ── */
-.ai-health-panel {
-  background: #0d1526;
-  border-bottom: 1px solid #0f3460;
-  padding: 10px 14px;
+/* ── popup overlay (shared by health, settings, logs) ── */
+.ai-popup-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 200;
+  animation: ai-fade-in 0.15s ease;
+}
+
+@keyframes ai-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.ai-popup {
+  position: fixed;
+  top: 54px;
+  right: 10px;
+  z-index: 201;
+  background: #111c30;
+  border: 1px solid #1e3a60;
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.55);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: ai-popup-in 0.18s cubic-bezier(0.16,1,0.3,1);
+  max-height: calc(100vh - 70px);
+}
+
+@keyframes ai-popup-in {
+  from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.ai-popup-health  { width: min(340px, 92vw); }
+.ai-popup-settings { width: min(420px, 96vw); overflow-y: auto; }
+.ai-popup-logs     { width: min(480px, 96vw); }
+
+.ai-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px 8px;
+  border-bottom: 1px solid #1a2e4a;
   flex-shrink: 0;
-  max-height: 280px;
+}
+
+.ai-popup-title {
+  font-size: 0.75rem;
+  color: #778899;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  font-weight: 600;
+}
+
+.ai-popup-close {
+  background: none;
+  border: none;
+  color: #556;
+  font-size: 1.1rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0 2px;
+  transition: color 0.15s;
+}
+
+.ai-popup-close:hover { color: #e94560; }
+
+.ai-popup-body {
+  padding: 12px 14px;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ── health panel (inside popup) ── */
+.ai-health-panel {
+  background: transparent;
+  padding: 0;
+  flex-shrink: 0;
+  max-height: none;
+  overflow-y: visible;
 }
 
 .ai-health-panel-header {
@@ -168,14 +244,15 @@
   opacity: 0.75;
 }
 
-/* ── stt debug panel ── */
+/* ── stt debug panel (now inside popup) ── */
 .ai-stt-panel {
-  background: #080e1a;
-  border-bottom: 1px solid #0f3460;
+  background: transparent;
+  border-bottom: none;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  max-height: 220px;
+  max-height: 360px;
+  min-height: 180px;
 }
 
 .ai-stt-panel-header {
@@ -494,11 +571,11 @@
   color: #eee;
 }
 
-/* ── settings panel ── */
+/* ── settings panel (now inside popup) ── */
 .ai-settings-panel {
-  background: #12192e;
-  border-bottom: 1px solid #0f3460;
-  padding: 12px 14px;
+  background: transparent;
+  border-bottom: none;
+  padding: 0;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -1405,16 +1482,76 @@
     font-size: 0.85rem;
   }
 
-  /* Settings panel scrollable on mobile */
-  .ai-settings-panel {
-    max-height: 60vh;
-    overflow-y: auto;
+  /* popups full-width on mobile */
+  .ai-popup {
+    left: 6px;
+    right: 6px;
+    top: 50px;
   }
+  .ai-popup-health,
+  .ai-popup-settings,
+  .ai-popup-logs {
+    width: auto;
+    max-height: 75vh;
+  }
+}
 
-  /* Health panel narrower on mobile */
-  .ai-health-panel {
-    padding: 8px 10px;
-  }
+/* ── prompt chip bar ── */
+.ai-prompt-chip-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  background: #0d1425;
+  border-bottom: 1px solid #0f2040;
+  flex-shrink: 0;
+}
+
+.ai-prompt-chip-label {
+  font-size: 0.68rem;
+  color: #445566;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  flex-shrink: 0;
+}
+
+.ai-prompt-chip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: #101e34;
+  border: 1px solid #1a3050;
+  border-radius: 16px;
+  padding: 3px 10px 3px 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  min-width: 0;
+  max-width: calc(100% - 60px);
+}
+
+.ai-prompt-chip:hover {
+  border-color: #e94560;
+  background: #1a1028;
+}
+
+.ai-prompt-chip-text {
+  font-size: 0.75rem;
+  color: #7a9ec0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.ai-prompt-chip-edit {
+  font-size: 0.75rem;
+  color: #445566;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.ai-prompt-chip:hover .ai-prompt-chip-edit {
+  color: #e94560;
 }
 
 /* ── playing highlight ── */

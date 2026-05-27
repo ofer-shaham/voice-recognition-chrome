@@ -1323,64 +1323,70 @@ const AiConversation: React.FC = () => {
         </div>
       )}
 
-      {/* ── health panel ─────────────────────────────────────────────────── */}
+      {/* ── health popup ─────────────────────────────────────────────────── */}
       {showHealthPanel && (
-        <div className="ai-health-panel">
-          <div className="ai-health-panel-header">
-            <span>Server life signals</span>
-            <button
-              className="ai-health-ai-btn"
-              onClick={pingAiHealth}
-              disabled={aiHealthLoading}
-            >
-              {aiHealthLoading ? "Pinging AI..." : "Ping AI key"}
-            </button>
-          </div>
-
-          {aiHealthHistory.length > 0 && (
-            <div className="ai-health-ai-history">
-              {aiHealthHistory.map((entry, i) => (
-                <div
-                  key={i}
-                  className={`ai-health-ai-result ${entry.ok ? "ok" : "fail"}`}
+        <>
+          <div className="ai-popup-backdrop" onClick={() => setShowHealthPanel(false)} />
+          <div className="ai-popup ai-popup-health">
+            <div className="ai-popup-header">
+              <span className="ai-popup-title">Server signals</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <button
+                  className="ai-health-ai-btn"
+                  onClick={pingAiHealth}
+                  disabled={aiHealthLoading}
                 >
-                  {entry.ok
-                    ? `Key ${entry.keySuffix} OK — ${entry.elapsed}ms`
-                    : `Key ${entry.keySuffix} failed — ${entry.error}`}
-                  <span className="ai-health-ai-time">
-                    {entry.timestamp
-                      ? new Date(entry.timestamp).toLocaleTimeString()
-                      : ""}
-                  </span>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div className="ai-health-signals">
-            {healthSignals.length === 0 && (
-              <span className="ai-health-empty">No signals yet...</span>
-            )}
-            {healthSignals.map((s, i) => (
-              <div
-                key={i}
-                className={`ai-health-signal ${s.ok ? "ok" : "fail"}`}
-              >
-                <span className="ai-health-signal-dot">{s.ok ? "●" : "○"}</span>
-                <span className="ai-health-signal-time">
-                  {new Date(s.timestamp).toLocaleTimeString()}
-                </span>
-                {s.age && (
-                  <span className="ai-health-signal-age">up {s.age}</span>
-                )}
+                  {aiHealthLoading ? "Pinging…" : "Ping AI key"}
+                </button>
+                <button className="ai-popup-close" onClick={() => setShowHealthPanel(false)}>✕</button>
               </div>
-            ))}
+            </div>
+            <div className="ai-popup-body">
+              <div className="ai-health-panel">
+                {aiHealthHistory.length > 0 && (
+                  <div className="ai-health-ai-history">
+                    {aiHealthHistory.map((entry, i) => (
+                      <div key={i} className={`ai-health-ai-result ${entry.ok ? "ok" : "fail"}`}>
+                        {entry.ok
+                          ? `Key ${entry.keySuffix} OK — ${entry.elapsed}ms`
+                          : `Key ${entry.keySuffix} failed — ${entry.error}`}
+                        <span className="ai-health-ai-time">
+                          {entry.timestamp ? new Date(entry.timestamp).toLocaleTimeString() : ""}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="ai-health-signals">
+                  {healthSignals.length === 0 && (
+                    <span className="ai-health-empty">No signals yet…</span>
+                  )}
+                  {healthSignals.map((s, i) => (
+                    <div key={i} className={`ai-health-signal ${s.ok ? "ok" : "fail"}`}>
+                      <span className="ai-health-signal-dot">{s.ok ? "●" : "○"}</span>
+                      <span className="ai-health-signal-time">
+                        {new Date(s.timestamp).toLocaleTimeString()}
+                      </span>
+                      {s.age && <span className="ai-health-signal-age">up {s.age}</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+        </>
       )}
 
-      {/* ── settings panel ──────────────────────────────────────────────── */}
+      {/* ── settings popup ──────────────────────────────────────────────── */}
       {showSettings && (
+        <>
+          <div className="ai-popup-backdrop" onClick={() => setShowSettings(false)} />
+          <div className="ai-popup ai-popup-settings">
+            <div className="ai-popup-header">
+              <span className="ai-popup-title">Settings</span>
+              <button className="ai-popup-close" onClick={() => setShowSettings(false)}>✕</button>
+            </div>
+            <div className="ai-popup-body">
         <div className="ai-settings-panel">
           <div className="ai-settings-section">
             <label className="ai-settings-label">API Key</label>
@@ -1700,6 +1706,59 @@ const AiConversation: React.FC = () => {
             </p>
           </div>
         </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── logs popup ──────────────────────────────────────────────────── */}
+      {showSttDebug && (
+        <>
+          <div className="ai-popup-backdrop" onClick={() => setShowSttDebug(false)} />
+          <div className="ai-popup ai-popup-logs">
+            <div className="ai-popup-header">
+              <span className="ai-popup-title">
+                Voice logs <span className="ai-stt-count">{sttLogs.length}</span>
+              </span>
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <button className="ai-stt-action-btn" onClick={copyLogsToClipboard}>
+                  {copied ? "Copied" : "Copy"}
+                </button>
+                <button className="ai-stt-action-btn" onClick={() => setSttLogs([])}>
+                  Clear
+                </button>
+                <button className="ai-popup-close" onClick={() => setShowSttDebug(false)}>✕</button>
+              </div>
+            </div>
+            <div className="ai-stt-panel">
+              <div className="ai-stt-log-list">
+                {sttLogs.length === 0 && (
+                  <span className="ai-stt-empty">No events yet — try pressing the mic button</span>
+                )}
+                {sttLogs.map((entry, i) => {
+                  const d = new Date(entry.ts);
+                  const ts = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}.${String(d.getMilliseconds()).padStart(3, "0")}`;
+                  const isError = entry.event === "error";
+                  const isResult = entry.event === "result";
+                  return (
+                    <div
+                      key={i}
+                      className={`ai-stt-entry src-${entry.source}${isError ? " err" : isResult ? " res" : ""}`}
+                    >
+                      <span className="ai-stt-ts">{ts}</span>
+                      <span className={`ai-stt-badge badge-${entry.source}`}>
+                        {entry.source.toUpperCase()}
+                      </span>
+                      <span className="ai-stt-evt">{entry.event}</span>
+                      {entry.detail && <span className="ai-stt-detail">{entry.detail}</span>}
+                    </div>
+                  );
+                })}
+                <div ref={sttDebugEndRef} />
+              </div>
+            </div>
+          </div>
+        </>
       )}
 
       {/* ── mode bar ────────────────────────────────────────────────────── */}
@@ -1750,62 +1809,20 @@ const AiConversation: React.FC = () => {
         )}
       </div>
 
-      {/* ── stt debug panel ──────────────────────────────────────────────── */}
-      {showSttDebug && (
-        <div className="ai-stt-panel">
-          <div className="ai-stt-panel-header">
-            <span className="ai-stt-panel-title">
-              Voice events{" "}
-              <span className="ai-stt-count">{sttLogs.length}</span>
-            </span>
-            <div className="ai-stt-panel-actions">
-              <button
-                className="ai-stt-action-btn"
-                onClick={copyLogsToClipboard}
-                title="Copy all logs to clipboard"
-              >
-                {copied ? "Copied" : "Copy"}
-              </button>
-              <button
-                className="ai-stt-action-btn"
-                onClick={() => setSttLogs([])}
-                title="Clear logs"
-              >
-                Clear
-              </button>
-            </div>
-          </div>
-          <div className="ai-stt-log-list">
-            {sttLogs.length === 0 && (
-              <span className="ai-stt-empty">
-                No events yet — try pressing the mic button
-              </span>
-            )}
-            {sttLogs.map((entry, i) => {
-              const d = new Date(entry.ts);
-              const ts = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}:${String(d.getSeconds()).padStart(2, "0")}.${String(d.getMilliseconds()).padStart(3, "0")}`;
-              const isError = entry.event === "error";
-              const isResult = entry.event === "result";
-              return (
-                <div
-                  key={i}
-                  className={`ai-stt-entry src-${entry.source}${isError ? " err" : isResult ? " res" : ""}`}
-                >
-                  <span className="ai-stt-ts">{ts}</span>
-                  <span className={`ai-stt-badge badge-${entry.source}`}>
-                    {entry.source.toUpperCase()}
-                  </span>
-                  <span className="ai-stt-evt">{entry.event}</span>
-                  {entry.detail && (
-                    <span className="ai-stt-detail">{entry.detail}</span>
-                  )}
-                </div>
-              );
-            })}
-            <div ref={sttDebugEndRef} />
-          </div>
-        </div>
-      )}
+      {/* ── active prompt chip ──────────────────────────────────────────── */}
+      <div className="ai-prompt-chip-bar">
+        <span className="ai-prompt-chip-label">Prompt:</span>
+        <button
+          className="ai-prompt-chip"
+          onClick={() => { setShowSettings(true); setShowPromptAccordion(true); }}
+          title="Click to change prompt"
+        >
+          <span className="ai-prompt-chip-text">
+            {systemPrompt.length > 60 ? systemPrompt.slice(0, 60) + "…" : systemPrompt}
+          </span>
+          <span className="ai-prompt-chip-edit">✎</span>
+        </button>
+      </div>
 
       {/* ── messages ────────────────────────────────────────────────────── */}
       <div className="ai-messages">

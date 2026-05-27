@@ -1,0 +1,91 @@
+name: E2E Tests — Debug Mode
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Build app
+        run: npm run build
+        env:
+          REACT_APP_API_URL: http://localhost:3001
+
+      # Serve the production build so Cypress tests against a real build
+      - name: Install serve
+        run: npm install -g serve
+
+      - name: Start Express server
+        run: node server/index.js &
+        env:
+          PORT: 3001
+          NODE_ENV: test
+
+      - name: Start React app
+        run: serve -s build -l 3000 &
+
+      - name: Wait for servers
+        run: |
+          npx wait-on http://localhost:3000 http://localhost:3001/api/health --timeout 30000
+
+      - name: Run Cypress E2E tests (with video)
+        uses: cypress-io/github-action@v6
+        with:
+          install: false
+          browser: chrome
+          config: baseUrl=http://localhost:3000,video=true,screenshotsFolder=cypress/screenshots,videosFolder=cypress/videos
+          spec: cypress/e2e/debug_mode.cy.js
+        env:
+          CYPRESS_baseUrl: http://localhost:3000
+
+      - name: Convert videos to animated GIF
+        if: always()
+        run: |
+          sudo apt-get install -y ffmpeg
+          mkdir -p cypress/gifs
+          for f in cypress/videos/*.mp4; do
+            [ -f "$f" ] || continue
+            name=$(basename "$f" .mp4)
+            ffmpeg -i "$f" -vf "fps=10,scale=800:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" \
+              -loop 0 "cypress/gifs/${name}.gif" -y
+            echo "Created GIF: cypress/gifs/${name}.gif"
+          done
+
+      - name: Upload test artifacts (videos + GIFs)
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cypress-artifacts-${{ github.run_number }}
+          path: |
+            cypress/videos/
+            cypress/gifs/
+            cypress/screenshots/
+          retention-days: 30
+
+      - name: Deploy GIFs to gh-pages
+        if: github.ref == 'refs/heads/main' && always()
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: cypress/gifs
+          destination_dir: test-recordings/${{ github.run_number }}
+          keep_files: true
+          commit_message: 'ci: add test GIFs from run #${{ github.run_number }}'

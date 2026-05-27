@@ -2,6 +2,66 @@
 
 [Visit board!](https://github.com/users/ofer-shaham/projects/5)
 
+## Running E2E Tests
+
+### Locally (with Cypress)
+
+Requires the app and server to be running on ports 5000 and 3001:
+
+```bash
+# Terminal 1 — Express server
+node server/index.js
+
+# Terminal 2 — React app
+npm start
+
+# Terminal 3 — run Cypress tests headlessly
+npx cypress run --browser chrome --spec cypress/e2e/debug_mode.cy.js
+
+# Or open the Cypress UI for interactive testing
+npx cypress open
+```
+
+### With Docker Compose
+
+Run the full stack + Cypress in one command. Videos are saved to `cypress/videos/`:
+
+```bash
+# Start the app stack
+docker-compose up --build
+
+# In a separate terminal, run the test suite against the running stack
+docker-compose -f docker-compose.test.yml run --rm cypress
+```
+
+Convert test videos to animated GIFs (requires `ffmpeg`):
+
+```bash
+for f in cypress/videos/*.mp4; do
+  name=$(basename "$f" .mp4)
+  ffmpeg -i "$f" -vf "fps=10,scale=800:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" \
+    -loop 0 "cypress/gifs/${name}.gif" -y
+done
+```
+
+### GitHub Actions
+
+Push to `main` — the workflow at `.github/workflows/e2e-tests.yml` runs automatically:
+- Builds the app
+- Runs Cypress tests with video recording
+- Converts videos → animated GIFs via ffmpeg
+- Uploads all artifacts (videos + GIFs + screenshots)
+- Deploys GIFs to `gh-pages` under `test-recordings/<run-number>/`
+
+View the latest GIF artifacts on the Actions tab or at:
+`https://<your-org>.github.io/<repo>/test-recordings/`
+
+## Debug Mode
+
+Navigate to `/ai-conversation#debug` to enable debug mode. Each AI message will show the last 4 characters of the API key used (`...xxxx` tag).
+
+The **DBG** toggle button in the mode bar lets you switch in/out of debug mode without manually editing the URL.
+
 ```yaml
 - run e2e test on ci
 
