@@ -261,6 +261,36 @@ function segmentsToSrt(segments) {
     .join("\n\n");
 }
 
+// ── Google Translate free-API helper ──────────────────────────────────────────
+// Translates an array of text strings from `srcLang` → `tgtLang`.
+// Batches segments so each request stays under ~4 000 chars.
+async function gtranslate(texts, srcLang, tgtLang) {
+  const SEP = "\n||||\n";
+  const batches = [];
+  let cur = [];
+  let curLen = 0;
+  for (const t of texts) {
+    if (curLen + t.length > 3800 && cur.length) {
+      batches.push(cur);
+      cur = []; curLen = 0;
+    }
+    cur.push(t); curLen += t.length + SEP.length;
+  }
+  if (cur.length) batches.push(cur);
+
+  const translated = [];
+  for (const batch of batches) {
+    const joined  = batch.join(SEP);
+    const url     = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${srcLang}&tl=${tgtLang}&dt=t&q=${encodeURIComponent(joined)}`;
+    const r       = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+    if (!r.ok) throw new Error(`Google Translate returned ${r.status}`);
+    const json    = await r.json();
+    const result  = (json[0] || []).map(x => x[0]).join("");
+    translated.push(...result.split(SEP));
+  }
+  return translated;
+}
+
 // ── /api/srt — fetch YouTube transcript as SRT text ───────────────────────────
 // Query params: videoId (required), lang (optional, default 'en')
 app.get("/api/srt", async (req, res) => {
@@ -270,9 +300,28 @@ app.get("/api/srt", async (req, res) => {
 
   let method1Error = null;
 
-  // Method 1: youtube-transcript-plus (CommonJS, faster)
+  // ── Method 1: youtube-transcript-plus (CommonJS) ─────────────────────────
   try {
-    const segments = await fetchTranscript(String(videoId), { lang: langCode });
+    // Try exact language first; fall back to any available language
+    let segments;
+    let fetchedLang = langCode;
+    try {
+      segments = await fetchTranscript(String(videoId), { lang: langCode });
+    } catch {
+      // fetch in any available language
+      segments = await fetchTranscript(String(videoId));
+      fetchedLang = segments[0]?.lang || "??";
+    }
+
+    // Translate via Google if the fetched lang doesn't match the requested one
+    if (fetchedLang !== langCode) {
+      log("info", "SRT method1: translating via Google Translate",
+          { videoId, from: fetchedLang, to: langCode, segments: segments.length });
+      const texts      = segments.map(s => s.text);
+      const translated = await gtranslate(texts, fetchedLang, langCode);
+      segments = segments.map((s, i) => ({ ...s, text: translated[i] ?? s.text }));
+    }
+
     const srt = segmentsToSrt(segments);
     log("info", "SRT method1 OK", { videoId, lang: langCode, segments: segments.length });
     return res.type("text/plain; charset=utf-8").send(srt);
@@ -281,21 +330,45 @@ app.get("/api/srt", async (req, res) => {
     log("warn", "SRT method1 failed, trying method2", { videoId, lang: langCode, error: e1.message });
   }
 
-  // Method 2: youtube-transcript-api-js (ESM, supports auto-translate)
+  // ── Method 2: youtube-transcript-api-js (ESM) ─────────────────────────────
   try {
     const { YouTubeTranscriptApi, SRTFormatter } = await import("youtube-transcript-api-js");
     const api  = new YouTubeTranscriptApi();
     const list = await api.list(String(videoId));
+
+    // Try exact lang; fall back to any available transcript
     let transcript;
+    let fetchedLang = langCode;
     try {
-      transcript = list.findTranscript([langCode]);
+      transcript  = list.findTranscript([langCode]);
     } catch {
-      // try auto-translate from English
-      const base = list.findTranscript(["en", "ar", "he", "fr", "es", "de"]);
-      transcript = base.isTranslatable ? base.translate(langCode) : base;
+      const fallbackLangs = ["en", "ar", "he", "fr", "es", "de", "ru", "zh", "ja"];
+      transcript  = list.findTranscript(fallbackLangs) || list.findTranscript([]);
+      fetchedLang = transcript.language_code || "??";
     }
-    const fetched = await transcript.fetch();
-    const srt = new SRTFormatter().formatTranscript(fetched);
+
+    const fetched  = await transcript.fetch();
+    let srt        = new SRTFormatter().formatTranscript(fetched);
+
+    // Translate via Google if needed
+    if (fetchedLang !== langCode) {
+      const snippets = fetched.snippets ?? fetched.fetchedTranscript?.snippets ?? [];
+      if (snippets.length) {
+        log("info", "SRT method2: translating via Google Translate",
+            { videoId, from: fetchedLang, to: langCode, snippets: snippets.length });
+        const texts      = snippets.map(s => s.text);
+        const translated = await gtranslate(texts, fetchedLang, langCode);
+        const lines      = srt.split("\n");
+        let tIdx = 0;
+        for (let i = 0; i < lines.length; i++) {
+          if (lines[i] && !/^\d+$/.test(lines[i]) && !lines[i].includes("-->")) {
+            lines[i] = translated[tIdx++] ?? lines[i];
+          }
+        }
+        srt = lines.join("\n");
+      }
+    }
+
     log("info", "SRT method2 OK", { videoId, lang: langCode });
     return res.type("text/plain; charset=utf-8").send(srt);
   } catch (e2) {
