@@ -41,22 +41,25 @@ interface PlaybackConfig {
   video: boolean;
 }
 
+interface LogEntry {
+  time: string;
+  msg: string;
+  type: "info" | "warn" | "error";
+}
+
 function parseSrt(raw: string): { timestamp: string; text: string }[] {
   const blocks = raw.trim().split(/\n{2,}/);
   const result: { timestamp: string; text: string }[] = [];
   for (const block of blocks) {
     const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
     if (lines.length < 2) continue;
-    const timeLineIdx = lines.findIndex((l) =>
-      /\d{1,2}:\d{2}/.test(l)
-    );
+    const timeLineIdx = lines.findIndex((l) => /\d{1,2}:\d{2}/.test(l));
     if (timeLineIdx === -1) continue;
     const timeLine = lines[timeLineIdx];
     const match = timeLine.match(/(\d{1,2}:\d{2}(?::\d{2})?(?:[.,]\d+)?)/);
     if (!match) continue;
     const timestamp = match[1].replace(",", ".");
-    const textLines = lines.slice(timeLineIdx + 1);
-    const text = textLines.join(" ").trim();
+    const text = lines.slice(timeLineIdx + 1).join(" ").trim();
     if (text) result.push({ timestamp, text });
   }
   return result;
@@ -75,7 +78,6 @@ function parseTimestampedTxt(raw: string): { timestamp: string; text: string }[]
 
 function extractVideoId(input: string): string {
   const clean = input.trim();
-  // full YouTube URL: youtu.be/ID or ?v=ID or &v=ID
   const m =
     clean.match(/(?:youtu\.be\/|[?&]v=)([\w-]{11})/) ||
     clean.match(/^([\w-]{11})$/);
@@ -84,9 +86,12 @@ function extractVideoId(input: string): string {
 
 function parseContent(raw: string): { timestamp: string; text: string }[] {
   if (/\d{1,2}:\d{2}:\d{2}[.,]\d+\s*-->/.test(raw)) return parseSrt(raw);
-  // matches m:ss or mm:ss at the very start of content (single-digit minute ok)
   if (/^\d{1,2}:\d{2}/.test(raw.trim())) return parseTimestampedTxt(raw);
   return parseSrt(raw);
+}
+
+function nowTs(): string {
+  return new Date().toISOString().slice(11, 23);
 }
 
 function YoutubeTranscriptParser() {
@@ -102,7 +107,6 @@ function YoutubeTranscriptParser() {
   const [pasteText, setPasteText] = useState("");
   const [fromLang, setFromLang] = useState(fromLangParam || bookExample.fromLang);
   const [toLang, setToLang] = useState(toLangParam || bookExample.toLang);
-  // videoUrl is editable; videoId is always derived from it
   const [videoUrl, setVideoUrl] = useState(videoUrlParam || bookExample.videoUrl);
   const videoId = extractVideoId(videoUrl);
 
@@ -116,6 +120,10 @@ function YoutubeTranscriptParser() {
     video: false,
   });
 
+  const [ttsRateSource, setTtsRateSource] = useState(1.0);
+  const [ttsRateTrans, setTtsRateTrans] = useState(1.0);
+  const [showThumbnails, setShowThumbnails] = useState(false);
+
   const [playingIndex, setPlayingIndex] = useState<number | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const playingRef = useRef(false);
@@ -125,6 +133,9 @@ function YoutubeTranscriptParser() {
   const [currentPage, setCurrentPage] = useState(1);
   const [linesPerPage, setLinesPerPage] = useState(10);
   const totalPages = Math.max(1, Math.ceil(lines.length / linesPerPage));
+
+  const [eventLog, setEventLog] = useState<LogEntry[]>([]);
+  const [showLog, setShowLog] = useState(false);
 
   const availableVoices = useAvailableVoices();
 
@@ -140,6 +151,10 @@ function YoutubeTranscriptParser() {
       videoUrl,
     });
   }, [srtUrl, fromLang, toLang, videoUrl, setSearchParams]);
+
+  const logEvent = useCallback((msg: string, type: LogEntry["type"] = "info") => {
+    setEventLog((prev) => [{ time: nowTs(), msg, type }, ...prev].slice(0, 200));
+  }, []);
 
   const buildLines = useCallback(
     (parsed: { timestamp: string; text: string }[]): TranscriptLine[] =>
@@ -158,6 +173,7 @@ function YoutubeTranscriptParser() {
     setLoadError("");
     setLines([]);
     setLoading(true);
+    logEvent(`Loading SRT: ${srtUrl}`);
     fetch(srtUrl)
       .then((r) => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -170,8 +186,9 @@ function YoutubeTranscriptParser() {
         if (!parsed.length) throw new Error("No lines parsed — check file format");
         setLines(buildLines(parsed));
         setCurrentPage(1);
+        logEvent(`Loaded ${parsed.length} lines`);
       })
-      .catch((e) => setLoadError(e.message))
+      .catch((e) => { setLoadError(e.message); logEvent(e.message, "error"); })
       .finally(() => setLoading(false));
   };
 
@@ -182,48 +199,68 @@ function YoutubeTranscriptParser() {
     if (!parsed.length) { setLoadError("No lines parsed — check format"); return; }
     setLines(buildLines(parsed));
     setCurrentPage(1);
+    logEvent(`Pasted ${parsed.length} lines`);
   };
 
+  // Translate only visible lines; use index as cache key to avoid text collisions
   useEffect(() => {
     if (!lines.length) return;
     const start = (currentPage - 1) * linesPerPage;
-    const end = start + linesPerPage;
-    const toTranslate = lines.slice(start, end).filter((l) => !l.translated);
-    if (!toTranslate.length) return;
+    const end = Math.min(start + linesPerPage, lines.length);
+    const jobs = lines
+      .slice(start, end)
+      .map((l, vi) => ({ line: l, gi: start + vi }))
+      .filter(({ line }) => !line.translated);
+
+    if (!jobs.length) return;
+
+    logEvent(`Translating ${jobs.length} visible line(s) (page ${currentPage})`);
 
     Promise.all(
-      toTranslate.map(async (line) => {
+      jobs.map(async ({ line, gi }) => {
         const translation = await translate({
           finalTranscriptProxy: line.text,
           fromLang: line.fromLang,
           toLang: line.toLang,
         });
-        return { text: line.text, translation };
+        return { gi, translation };
       })
     ).then((results) => {
       setLines((prev) => {
         const next = [...prev];
-        for (const r of results) {
-          const idx = next.findIndex((l) => l.text === r.text && !l.translated);
-          if (idx !== -1) {
-            next[idx] = { ...next[idx], translation: r.translation, translated: true };
-          }
+        for (const { gi, translation } of results) {
+          next[gi] = { ...next[gi], translation, translated: true };
         }
         return next;
       });
-    });
+      logEvent(`Translation done for ${results.length} line(s)`);
+    }).catch((e) => logEvent(`Translation error: ${e.message}`, "error"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage, linesPerPage, lines.length, toLang]);
 
-  const speakText = (text: string, lang: string): Promise<void> =>
-    new Promise((resolve) => {
-      window.speechSynthesis.cancel();
-      const utt = new SpeechSynthesisUtterance(text);
-      utt.lang = lang;
-      utt.onend = () => resolve();
-      utt.onerror = () => resolve();
-      window.speechSynthesis.speak(utt);
-    });
+  // Robust speakText: fixes Chrome ~15s pause bug with a resume interval
+  const speakText = useCallback(
+    (text: string, lang: string, rate: number): Promise<void> =>
+      new Promise((resolve) => {
+        window.speechSynthesis.cancel();
+        const utt = new SpeechSynthesisUtterance(text);
+        utt.lang = lang;
+        utt.rate = rate;
+        // Chrome bug workaround: resume every 5s to prevent silent pause
+        const resumeTimer = setInterval(() => {
+          if (window.speechSynthesis.paused) window.speechSynthesis.resume();
+        }, 5000);
+        const cleanup = () => { clearInterval(resumeTimer); resolve(); };
+        utt.onend = cleanup;
+        utt.onerror = (e) => {
+          logEvent(`TTS error [${lang}]: ${e.error}`, "warn");
+          cleanup();
+        };
+        // Small delay after cancel so Chrome processes it before the new utt
+        setTimeout(() => window.speechSynthesis.speak(utt), 60);
+      }),
+    [logEvent]
+  );
 
   const getStopTime = useCallback((index: number): string => {
     if (index + 1 < lines.length) return lines[index + 1].timestamp;
@@ -235,11 +272,13 @@ function YoutubeTranscriptParser() {
       if (playingRef.current) {
         stopRef.current = true;
         window.speechSynthesis.cancel();
-        await new Promise((r) => setTimeout(r, 200));
+        logEvent("Stopping previous playback");
+        await new Promise((r) => setTimeout(r, 250));
       }
       stopRef.current = false;
       playingRef.current = true;
       setIsPlaying(true);
+      logEvent(`▶ Playback start from line ${startIdx + 1}`);
 
       for (let i = startIdx; i < lines.length; i++) {
         if (stopRef.current) break;
@@ -247,21 +286,27 @@ function YoutubeTranscriptParser() {
 
         const page = Math.floor(i / linesPerPage) + 1;
         setCurrentPage(page);
+        logEvent(`Line ${i + 1} [${lines[i].timestamp}]: "${lines[i].text.slice(0, 40)}…"`);
 
         if (playbackConfig.source) {
-          await speakText(lines[i].text, lines[i].fromLang);
+          logEvent(`  TTS source → lang=${lines[i].fromLang} rate=${ttsRateSource}`);
+          await speakText(lines[i].text, lines[i].fromLang, ttsRateSource);
           if (stopRef.current) break;
+          logEvent(`  TTS source done`);
         }
 
         if (playbackConfig.translation && lines[i].translation) {
-          await speakText(lines[i].translation, lines[i].toLang);
+          logEvent(`  TTS translation → lang=${lines[i].toLang} rate=${ttsRateTrans}`);
+          await speakText(lines[i].translation, lines[i].toLang, ttsRateTrans);
           if (stopRef.current) break;
+          logEvent(`  TTS translation done`);
         }
 
         if (playbackConfig.video) {
           const startSec = convertTimeToSeconds(lines[i].timestamp);
           const stopSec = convertTimeToSeconds(getStopTime(i));
-          const duration = (stopSec - startSec) * 1000;
+          const duration = Math.max(0, (stopSec - startSec) * 1000);
+          logEvent(`  Video segment: ${lines[i].timestamp} → ${getStopTime(i)} (${(duration / 1000).toFixed(1)}s)`);
           if (duration > 0) await new Promise((r) => setTimeout(r, duration));
           if (stopRef.current) break;
         }
@@ -270,8 +315,9 @@ function YoutubeTranscriptParser() {
       playingRef.current = false;
       setIsPlaying(false);
       setPlayingIndex(null);
+      logEvent(stopRef.current ? "■ Playback stopped" : "✓ Playback complete");
     },
-    [lines, playbackConfig, linesPerPage, getStopTime]
+    [lines, playbackConfig, linesPerPage, getStopTime, speakText, ttsRateSource, ttsRateTrans, logEvent]
   );
 
   const stopPlayback = () => {
@@ -279,6 +325,7 @@ function YoutubeTranscriptParser() {
     window.speechSynthesis.cancel();
     setIsPlaying(false);
     setPlayingIndex(null);
+    logEvent("■ Stop pressed");
   };
 
   const toggleCol = (col: PlayCol) =>
@@ -294,25 +341,62 @@ function YoutubeTranscriptParser() {
 
   return (
     <div className="yt-page">
-      {/* ── header ── */}
+      {/* ── sticky header ── */}
       <div className="yt-header">
         <h2 className="yt-title">📺 YouTube SRT Player</h2>
+
+        {/* Column playback toggles */}
         <div className="yt-playback-config">
-          <span className="yt-config-label">Play columns:</span>
+          <span className="yt-config-label">Play:</span>
           {(["source", "translation", "video"] as PlayCol[]).map((col) => (
             <label key={col} className={`yt-col-toggle${playbackConfig[col] ? " active" : ""}`}>
-              <input
-                type="checkbox"
-                checked={playbackConfig[col]}
-                onChange={() => toggleCol(col)}
-              />
-              {col === "source" ? "🔊 Source" : col === "translation" ? "📝 Translation" : "🎬 Video"}
+              <input type="checkbox" checked={playbackConfig[col]} onChange={() => toggleCol(col)} />
+              {col === "source" ? "🔊 Source" : col === "translation" ? "📝 Trans" : "🎬 Video"}
             </label>
           ))}
         </div>
-        {isPlaying && (
-          <button className="yt-stop-btn" onClick={stopPlayback}>■ Stop</button>
-        )}
+
+        {/* TTS speed controls */}
+        <div className="yt-rate-controls">
+          <span className="yt-config-label">Speed:</span>
+          <label className="yt-rate-label">
+            Src
+            <input
+              type="range" min={0.5} max={2} step={0.1}
+              value={ttsRateSource}
+              onChange={(e) => setTtsRateSource(Number(e.target.value))}
+              className="yt-rate-slider"
+            />
+            <span className="yt-rate-val">{ttsRateSource.toFixed(1)}×</span>
+          </label>
+          <label className="yt-rate-label">
+            Trans
+            <input
+              type="range" min={0.5} max={2} step={0.1}
+              value={ttsRateTrans}
+              onChange={(e) => setTtsRateTrans(Number(e.target.value))}
+              className="yt-rate-slider"
+            />
+            <span className="yt-rate-val">{ttsRateTrans.toFixed(1)}×</span>
+          </label>
+        </div>
+
+        {/* Thumbnail & log toggles */}
+        <div className="yt-header-actions">
+          <button
+            className={`yt-icon-btn${showThumbnails ? " active" : ""}`}
+            onClick={() => setShowThumbnails((v) => !v)}
+            title="Toggle video thumbnails in table"
+          >🖼 Thumbs</button>
+          <button
+            className={`yt-icon-btn${showLog ? " active" : ""}`}
+            onClick={() => setShowLog((v) => !v)}
+            title="Toggle event log"
+          >📋 Log{eventLog.length > 0 ? ` (${eventLog.length})` : ""}</button>
+          {isPlaying && (
+            <button className="yt-stop-btn" onClick={stopPlayback}>■ Stop</button>
+          )}
+        </div>
       </div>
 
       {/* ── input card ── */}
@@ -413,9 +497,11 @@ function YoutubeTranscriptParser() {
                     {LANG_OPTIONS.find((l) => l.code === toLang)?.label ?? toLang}
                     {playbackConfig.translation && <span className="yt-col-badge">🔊</span>}
                   </th>
-                  {playbackConfig.video && <th className="yt-th-video">
-                    Video {playbackConfig.video && <span className="yt-col-badge">🎬</span>}
-                  </th>}
+                  {playbackConfig.video && (
+                    <th className="yt-th-video">
+                      🎬 Video
+                    </th>
+                  )}
                 </tr>
               </thead>
               <tbody>
@@ -457,21 +543,28 @@ function YoutubeTranscriptParser() {
                           <span className="yt-translating">translating…</span>
                         )}
                       </td>
+
+                      {/* Video column — only mount the iframe for the ACTIVE row to prevent
+                          all iframes from autoplaying simultaneously */}
                       {playbackConfig.video && (
                         <td className="yt-td-video" onClick={(e) => e.stopPropagation()}>
-                          {line.timestamp ? (
-                            <details className="yt-video-details">
-                              <summary className="yt-video-summary">
-                                {line.timestamp} → {getStopTime(gi)}
-                              </summary>
-                              <YouTubePlayer
-                                videoUrl={videoUrl}
-                                videoId={videoId}
-                                startTime={line.timestamp}
-                                stopTime={getStopTime(gi)}
-                              />
-                            </details>
-                          ) : null}
+                          {isActive ? (
+                            <YouTubePlayer
+                              videoId={videoId}
+                              startTime={line.timestamp}
+                              stopTime={getStopTime(gi)}
+                              autoplay
+                            />
+                          ) : showThumbnails ? (
+                            <YouTubePlayer
+                              videoId={videoId}
+                              startTime={line.timestamp}
+                              stopTime={getStopTime(gi)}
+                              thumbnail
+                            />
+                          ) : (
+                            <span className="yt-td-ts-label">{line.timestamp}</span>
+                          )}
                         </td>
                       )}
                     </tr>
@@ -506,6 +599,26 @@ function YoutubeTranscriptParser() {
           <div className="yt-empty-icon">📄</div>
           <p>Load an SRT file or paste SRT content to get started.</p>
           <p className="yt-empty-sub">Click a row to play from that line. Use the column toggles to choose what gets played.</p>
+        </div>
+      )}
+
+      {/* ── event log panel ── */}
+      {showLog && (
+        <div className="yt-log-panel">
+          <div className="yt-log-header">
+            <span>Event Log</span>
+            <button className="yt-log-clear" onClick={() => setEventLog([])}>Clear</button>
+            <button className="yt-log-close" onClick={() => setShowLog(false)}>✕</button>
+          </div>
+          <div className="yt-log-body">
+            {eventLog.length === 0 && <div className="yt-log-empty">No events yet.</div>}
+            {eventLog.map((e, i) => (
+              <div key={i} className={`yt-log-entry yt-log-${e.type}`}>
+                <span className="yt-log-time">{e.time}</span>
+                <span className="yt-log-msg">{e.msg}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
