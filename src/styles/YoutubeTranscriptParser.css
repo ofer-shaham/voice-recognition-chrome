@@ -678,3 +678,176 @@
   .yt-th-num,
   .yt-td-num { display: none; }
 }
+
+/* ── per-word highlight ── */
+.yt-word-highlight {
+  background: #f5c518;
+  color: #0f1923;
+  border-radius: 3px;
+  padding: 0 2px;
+  font-weight: 700;
+  transition: background 0.1s;
+}
+
+/* ── playback order strip ── */
+.yt-order-strip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: #131e2c;
+  border-bottom: 1px solid #1a2d40;
+  flex-wrap: wrap;
+}
+
+.yt-order-items {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.yt-order-item {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 8px 3px 10px;
+  border-radius: 14px;
+  border: 1px solid #243545;
+  background: #1a2535;
+  font-size: 0.74rem;
+  color: #5a7a90;
+  transition: all 0.15s;
+}
+
+.yt-order-item.active {
+  border-color: #2a6090;
+  background: #162540;
+  color: #70c8ff;
+}
+
+.yt-order-label { white-space: nowrap; }
+
+.yt-order-btn {
+  background: none;
+  border: none;
+  color: #4a6080;
+  cursor: pointer;
+  font-size: 0.6rem;
+  padding: 1px 3px;
+  line-height: 1;
+  border-radius: 3px;
+  transition: color 0.15s;
+}
+.yt-order-btn:hover:not(:disabled) { color: #70c8ff; }
+.yt-order-btn:disabled { opacity: 0.25; cursor: default; }
+
+/* ── extra SRTs section ── */
+.yt-extra-srts {
+  display: flex;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #1e3050;
+}
+
+.yt-extra-cols-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.yt-extra-col-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 12px;
+  border: 1px solid #243545;
+  background: #1a2535;
+  font-size: 0.74rem;
+  color: #6a8090;
+  transition: border-color 0.15s;
+}
+.yt-extra-col-badge.visible {
+  border-color: #2a5070;
+  color: #90b8d0;
+}
+
+.yt-extra-col-name { font-weight: 600; }
+.yt-extra-col-meta { font-size: 0.68rem; color: #4a6070; }
+
+.yt-extra-col-eye {
+  background: none; border: none; cursor: pointer;
+  font-size: 0.8rem; padding: 0 1px; opacity: 0.5; transition: opacity 0.15s;
+}
+.yt-extra-col-eye.on { opacity: 1; }
+.yt-extra-col-eye:hover { opacity: 1; }
+
+.yt-extra-col-rm {
+  background: none; border: none; cursor: pointer;
+  color: #5a4050; font-size: 0.72rem; padding: 0 2px;
+  transition: color 0.15s;
+}
+.yt-extra-col-rm:hover { color: #e94560; }
+
+/* ── add-SRT panel ── */
+.yt-add-srt-panel {
+  width: 100%;
+  margin-top: 6px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid #1e3050;
+  background: #0d1620;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.yt-add-srt-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* ── column hide button in table header ── */
+.yt-col-hide-btn {
+  margin-left: 5px;
+  background: none;
+  border: none;
+  color: #4a6070;
+  cursor: pointer;
+  font-size: 0.65rem;
+  padding: 0 2px;
+  opacity: 0.5;
+  vertical-align: middle;
+  transition: opacity 0.15s, color 0.15s;
+}
+.yt-col-hide-btn:hover { opacity: 1; color: #e94560; }
+
+/* ── Google TTS usage indicators ── */
+.yt-gtts-badge {
+  font-size: 0.68rem;
+  color: #f0a030;
+  letter-spacing: 0;
+}
+
+.yt-gtts-usage {
+  font-size: 0.7rem;
+  color: #c08030;
+  background: #1e2010;
+  border: 1px solid #403010;
+  border-radius: 10px;
+  padding: 1px 8px;
+  white-space: nowrap;
+}
+
+/* ── missing text placeholder ── */
+.yt-no-text {
+  color: #2a4055;
+  font-size: 0.8rem;
+}
