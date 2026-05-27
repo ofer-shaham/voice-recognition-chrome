@@ -187,6 +187,16 @@
   min-width: 100px;
 }
 
+.yt-field-group--wide {
+  flex: 2 1 220px;
+}
+
+.yt-video-id-hint {
+  font-size: 0.7rem;
+  color: #3a8fd0;
+  margin-top: 2px;
+}
+
 .yt-field-label {
   font-size: 0.72rem;
   color: #6a7d90;

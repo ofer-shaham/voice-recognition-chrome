@@ -73,9 +73,19 @@ function parseTimestampedTxt(raw: string): { timestamp: string; text: string }[]
   return result;
 }
 
+function extractVideoId(input: string): string {
+  const clean = input.trim();
+  // full YouTube URL: youtu.be/ID or ?v=ID or &v=ID
+  const m =
+    clean.match(/(?:youtu\.be\/|[?&]v=)([\w-]{11})/) ||
+    clean.match(/^([\w-]{11})$/);
+  return m ? m[1] : clean;
+}
+
 function parseContent(raw: string): { timestamp: string; text: string }[] {
   if (/\d{1,2}:\d{2}:\d{2}[.,]\d+\s*-->/.test(raw)) return parseSrt(raw);
-  if (/^\d{2}:\d{2}/.test(raw.trim())) return parseTimestampedTxt(raw);
+  // matches m:ss or mm:ss at the very start of content (single-digit minute ok)
+  if (/^\d{1,2}:\d{2}/.test(raw.trim())) return parseTimestampedTxt(raw);
   return parseSrt(raw);
 }
 
@@ -85,15 +95,16 @@ function YoutubeTranscriptParser() {
   const urlParam = searchParams.get("url");
   const fromLangParam = searchParams.get("fromLang");
   const toLangParam = searchParams.get("toLang");
-  const videoIdParam = searchParams.get("videoId");
+  const videoUrlParam = searchParams.get("videoUrl");
 
   const [inputTab, setInputTab] = useState<"url" | "paste">("url");
   const [srtUrl, setSrtUrl] = useState(urlParam || bookExample.url);
   const [pasteText, setPasteText] = useState("");
   const [fromLang, setFromLang] = useState(fromLangParam || bookExample.fromLang);
   const [toLang, setToLang] = useState(toLangParam || bookExample.toLang);
-  const [videoId, setVideoId] = useState(videoIdParam || bookExample.videoId);
-  const videoUrl = bookExample.videoUrl;
+  // videoUrl is editable; videoId is always derived from it
+  const [videoUrl, setVideoUrl] = useState(videoUrlParam || bookExample.videoUrl);
+  const videoId = extractVideoId(videoUrl);
 
   const [lines, setLines] = useState<TranscriptLine[]>([]);
   const [loading, setLoading] = useState(false);
@@ -126,9 +137,9 @@ function YoutubeTranscriptParser() {
       ...(srtUrl ? { url: srtUrl } : {}),
       fromLang,
       toLang,
-      videoId,
+      videoUrl,
     });
-  }, [srtUrl, fromLang, toLang, videoId, setSearchParams]);
+  }, [srtUrl, fromLang, toLang, videoUrl, setSearchParams]);
 
   const buildLines = useCallback(
     (parsed: { timestamp: string; text: string }[]): TranscriptLine[] =>
@@ -356,15 +367,18 @@ function YoutubeTranscriptParser() {
               {LANG_OPTIONS.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
             </select>
           </div>
-          <div className="yt-field-group">
-            <label className="yt-field-label">YouTube ID</label>
+          <div className="yt-field-group yt-field-group--wide">
+            <label className="yt-field-label">YouTube URL or ID</label>
             <input
               className="yt-select"
               type="text"
-              value={videoId}
-              onChange={(e) => setVideoId(e.target.value)}
-              placeholder="dQw4w9WgXcQ"
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+              placeholder="https://www.youtube.com/watch?v=... or video ID"
             />
+            {videoId && videoId !== videoUrl && (
+              <span className="yt-video-id-hint">ID: {videoId}</span>
+            )}
           </div>
           <div className="yt-field-group">
             <label className="yt-field-label">Lines / page</label>
