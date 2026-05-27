@@ -261,38 +261,70 @@ function segmentsToSrt(segments) {
     .join("\n\n");
 }
 
-// ── Google Translate free-API helper ──────────────────────────────────────────
-// Translates an array of text strings from `srcLang` → `tgtLang`.
-// Batches segments so each request stays under ~4 000 chars.
-async function gtranslate(texts, srcLang, tgtLang) {
-  const SEP = "\n||||\n";
-  const batches = [];
-  let cur = [];
-  let curLen = 0;
-  for (const t of texts) {
-    if (curLen + t.length > 3800 && cur.length) {
-      batches.push(cur);
-      cur = []; curLen = 0;
-    }
-    cur.push(t); curLen += t.length + SEP.length;
-  }
-  if (cur.length) batches.push(cur);
+// ── YouTube timedtext helper ───────────────────────────────────────────────────
+// Fetches captionTrack baseUrl from the YouTube player API, then fetches the
+// timedtext XML (with optional &tlang= for server-side translation).
+// Retries up to `maxRetries` times on HTTP 429 with exponential back-off.
+const RE_XML_TRANSCRIPT = /<text start="([^"]*)" dur="([^"]*)">([^<]*)<\/text>/g;
 
-  const translated = [];
-  for (const batch of batches) {
-    const joined  = batch.join(SEP);
-    const url     = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${srcLang}&tl=${tgtLang}&dt=t&q=${encodeURIComponent(joined)}`;
-    const r       = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
-    if (!r.ok) throw new Error(`Google Translate returned ${r.status}`);
-    const json    = await r.json();
-    const result  = (json[0] || []).map(x => x[0]).join("");
-    translated.push(...result.split(SEP));
+function decodeXml(str) {
+  return str
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n));
+}
+
+async function fetchTimedText(url, { retries = 3, delayMs = 6000 } = {}) {
+  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36";
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const r = await fetch(url, { headers: { "User-Agent": UA } });
+    if (r.status === 429) {
+      if (attempt === retries) throw new Error("YouTube rate-limited (429) after retries");
+      const wait = delayMs * Math.pow(2, attempt);
+      log("warn", `SRT 429 rate-limited, retrying in ${wait}ms`, { attempt });
+      await new Promise(ok => setTimeout(ok, wait));
+      continue;
+    }
+    if (!r.ok) throw new Error(`YouTube timedtext HTTP ${r.status}`);
+    return r.text();
   }
-  return translated;
+}
+
+async function ytCaptionBaseUrl(videoId) {
+  // 1. Get Innertube API key from the watch page
+  const watchPage = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+    headers: { "User-Agent": "Mozilla/5.0", "Accept-Language": "en-US,en;q=0.9" },
+  });
+  if (!watchPage.ok) throw new Error(`Watch page HTTP ${watchPage.status}`);
+  const html = await watchPage.text();
+
+  const keyMatch = html.match(/"INNERTUBE_API_KEY":"([^"]+)"/) ||
+                   html.match(/INNERTUBE_API_KEY\\":\\"([^\\"]+)\\"/);
+  if (!keyMatch) throw new Error("Could not extract Innertube API key");
+
+  // 2. Call player API as ANDROID client (returns captionTracks with signed baseUrl)
+  const playerRes = await fetch(
+    `https://www.youtube.com/youtubei/v1/player?key=${keyMatch[1]}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "User-Agent": "Mozilla/5.0" },
+      body: JSON.stringify({
+        context: { client: { clientName: "ANDROID", clientVersion: "20.10.38" } },
+        videoId,
+      }),
+    }
+  );
+  if (!playerRes.ok) throw new Error(`Player API HTTP ${playerRes.status}`);
+  const playerJson = await playerRes.json();
+
+  const tracks = playerJson?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+  if (!tracks?.length) throw new Error("No caption tracks found");
+  // Prefer exact lang match; fall back to first track
+  return tracks[0].baseUrl; // caller appends &tlang if needed
 }
 
 // ── /api/srt — fetch YouTube transcript as SRT text ───────────────────────────
 // Query params: videoId (required), lang (optional, default 'en')
+// Uses YouTube's native &tlang= parameter for server-side translation.
 app.get("/api/srt", async (req, res) => {
   const { videoId, lang } = req.query;
   if (!videoId) return res.status(400).json({ error: "videoId is required" });
@@ -300,82 +332,65 @@ app.get("/api/srt", async (req, res) => {
 
   let method1Error = null;
 
-  // ── Method 1: youtube-transcript-plus (CommonJS) ─────────────────────────
+  // ── Method 1: direct player API + timedtext with &tlang ──────────────────
   try {
-    // Try exact language first; fall back to any available language
-    let segments;
-    let fetchedLang = langCode;
+    // First try the library (exact lang match — fastest path, no extra HTTP calls)
     try {
-      segments = await fetchTranscript(String(videoId), { lang: langCode });
+      const segments = await fetchTranscript(String(videoId), { lang: langCode });
+      log("info", "SRT m1 exact-lang OK", { videoId, lang: langCode, n: segments.length });
+      return res.type("text/plain; charset=utf-8").send(segmentsToSrt(segments));
     } catch {
-      // fetch in any available language
-      segments = await fetchTranscript(String(videoId));
-      fetchedLang = segments[0]?.lang || "??";
+      // exact lang not available — fall through to tlang approach
     }
 
-    // Translate via Google if the fetched lang doesn't match the requested one
-    if (fetchedLang !== langCode) {
-      log("info", "SRT method1: translating via Google Translate",
-          { videoId, from: fetchedLang, to: langCode, segments: segments.length });
-      const texts      = segments.map(s => s.text);
-      const translated = await gtranslate(texts, fetchedLang, langCode);
-      segments = segments.map((s, i) => ({ ...s, text: translated[i] ?? s.text }));
-    }
+    // Get the signed captionTrack baseUrl from the player API
+    const baseUrl    = await ytCaptionBaseUrl(String(videoId));
+    // Strip any &fmt= the player may have included, then add tlang + XML format
+    const timedtextUrl = baseUrl.replace(/&fmt=[^&]*/g, "") + `&tlang=${langCode}`;
+    log("info", "SRT m1 fetching tlang", { videoId, lang: langCode, url: timedtextUrl.slice(-80) });
 
-    const srt = segmentsToSrt(segments);
-    log("info", "SRT method1 OK", { videoId, lang: langCode, segments: segments.length });
-    return res.type("text/plain; charset=utf-8").send(srt);
+    const xml = await fetchTimedText(timedtextUrl);
+    const matches = [...xml.matchAll(RE_XML_TRANSCRIPT)];
+    if (!matches.length) throw new Error("No segments parsed from timedtext XML");
+
+    const segments = matches.map(m => ({
+      text:     decodeXml(m[3]),
+      duration: parseFloat(m[2]),
+      offset:   parseFloat(m[1]),
+      lang:     langCode,
+    }));
+    log("info", "SRT m1 tlang OK", { videoId, lang: langCode, n: segments.length });
+    return res.type("text/plain; charset=utf-8").send(segmentsToSrt(segments));
   } catch (e1) {
     method1Error = e1.message;
-    log("warn", "SRT method1 failed, trying method2", { videoId, lang: langCode, error: e1.message });
+    log("warn", "SRT m1 failed → m2", { videoId, lang: langCode, error: e1.message });
   }
 
-  // ── Method 2: youtube-transcript-api-js (ESM) ─────────────────────────────
+  // ── Method 2: youtube-transcript-api-js (ESM fallback) ───────────────────
   try {
     const { YouTubeTranscriptApi, SRTFormatter } = await import("youtube-transcript-api-js");
     const api  = new YouTubeTranscriptApi();
     const list = await api.list(String(videoId));
 
-    // Try exact lang; fall back to any available transcript
     let transcript;
-    let fetchedLang = langCode;
     try {
-      transcript  = list.findTranscript([langCode]);
+      transcript = list.findTranscript([langCode]);
     } catch {
-      const fallbackLangs = ["en", "ar", "he", "fr", "es", "de", "ru", "zh", "ja"];
-      transcript  = list.findTranscript(fallbackLangs) || list.findTranscript([]);
-      fetchedLang = transcript.language_code || "??";
+      transcript = list.findTranscript(["en", "ar", "he", "fr", "es", "de", "ru", "zh", "ja"]);
     }
 
-    const fetched  = await transcript.fetch();
-    let srt        = new SRTFormatter().formatTranscript(fetched);
-
-    // Translate via Google if needed
-    if (fetchedLang !== langCode) {
-      const snippets = fetched.snippets ?? fetched.fetchedTranscript?.snippets ?? [];
-      if (snippets.length) {
-        log("info", "SRT method2: translating via Google Translate",
-            { videoId, from: fetchedLang, to: langCode, snippets: snippets.length });
-        const texts      = snippets.map(s => s.text);
-        const translated = await gtranslate(texts, fetchedLang, langCode);
-        const lines      = srt.split("\n");
-        let tIdx = 0;
-        for (let i = 0; i < lines.length; i++) {
-          if (lines[i] && !/^\d+$/.test(lines[i]) && !lines[i].includes("-->")) {
-            lines[i] = translated[tIdx++] ?? lines[i];
-          }
-        }
-        srt = lines.join("\n");
-      }
+    if (transcript.languageCode !== langCode && transcript.isTranslatable
+        && transcript.translationLanguagesDict?.has(langCode)) {
+      transcript = transcript.translate(langCode);
     }
 
-    log("info", "SRT method2 OK", { videoId, lang: langCode });
+    const fetched = await transcript.fetch();
+    const srt     = new SRTFormatter().formatTranscript(fetched);
+    log("info", "SRT m2 OK", { videoId, lang: langCode });
     return res.type("text/plain; charset=utf-8").send(srt);
   } catch (e2) {
     log("error", "SRT both methods failed", { videoId, lang: langCode, e1: method1Error, e2: e2.message });
-    return res.status(500).json({
-      error: `Could not fetch transcript. Method1: ${method1Error}. Method2: ${e2.message}`,
-    });
+    return res.status(500).json({ error: `Could not fetch transcript. m1: ${method1Error}. m2: ${e2.message}` });
   }
 });
 
