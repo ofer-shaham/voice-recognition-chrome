@@ -11,6 +11,8 @@ interface Props {
   videoLookupLoading: boolean;
   videoLookupTitle: string | null;
   videoLookupError: string;
+  toLang: string;
+  onToLangChange: (v: string) => void;
 }
 
 function extractVideoId(input: string): string {
@@ -31,8 +33,10 @@ export default function ProjectsMenu({
   videoLookupLoading,
   videoLookupTitle,
   videoLookupError,
+  toLang,
+  onToLangChange,
 }: Props) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen]       = useState(false);
   const [urlInput, setUrlInput] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -51,14 +55,13 @@ export default function ProjectsMenu({
     onVideoUrlSubmit(trimmed);
   }, [urlInput, onVideoUrlSubmit]);
 
-  const current = projects.find(p => p.id === currentProjectId) ?? null;
-  const videoId = extractVideoId(urlInput);
-  const hasInput = urlInput.trim().length > 0;
+  const current    = projects.find(p => p.id === currentProjectId) ?? null;
+  const hasInput   = urlInput.trim().length > 0;
 
   return (
     <div className="yt-projects-bar">
 
-      {/* ── left: projects dropdown ── */}
+      {/* ── Projects dropdown ── */}
       <div className="yt-projects-left" ref={menuRef}>
         <button
           className={`yt-projects-toggle${open ? " open" : ""}`}
@@ -76,25 +79,17 @@ export default function ProjectsMenu({
               <div className="yt-projects-empty">No saved projects yet.</div>
             ) : (
               projects.map(p => (
-                <div
-                  key={p.id}
-                  className={`yt-projects-item${p.id === currentProjectId ? " active" : ""}`}
-                >
-                  <div
-                    className="yt-projects-item-info"
-                    onClick={() => { onSelectProject(p); setOpen(false); }}
-                  >
+                <div key={p.id} className={`yt-projects-item${p.id === currentProjectId ? " active" : ""}`}>
+                  <div className="yt-projects-item-info" onClick={() => { onSelectProject(p); setOpen(false); }}>
                     <span className="yt-projects-item-title">{p.title}</span>
                     <span className="yt-projects-item-meta">
                       {p.mode === "auto" ? "📺" : "📋"} {p.tracks.length} track{p.tracks.length !== 1 ? "s" : ""}
                       {" · "}{new Date(p.updatedAt).toLocaleDateString()}
                     </span>
                   </div>
-                  <button
-                    className="yt-projects-item-del"
+                  <button className="yt-projects-item-del"
                     onClick={e => { e.stopPropagation(); onDeleteProject(p.id); }}
-                    title="Delete project"
-                  >✕</button>
+                    title="Delete project">✕</button>
                 </div>
               ))
             )}
@@ -102,7 +97,7 @@ export default function ProjectsMenu({
         )}
       </div>
 
-      {/* ── center: YouTube URL lookup ── */}
+      {/* ── YouTube URL lookup ── */}
       <div className="yt-menu-url-wrap">
         <div className="yt-menu-url-row">
           <input
@@ -113,31 +108,36 @@ export default function ProjectsMenu({
             onKeyDown={e => { if (e.key === "Enter") handleSubmit(); }}
             placeholder="YouTube URL or video ID…"
           />
-          <button
-            className="yt-menu-url-btn"
-            onClick={handleSubmit}
-            disabled={!hasInput || videoLookupLoading}
-            title="Look up video"
-          >
+          <button className="yt-menu-url-btn" onClick={handleSubmit}
+            disabled={!hasInput || videoLookupLoading} title="Look up video">
             {videoLookupLoading ? "…" : "▶"}
           </button>
         </div>
-
         {videoLookupLoading && (
           <div className="yt-menu-url-status loading">Looking up video…</div>
         )}
         {!videoLookupLoading && videoLookupTitle && (
-          <div className="yt-menu-url-status ok">
-            📺 {videoLookupTitle}
-            {videoId && <span className="yt-menu-url-id"> [{videoId}]</span>}
-          </div>
+          <div className="yt-menu-url-status ok">📺 {videoLookupTitle}</div>
         )}
         {!videoLookupLoading && videoLookupError && (
           <div className="yt-menu-url-status err">⚠ {videoLookupError}</div>
         )}
       </div>
 
-      {/* ── current project name ── */}
+      {/* ── Translate-to language ── */}
+      <div className="yt-menu-lang-wrap">
+        <label className="yt-menu-lang-label">Translate to</label>
+        <input
+          className="yt-menu-lang-input"
+          type="text"
+          value={toLang}
+          onChange={e => onToLangChange(e.target.value)}
+          placeholder="en, he, ar…"
+          title="Target language code for translation (e.g. en, he, ar, ru)"
+        />
+      </div>
+
+      {/* ── Current project name (when no lookup active) ── */}
       {current && !videoLookupTitle && (
         <span className="yt-projects-current" title={`Video ID: ${current.videoId}`}>
           {current.title}
@@ -145,7 +145,7 @@ export default function ProjectsMenu({
         </span>
       )}
 
-      {/* ── right: new project button ── */}
+      {/* ── New Project button ── */}
       <button
         className={`yt-projects-new${videoLookupTitle ? " ready" : ""}`}
         onClick={onNewProject}

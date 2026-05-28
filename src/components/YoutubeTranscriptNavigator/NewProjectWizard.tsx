@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { YtProject, YtProjectTrack } from "../../hooks/useYtProjects";
 
 export interface AvailableLang {
@@ -13,11 +13,7 @@ export interface VideoDetails {
   videoId: string;
 }
 
-type Step =
-  | "choose"
-  | "auto-video" | "auto-langs" | "auto-fetch"
-  | "manual-url" | "manual-paste"
-  | "done";
+type Step = "auto-video" | "auto-langs" | "auto-fetch" | "done";
 
 interface FetchStatus {
   lang: string;
@@ -38,7 +34,6 @@ function extractVideoId(input: string): string {
 interface Props {
   onClose: () => void;
   onProjectCreated: (project: YtProject) => void;
-  /** Pre-fetched video data from the top menu lookup */
   prefillVideoId?: string;
   prefillVideoDetails?: VideoDetails | null;
   prefillAvailLangs?: AvailableLang[];
@@ -51,43 +46,25 @@ export default function NewProjectWizard({
   prefillVideoDetails,
   prefillAvailLangs,
 }: Props) {
-  const hasPrefill = !!prefillVideoId;
-
-  // ── Auto flow state ──────────────────────────────────────────────────────────
   const [videoInput, setVideoInput]       = useState(prefillVideoId || "");
   const [videoDetails, setVideoDetails]   = useState<VideoDetails | null>(prefillVideoDetails || null);
   const [availLangs, setAvailLangs]       = useState<AvailableLang[]>(prefillAvailLangs || []);
-  const [selectedLangs, setSelectedLangs] = useState<Set<string>>(() => {
-    if (prefillAvailLangs?.length) return new Set([prefillAvailLangs[0].languageCode]);
-    return new Set();
-  });
+  const [selectedLangs, setSelectedLangs] = useState<Set<string>>(() =>
+    prefillAvailLangs?.length ? new Set([prefillAvailLangs[0].languageCode]) : new Set()
+  );
   const [fetchStatuses, setFetchStatuses] = useState<FetchStatus[]>([]);
-  const [langError, setLangError]         = useState("");
-  const [langLoading, setLangLoading]     = useState(false);
-  const [builtProject, setBuiltProject]   = useState<YtProject | null>(null);
+  const [langError,  setLangError]  = useState("");
+  const [langLoading, setLangLoading] = useState(false);
+  const [builtProject, setBuiltProject] = useState<YtProject | null>(null);
 
-  // ── Manual / Paste flow state ────────────────────────────────────────────────
-  const [manualUrl, setManualUrl]         = useState("");
-  const [manualPaste, setManualPaste]     = useState("");
-  const [manualTitle, setManualTitle]     = useState(prefillVideoDetails?.title || "");
-  const [manualVideoId, setManualVideoId] = useState(prefillVideoId || "");
-  const [manualLang, setManualLang]       = useState(prefillAvailLangs?.[0]?.languageCode?.split("-")[0] || "en");
-  const [manualLoading, setManualLoading] = useState(false);
-  const [manualError, setManualError]     = useState("");
-
-  // Determine opening step: if prefill has langs → choose; if prefill has ID only → choose; else → choose
-  // (Auto will go straight to auto-langs if prefill has langs)
-  const [step, setStep] = useState<Step>("choose");
+  // Skip to lang selection if we already have the language list from the top-menu lookup
+  const [step, setStep] = useState<Step>(
+    prefillAvailLangs?.length ? "auto-langs" : "auto-video"
+  );
 
   const autoVideoId = extractVideoId(videoInput);
 
-  // Keep manualVideoId in sync if prefill changes
-  useEffect(() => {
-    if (prefillVideoId) setManualVideoId(prefillVideoId);
-    if (prefillVideoDetails?.title) setManualTitle(prefillVideoDetails.title);
-  }, [prefillVideoId, prefillVideoDetails]);
-
-  // ── Auto: discover languages (only needed if no prefill langs) ───────────────
+  // ── Discover available languages ────────────────────────────────────────────
   const handleDiscoverLangs = useCallback(async () => {
     const vid = autoVideoId;
     if (!vid) return;
@@ -101,7 +78,7 @@ export default function NewProjectWizard({
       }
       const data = await r.json();
       setVideoDetails({
-        title: data.videoDetails?.title || null,
+        title:  data.videoDetails?.title  || null,
         author: data.videoDetails?.author || null,
         videoId: vid,
       });
@@ -128,13 +105,15 @@ export default function NewProjectWizard({
     });
   };
 
-  // ── Auto: fetch selected transcripts ────────────────────────────────────────
+  // ── Fetch selected transcripts ───────────────────────────────────────────────
   const handleFetchSelected = useCallback(async () => {
     const vid = prefillVideoId || autoVideoId;
     if (!selectedLangs.size || !vid) return;
 
-    const ordered = availLangs.filter(l => selectedLangs.has(l.languageCode));
-    const statuses: FetchStatus[] = ordered.map(l => ({ lang: l.languageCode, label: l.name, state: "waiting" as const }));
+    const ordered  = availLangs.filter(l => selectedLangs.has(l.languageCode));
+    const statuses: FetchStatus[] = ordered.map(l => ({
+      lang: l.languageCode, label: l.name, state: "waiting" as const,
+    }));
     setFetchStatuses(statuses);
     setStep("auto-fetch");
 
@@ -142,7 +121,9 @@ export default function NewProjectWizard({
     for (let i = 0; i < ordered.length; i++) {
       const lang     = ordered[i];
       const langCode = lang.languageCode.split("-")[0];
-      setFetchStatuses(prev => prev.map((s, idx) => idx === i ? { ...s, state: "fetching" as const } : s));
+      setFetchStatuses(prev =>
+        prev.map((s, idx) => idx === i ? { ...s, state: "fetching" as const } : s)
+      );
       try {
         const r = await fetch(`/api/srt?videoId=${encodeURIComponent(vid)}&lang=${langCode}`);
         if (!r.ok) {
@@ -152,21 +133,25 @@ export default function NewProjectWizard({
         const srtContent = await r.text();
         const lineCount  = (srtContent.match(/\n{2,}/g) || []).length + 1;
         tracks.push({ lang: lang.languageCode, langLabel: lang.name, isAutoGenerated: lang.isAutoGenerated, srtContent });
-        setFetchStatuses(prev => prev.map((s, idx) => idx === i ? { ...s, state: "done" as const, lines: lineCount } : s));
+        setFetchStatuses(prev =>
+          prev.map((s, idx) => idx === i ? { ...s, state: "done" as const, lines: lineCount } : s)
+        );
       } catch (e: any) {
-        setFetchStatuses(prev => prev.map((s, idx) => idx === i ? { ...s, state: "error" as const, error: e.message } : s));
+        setFetchStatuses(prev =>
+          prev.map((s, idx) => idx === i ? { ...s, state: "error" as const, error: e.message } : s)
+        );
       }
     }
 
     const usedDetails = videoDetails || prefillVideoDetails;
     const project: YtProject = {
-      id: vid,
-      videoId: vid,
-      title: usedDetails?.title || vid,
-      author: usedDetails?.author || undefined,
+      id:        vid,
+      videoId:   vid,
+      title:     usedDetails?.title  || vid,
+      author:    usedDetails?.author || undefined,
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      mode: "auto",
+      mode:      "auto",
       tracks,
       playOrder: ["video", ...tracks.map(t => `track:${t.lang}`)],
       lastPlayedLine: 0,
@@ -175,90 +160,17 @@ export default function NewProjectWizard({
     setStep("done");
   }, [availLangs, selectedLangs, autoVideoId, prefillVideoId, videoDetails, prefillVideoDetails]);
 
-  // ── Manual URL: load SRT from URL ────────────────────────────────────────────
-  const handleManualUrlLoad = useCallback(async () => {
-    if (!manualUrl.trim()) return;
-    setManualError("");
-    setManualLoading(true);
-    try {
-      const r = await fetch(manualUrl.trim());
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const srtContent = await r.text();
-      const lang       = manualLang.trim() || "en";
-      const vid        = manualVideoId.trim() ? extractVideoId(manualVideoId) : "";
-      const lineCount  = (srtContent.match(/\n{2,}/g) || []).length + 1;
-      const project: YtProject = {
-        id: `manual_${Date.now()}`,
-        videoId: vid,
-        title: manualTitle.trim() || manualUrl.split("/").pop() || "Untitled",
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        mode: "manual",
-        tracks: [{ lang, langLabel: lang, isAutoGenerated: false, srtContent }],
-        playOrder: vid ? ["video"] : [],
-        lastPlayedLine: 0,
-      };
-      setFetchStatuses([{ lang, label: "Loaded from URL", state: "done", lines: lineCount }]);
-      setBuiltProject(project);
-      setStep("done");
-    } catch (e: any) {
-      setManualError(e.message);
-    } finally {
-      setManualLoading(false);
-    }
-  }, [manualUrl, manualLang, manualVideoId, manualTitle]);
+  const usedDetails = videoDetails || prefillVideoDetails;
 
-  // ── Manual Paste: create project from pasted SRT ─────────────────────────────
-  const handleManualParse = useCallback(() => {
-    if (!manualPaste.trim()) { setManualError("Paste some SRT content first"); return; }
-    const lang      = manualLang.trim() || "en";
-    const vid       = manualVideoId.trim() ? extractVideoId(manualVideoId) : "";
-    const lineCount = (manualPaste.match(/\n{2,}/g) || []).length + 1;
-    const project: YtProject = {
-      id: `paste_${Date.now()}`,
-      videoId: vid,
-      title: manualTitle.trim() || "Pasted SRT",
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      mode: "manual",
-      tracks: [{ lang, langLabel: lang, isAutoGenerated: false, srtContent: manualPaste }],
-      playOrder: vid ? ["video"] : [],
-      lastPlayedLine: 0,
-    };
-    setFetchStatuses([{ lang, label: "Parsed from paste", state: "done", lines: lineCount }]);
-    setBuiltProject(project);
-    setStep("done");
-  }, [manualPaste, manualLang, manualVideoId, manualTitle]);
-
-  const handleOpenProject = () => { if (builtProject) onProjectCreated(builtProject); };
-
-  // ── Shared meta fields for manual flows ─────────────────────────────────────
-  const metaFields = (
-    <div className="yt-wizard-manual-meta">
-      <div className="yt-wizard-row" style={{ gap: 8 }}>
-        <input className="yt-url-input" type="text" value={manualLang}
-          onChange={e => setManualLang(e.target.value)}
-          placeholder="Lang code (e.g. en, he, ar)"
-          style={{ maxWidth: 180 }} />
-        <input className="yt-url-input" type="text" value={manualVideoId}
-          onChange={e => setManualVideoId(e.target.value)}
-          placeholder="YouTube URL / ID (optional)"
-          style={{ flex: 1 }} />
-      </div>
-      <input className="yt-url-input" type="text" value={manualTitle}
-        onChange={e => setManualTitle(e.target.value)}
-        placeholder="Project title (optional)"
-        style={{ width: "100%", marginTop: 6 }} />
-    </div>
-  );
-
-  // ── Shared fetch-status list ─────────────────────────────────────────────────
+  // ── Shared status list ───────────────────────────────────────────────────────
   const statusList = (
     <div className="yt-wizard-fetch-list">
       {fetchStatuses.map((s, i) => (
         <div key={i} className={`yt-wizard-fetch-item yt-wizard-fetch-${s.state}`}>
           <span className="yt-wizard-fetch-icon">
-            {s.state === "waiting" ? "○" : s.state === "fetching" ? "⏳" : s.state === "done" ? "✓" : "✕"}
+            {s.state === "waiting" ? "○"
+             : s.state === "fetching" ? "⏳"
+             : s.state === "done"    ? "✓" : "✕"}
           </span>
           <span className="yt-wizard-fetch-label">{s.label} [{s.lang}]</span>
           {s.state === "done"  && <span className="yt-wizard-fetch-meta">{s.lines} lines</span>}
@@ -268,8 +180,6 @@ export default function NewProjectWizard({
     </div>
   );
 
-  const usedDetails = videoDetails || prefillVideoDetails;
-
   return (
     <div className="yt-wizard-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="yt-wizard-modal">
@@ -278,47 +188,18 @@ export default function NewProjectWizard({
           <button className="yt-wizard-close" onClick={onClose}>✕</button>
         </div>
 
-        {/* ── Video info banner (shown when prefill or after discover) ── */}
+        {/* Video info banner */}
         {usedDetails?.title && (
           <div className="yt-wizard-video-banner">
             <span className="yt-wizard-video-icon">📺</span>
             <span className="yt-wizard-video-title">{usedDetails.title}</span>
-            {usedDetails.author && <span className="yt-wizard-video-author">by {usedDetails.author}</span>}
+            {usedDetails.author && (
+              <span className="yt-wizard-video-author">by {usedDetails.author}</span>
+            )}
           </div>
         )}
 
-        {/* ── choose mode ── */}
-        {step === "choose" && (
-          <div className="yt-wizard-body">
-            <p className="yt-wizard-hint">How do you want to load your transcript?</p>
-            <div className="yt-wizard-mode-row">
-              <button className="yt-wizard-mode-btn" onClick={() => {
-                if (hasPrefill && prefillAvailLangs?.length) setStep("auto-langs");
-                else setStep("auto-video");
-              }}>
-                <span className="yt-wizard-mode-icon">📺</span>
-                <strong>Auto</strong>
-                <small>
-                  {hasPrefill && prefillAvailLangs?.length
-                    ? `${prefillAvailLangs.length} language${prefillAvailLangs.length !== 1 ? "s" : ""} available — pick which to fetch`
-                    : "Fetch from YouTube — discover available languages and select which to download"}
-                </small>
-              </button>
-              <button className="yt-wizard-mode-btn" onClick={() => setStep("manual-url")}>
-                <span className="yt-wizard-mode-icon">🔗</span>
-                <strong>URL</strong>
-                <small>Load an SRT file from any URL.</small>
-              </button>
-              <button className="yt-wizard-mode-btn" onClick={() => setStep("manual-paste")}>
-                <span className="yt-wizard-mode-icon">📋</span>
-                <strong>Paste</strong>
-                <small>Paste SRT text directly.</small>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ── auto: enter video ID (only if no prefill) ── */}
+        {/* ── Step: enter video URL ── */}
         {step === "auto-video" && (
           <div className="yt-wizard-body">
             <label className="yt-wizard-label">YouTube URL or video ID</label>
@@ -326,7 +207,7 @@ export default function NewProjectWizard({
               <input className="yt-url-input" type="text" value={videoInput}
                 onChange={e => setVideoInput(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter") handleDiscoverLangs(); }}
-                placeholder="https://www.youtube.com/watch?v=... or video ID"
+                placeholder="https://www.youtube.com/watch?v=… or video ID"
                 autoFocus />
               <button className="yt-load-btn" onClick={handleDiscoverLangs}
                 disabled={!autoVideoId || langLoading}>
@@ -337,13 +218,10 @@ export default function NewProjectWizard({
               <p className="yt-video-id-hint">ID: {autoVideoId}</p>
             )}
             {langError && <div className="yt-error" style={{ marginTop: 8 }}>⚠ {langError}</div>}
-            <div className="yt-wizard-back-row">
-              <button className="yt-wizard-back" onClick={() => setStep("choose")}>← Back</button>
-            </div>
           </div>
         )}
 
-        {/* ── auto: language selection ── */}
+        {/* ── Step: language selection ── */}
         {step === "auto-langs" && (
           <div className="yt-wizard-body">
             <p className="yt-wizard-hint">
@@ -362,8 +240,9 @@ export default function NewProjectWizard({
               ))}
             </div>
             <div className="yt-wizard-footer">
-              <button className="yt-wizard-back"
-                onClick={() => setStep(hasPrefill ? "choose" : "auto-video")}>← Back</button>
+              {!prefillAvailLangs?.length && (
+                <button className="yt-wizard-back" onClick={() => setStep("auto-video")}>← Back</button>
+              )}
               <button className="yt-load-btn" onClick={handleFetchSelected}
                 disabled={selectedLangs.size === 0}>
                 Fetch {selectedLangs.size} transcript{selectedLangs.size !== 1 ? "s" : ""}
@@ -372,7 +251,7 @@ export default function NewProjectWizard({
           </div>
         )}
 
-        {/* ── auto: fetching progress ── */}
+        {/* ── Step: fetching progress ── */}
         {step === "auto-fetch" && (
           <div className="yt-wizard-body">
             <p className="yt-wizard-hint">Fetching transcripts…</p>
@@ -380,58 +259,18 @@ export default function NewProjectWizard({
           </div>
         )}
 
-        {/* ── manual: load from URL ── */}
-        {step === "manual-url" && (
-          <div className="yt-wizard-body">
-            <label className="yt-wizard-label">SRT file URL</label>
-            <div className="yt-wizard-row">
-              <input className="yt-url-input" type="text" value={manualUrl}
-                onChange={e => setManualUrl(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter") handleManualUrlLoad(); }}
-                placeholder="https://example.com/subtitles.srt"
-                autoFocus />
-              <button className="yt-load-btn" onClick={handleManualUrlLoad}
-                disabled={!manualUrl.trim() || manualLoading}>
-                {manualLoading ? "Loading…" : "Load"}
-              </button>
-            </div>
-            {metaFields}
-            {manualError && <div className="yt-error" style={{ marginTop: 8 }}>⚠ {manualError}</div>}
-            <div className="yt-wizard-back-row">
-              <button className="yt-wizard-back" onClick={() => setStep("choose")}>← Back</button>
-            </div>
-          </div>
-        )}
-
-        {/* ── manual: paste SRT ── */}
-        {step === "manual-paste" && (
-          <div className="yt-wizard-body">
-            <label className="yt-wizard-label">Paste SRT content</label>
-            <textarea className="yt-paste-textarea" value={manualPaste}
-              onChange={e => setManualPaste(e.target.value)}
-              placeholder={"1\n00:00:01,000 --> 00:00:04,000\nHello world\n\n2\n00:00:04,500 --> 00:00:07,000\nAnother line"}
-              rows={8} autoFocus />
-            {metaFields}
-            {manualError && <div className="yt-error" style={{ marginTop: 6 }}>⚠ {manualError}</div>}
-            <div className="yt-wizard-footer">
-              <button className="yt-wizard-back" onClick={() => setStep("choose")}>← Back</button>
-              <button className="yt-load-btn" onClick={handleManualParse} disabled={!manualPaste.trim()}>
-                Parse &amp; Create Project
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* ── done ── */}
+        {/* ── Step: done ── */}
         {step === "done" && (
           <div className="yt-wizard-body">
             <p className="yt-wizard-hint">
-              ✓ Project ready — {fetchStatuses.filter(s => s.state === "done").length} transcript{fetchStatuses.filter(s => s.state === "done").length !== 1 ? "s" : ""} loaded.
+              ✓ {fetchStatuses.filter(s => s.state === "done").length} transcript
+              {fetchStatuses.filter(s => s.state === "done").length !== 1 ? "s" : ""} ready.
             </p>
             {statusList}
             <div className="yt-wizard-footer">
               <button className="yt-wizard-back" onClick={onClose}>Close</button>
-              <button className="yt-load-btn" onClick={handleOpenProject} disabled={!builtProject}>
+              <button className="yt-load-btn" onClick={() => { if (builtProject) onProjectCreated(builtProject); }}
+                disabled={!builtProject}>
                 Open Project →
               </button>
             </div>
