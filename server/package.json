@@ -10,6 +10,8 @@
   "dependencies": {
     "cors": "^2.8.6",
     "express": "^4.22.2",
+    "swagger-jsdoc": "^6.3.0",
+    "swagger-ui-express": "^5.0.1",
     "youtube-transcript-api-js": "^3.0.3",
     "youtube-transcript-plus": "^2.0.0"
   }
