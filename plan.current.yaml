@@ -1,0 +1,182 @@
+version: "1.0"
+project: "YouTube Transcript & Translation Workspace"
+route: "/youtube"
+status: "implemented"
+component: "src/components/YoutubeTranscriptNavigator/YoutubeTranscriptParser.tsx"
+
+# ── data ingestion ─────────────────────────────────────────────────────────────
+ingestion:
+  tabs:
+    url:
+      label: "🔗 URL"
+      description: "Fetch SRT or timestamped-text file from any public URL."
+      formats_supported:
+        - "Standard SRT (HH:MM:SS,ms --> HH:MM:SS,ms blocks)"
+        - "Timestamped-text (alternating timestamp / text lines)"
+      auto_detects_format: true
+
+    paste:
+      label: "📋 Paste SRT"
+      description: "Paste raw SRT content directly into a textarea."
+      formats_supported:
+        - "Standard SRT"
+        - "Timestamped-text"
+
+    youtube:
+      label: "📺 YouTube"
+      description: "Fetch a transcript directly from YouTube via the server-side proxy."
+      requires: "video ID or URL set in the meta row"
+      language_selection: "single — fixed dropdown (LANG_OPTIONS, 9 languages)"
+      languages_discovered: false   # no language listing; user picks blindly
+      auto_generated_tagging: false
+      multi_select: false
+      fetch_flow: "single request to /api/srt?videoId=&lang="
+      server_endpoint: "GET /api/srt"
+      server_impl:
+        primary: "youtube-transcript-plus (fetchTranscript)"
+        fallback: "YouTube timedtext API (player page scrape + /api/timedtext)"
+        retry_on_429: true
+        cache: "filesystem /tmp/youtube-transcript-cache, TTL 24 h"
+
+    jobs:
+      label: "📂 Jobs"
+      description: "Save and reload workspace configurations."
+      persistence: "localStorage (useYtHistory hook)"
+      saved_fields: ["title", "srtUrl", "fromLang", "toLang", "videoUrl"]
+      operations: ["save", "load", "delete", "rename (inline edit)"]
+
+# ── extra SRT columns ──────────────────────────────────────────────────────────
+extra_columns:
+  description: "Add unlimited additional parallel SRT tracks as table columns."
+  seeding_methods:
+    - "URL fetch"
+    - "Paste"
+  per_column_state:
+    - "id (timestamp-based)"
+    - "label (user-set or language name)"
+    - "lang (from LANG_OPTIONS)"
+    - "texts[] (parallel-indexed to primary lines)"
+    - "visible (show/hide column in table)"
+    - "playEnabled (include in TTS playback loop)"
+  column_header: "user label + [lang code] + line count"
+  non_destructive: true   # adding never modifies existing columns
+  remove: true            # each badge has a remove (✕) button
+
+# ── translation ────────────────────────────────────────────────────────────────
+translation:
+  strategy: "Automatic, lazy — fires when the visible page changes"
+  trigger: "page navigation (useEffect on currentPage / linesPerPage / lines.length)"
+  scope: "current visible page only (not the full dataset upfront)"
+  source: "primary source column text"
+  target: "single fixed target language (toLang from meta row)"
+  api: "Google Translate public API (client-side, via translate() util)"
+  server_side: false
+  column_produced: "built-in 'Translation' column (fixed, not dynamic)"
+  naming_convention: null   # header shows toLang label only; no "translated from X to Y" tag
+  idempotent: true          # already-translated lines are skipped
+  on_demand: false          # NOTE: auto-fires; user cannot defer it
+
+# ── playback engine ────────────────────────────────────────────────────────────
+playback:
+  mode: "line-by-line sequential"
+  trigger: "click any table row"
+  per_line_sequence:
+    steps: ["source TTS", "translation TTS", "video segment", "extra SRT column TTS (×N)"]
+    order: "user-reorderable via ▲▼ buttons in the order strip"
+    each_step_toggleable: true   # checkboxes in sticky header
+
+  tts:
+    engine_primary: "Web Speech API (browser SpeechSynthesis)"
+    engine_fallback: "server-side Google TTS proxy (/api/tts) when no browser voice matches"
+    gtts_usage_counter: true     # badge in header showing call count + char count
+    per_word_highlight: true     # SpeechSynthesisEvent boundary → <mark> on active word
+    speed_controls:
+      source: "slider 0.5× – 2.0×"
+      translation: "slider 0.5× – 2.0×"
+    chrome_resume_workaround: true  # setInterval every 5 s to resume paused synthesis
+
+  video:
+    player: "YouTubePlayer component (youtube-nocookie.com/embed iframe)"
+    timing: "start=timestamp, end=next_line_timestamp"
+    autoplay: true
+    thumbnail_mode: true   # static mqdefault.jpg with timestamp overlay (toggleable)
+    responsive: true       # ResizeObserver maintains 16:9 ratio
+
+  stop_button: "visible in header while playing"
+
+# ── table / ui layout ──────────────────────────────────────────────────────────
+ui_layout:
+  structure:
+    - "Sticky header — title, playback column toggles, TTS speed sliders, action buttons"
+    - "Playback order strip — reorderable step chips"
+    - "Input card — tabs (URL / Paste / YouTube / Jobs) + meta row + extra SRT section"
+    - "Multi-column table — timestamp + source + translation + extra cols + optional video"
+    - "Sticky pagination bar"
+    - "Fixed event log panel (bottom-right, toggleable)"
+
+  table:
+    columns_fixed: ["#", "Time", "Source (fromLang)", "Translation (toLang)"]
+    columns_dynamic: "one per extra SRT added"
+    columns_optional: ["🎬 Video (when video playback enabled)"]
+    column_headers_show: "language label + 🔊 badge if playback-enabled"
+    hide_column_button: true   # ✕ button in extra-col th
+    rtl_support: true          # Hebrew, Arabic cells flip direction automatically
+    row_states: ["default", "hover", "selected (clicked)", "playing (blue left border)"]
+    speaking_highlight: "animated gradient cell + per-word <mark>"]
+    max_lines_per_page: 50
+    default_lines_per_page: 10
+
+  url_state_sync: true   # srtUrl, fromLang, toLang, videoUrl reflected in query params
+
+  event_log:
+    position: "fixed bottom-right"
+    size: "420 × 260 px"
+    capacity: 200 entries
+    entry_types: ["info", "warn", "error"]
+    toggleable: true
+    clearable: true
+
+# ── parsing ────────────────────────────────────────────────────────────────────
+parsing:
+  formats:
+    srt:
+      pattern: "HH:MM:SS,ms --> HH:MM:SS,ms"
+      normalises_comma_to_dot: true
+      multi_line_text: "joined with space"
+    timestamped_txt:
+      pattern: "alternating timestamp line / text line"
+  auto_detect: true
+  used_by: ["primary URL load", "primary paste", "extra SRT URL", "extra SRT paste"]
+
+# ── language options ───────────────────────────────────────────────────────────
+languages:
+  supported:
+    - { code: "en-US", label: "English" }
+    - { code: "he-IL", label: "Hebrew" }
+    - { code: "ar-EG", label: "Arabic" }
+    - { code: "ru-RU", label: "Russian" }
+    - { code: "fr-FR", label: "French" }
+    - { code: "es-ES", label: "Spanish" }
+    - { code: "de-DE", label: "German" }
+    - { code: "zh-CN", label: "Chinese" }
+    - { code: "ja-JP", label: "Japanese" }
+
+# ── server dependencies ────────────────────────────────────────────────────────
+server:
+  active_endpoints:
+    - "GET /api/srt           — YouTube transcript → SRT text (single lang)"
+    - "GET /api/tts           — Google TTS audio proxy (lang + text params)"
+    - "GET /api/config        — server key health-check"
+
+  service_files_not_wired:
+    - path: "server/services/srt_fetch.js"
+      has: ["GET /transcript/languages", "GET /transcript (json|srt|vtt)"]
+      note: "standalone Express app on its own port — not mounted in server/index.js"
+    - path: "server/services/srt_fetch1.js"
+      note: "prototype using youtube-transcript-api-js, not imported anywhere"
+    - path: "server/services/srt_fetch2.js"
+      note: "prototype using youtube-transcript-plus directly, not imported anywhere"
+
+  packages:
+    - "youtube-transcript-plus@2.0.0"
+    - "youtube-transcript-api-js@3.0.3"

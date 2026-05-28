@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "fKeXKmeljoXOIChqgjd3K"
+uri = "file://plan.current.yaml"
+type = "unspecified"
+title = "plan.current.yaml — /youtube current state"
