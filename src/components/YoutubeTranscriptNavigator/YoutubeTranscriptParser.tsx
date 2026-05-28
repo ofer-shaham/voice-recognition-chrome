@@ -1,7 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { translate } from "../../utils/translate";
-import { bookExample } from "../../consts/config";
 import isRtl from "../../utils/isRtl";
 import '../../styles/YoutubeTranscriptParser.css';
 import YouTubePlayer from "./YoutubePlayer";
@@ -141,11 +140,11 @@ function YoutubeTranscriptParser() {
 
   // ── input / config state ──────────────────────────────────────────────────
   const [inputTab, setInputTab] = useState<"url" | "paste" | "youtube" | "jobs">("url");
-  const [srtUrl,   setSrtUrl]   = useState(urlParam   || bookExample.url);
+  const [srtUrl,   setSrtUrl]   = useState(urlParam   || "");
   const [pasteText, setPasteText] = useState("");
-  const [fromLang, setFromLang] = useState(fromLangParam || bookExample.fromLang);
-  const [toLang,   setToLang]   = useState(toLangParam   || bookExample.toLang);
-  const [videoUrl, setVideoUrl] = useState(videoUrlParam || bookExample.videoUrl);
+  const [fromLang, setFromLang] = useState(fromLangParam || "en-US");
+  const [toLang,   setToLang]   = useState(toLangParam   || "he-IL");
+  const [videoUrl, setVideoUrl] = useState(videoUrlParam || "");
   const videoId = extractVideoId(videoUrl);
 
   const [lines,     setLines]     = useState<TranscriptLine[]>([]);
@@ -450,6 +449,15 @@ function YoutubeTranscriptParser() {
 
   const toggleExtraColProp = (id: string, prop: "visible" | "playEnabled") =>
     setExtraCols(prev => prev.map(c => c.id === id ? { ...c, [prop]: !c[prop] } : c));
+
+  // ── reset translations when target language changes ───────────────────────
+  useEffect(() => {
+    setLines(prev => {
+      if (!prev.length) return prev;
+      return prev.map(l => ({ ...l, toLang, translated: false, translation: "" }));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toLang]);
 
   // ── translate visible lines lazily ────────────────────────────────────────
   useEffect(() => {
@@ -788,10 +796,15 @@ function YoutubeTranscriptParser() {
             {videoId ? (
               <div className="yt-yt-fetch-row">
                 <span className="yt-yt-id-pill">📺 {videoId}</span>
-                <select className="yt-select" value={ytFetchLang}
-                  onChange={(e) => setYtFetchLang(e.target.value)}>
-                  {LANG_OPTIONS.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
-                </select>
+                <input
+                  className="yt-select"
+                  type="text"
+                  value={ytFetchLang}
+                  onChange={(e) => setYtFetchLang(e.target.value)}
+                  placeholder="en"
+                  style={{ maxWidth: 80 }}
+                  title="Language code (e.g. en, he, ar)"
+                />
                 <button className="yt-load-btn" onClick={handleYtFetch} disabled={ytFetchLoading}>
                   {ytFetchLoading ? "Fetching…" : "Fetch Transcript"}
                 </button>
@@ -847,12 +860,6 @@ function YoutubeTranscriptParser() {
         )}
 
         <div className="yt-meta-row">
-          <div className="yt-field-group">
-            <label className="yt-field-label">Source lang</label>
-            <select className="yt-select" value={fromLang} onChange={(e) => setFromLang(e.target.value)}>
-              {LANG_OPTIONS.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
-            </select>
-          </div>
           <div className="yt-field-group">
             <label className="yt-field-label">Translate to</label>
             <select className="yt-select" value={toLang} onChange={(e) => setToLang(e.target.value)}>
@@ -1088,7 +1095,6 @@ function YoutubeTranscriptParser() {
             setShowWizard(false);
             loadProject(project);
           }}
-          onManual={() => setShowWizard(false)}
         />
       )}
 
