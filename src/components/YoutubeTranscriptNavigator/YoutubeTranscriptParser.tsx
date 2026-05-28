@@ -10,6 +10,9 @@ import { freeSpeak } from "../../utils/freeSpeak";
 import { populateAvailableVoices } from "../../utils/getVoice";
 import { useAvailableVoices } from "../../hooks/useAvailableVoices";
 import { useYtHistory } from "../../hooks/useYtHistory";
+import { useYtProjects, YtProject } from "../../hooks/useYtProjects";
+import ProjectsMenu from "./ProjectsMenu";
+import NewProjectWizard from "./NewProjectWizard";
 
 const MAX_LINES = 50;
 
@@ -193,6 +196,12 @@ function YoutubeTranscriptParser() {
   const [editingId,      setEditingId]      = useState<string | null>(null);
   const [editingTitle,   setEditingTitle]   = useState("");
 
+  // Projects system
+  const { projects, saveProject, deleteProject, setLastProjectId } = useYtProjects();
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+  const [showWizard,       setShowWizard]        = useState(false);
+  const currentProjectRef = useRef<YtProject | null>(null);
+
   // ── pagination / selection ────────────────────────────────────────────────
   const [selectedLine, setSelectedLine] = useState<number | null>(null);
   const [currentPage,  setCurrentPage]  = useState(1);
@@ -325,6 +334,82 @@ function YoutubeTranscriptParser() {
     setLines([]); setLoadError("");
     logEvent(`📂 Loaded job: "${job.title}"`);
   }, []);
+
+  // ── project load ──────────────────────────────────────────────────────────
+  const loadProject = useCallback((project: YtProject) => {
+    if (!project.tracks.length) return;
+
+    const primary = project.tracks[0];
+    const parsed  = parseContent(primary.srtContent);
+    setLines(parsed.map(p => ({
+      text: p.text, translation: "", fromLang: primary.lang, toLang,
+      translated: false, timestamp: p.timestamp,
+    })));
+    setCurrentPage(1);
+    setFromLang(primary.lang);
+
+    const extras: ExtraSrtCol[] = project.tracks.slice(1).map(track => ({
+      id:          `track:${track.lang}`,
+      label:       track.langLabel,
+      lang:        track.lang,
+      texts:       parseContent(track.srtContent).map(p => p.text),
+      visible:     true,
+      playEnabled: true,
+    }));
+    setExtraCols(extras);
+
+    const restored = project.playOrder.length
+      ? project.playOrder
+      : ["video", ...extras.map(e => e.id)];
+    setPlayOrder(restored);
+
+    if (project.videoId) {
+      setVideoUrl(`https://www.youtube.com/watch?v=${project.videoId}`);
+    }
+
+    if (project.lastPlayedLine > 0) {
+      setCurrentPage(Math.floor(project.lastPlayedLine / linesPerPage) + 1);
+    }
+
+    currentProjectRef.current = project;
+    setCurrentProjectId(project.id);
+    setLastProjectId(project.id);
+    setInputTab("youtube");
+    setLines([]); // reset first so translation effect re-fires on page 1
+    setLines(parsed.map(p => ({
+      text: p.text, translation: "", fromLang: primary.lang, toLang,
+      translated: false, timestamp: p.timestamp,
+    })));
+    logEvent(`📂 Project loaded: "${project.title}" — ${project.tracks.length} track(s)`);
+  }, [toLang, linesPerPage, logEvent, setLastProjectId]);
+
+  // Keep currentProjectRef in sync when projects list changes (e.g. after save)
+  useEffect(() => {
+    if (!currentProjectId) { currentProjectRef.current = null; return; }
+    const p = projects.find(pr => pr.id === currentProjectId) ?? null;
+    if (p) currentProjectRef.current = p;
+  }, [currentProjectId, projects]);
+
+  // Auto-save playOrder back to the current project
+  useEffect(() => {
+    const proj = currentProjectRef.current;
+    if (!proj) return;
+    const updated = { ...proj, playOrder, updatedAt: Date.now() };
+    currentProjectRef.current = updated;
+    saveProject(updated);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playOrder]);
+
+  // Auto-save last played line back to the current project
+  useEffect(() => {
+    if (playingIndex === null) return;
+    const proj = currentProjectRef.current;
+    if (!proj) return;
+    const updated = { ...proj, lastPlayedLine: playingIndex, updatedAt: Date.now() };
+    currentProjectRef.current = updated;
+    saveProject(updated);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [playingIndex]);
 
   // ── extra SRT columns ─────────────────────────────────────────────────────
   const handleAddExtraSrt = useCallback(async () => {
@@ -582,6 +667,21 @@ function YoutubeTranscriptParser() {
   // ── render ────────────────────────────────────────────────────────────────
   return (
     <div className="yt-page">
+
+      {/* ── projects bar ── */}
+      <ProjectsMenu
+        projects={projects}
+        currentProjectId={currentProjectId}
+        onSelectProject={(p) => loadProject(p)}
+        onNewProject={() => setShowWizard(true)}
+        onDeleteProject={(id) => {
+          deleteProject(id);
+          if (currentProjectId === id) {
+            setCurrentProjectId(null);
+            currentProjectRef.current = null;
+          }
+        }}
+      />
 
       {/* ── sticky header ── */}
       <div className="yt-header">
@@ -977,6 +1077,19 @@ function YoutubeTranscriptParser() {
           <div className="yt-empty-icon">⏳</div>
           <p>Loading…</p>
         </div>
+      )}
+
+      {/* ── new project wizard overlay ── */}
+      {showWizard && (
+        <NewProjectWizard
+          onClose={() => setShowWizard(false)}
+          onProjectCreated={(project) => {
+            saveProject(project);
+            setShowWizard(false);
+            loadProject(project);
+          }}
+          onManual={() => setShowWizard(false)}
+        />
       )}
 
       {/* ── event log panel ── */}
