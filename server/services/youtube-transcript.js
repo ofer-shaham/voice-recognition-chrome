@@ -45,26 +45,44 @@ async function fetchTimedText(url, { retries = 3, delayMs = 6000 } = {}) {
 
 async function ytPlayerData(videoId) {
   const watchPage = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
-    headers: { "User-Agent": "Mozilla/5.0", "Accept-Language": "en-US,en;q=0.9" },
+    headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36", "Accept-Language": "en-US,en;q=0.9" },
   });
   if (!watchPage.ok) throw new Error(`Watch page HTTP ${watchPage.status}`);
   const html = await watchPage.text();
   const keyMatch = html.match(/"INNERTUBE_API_KEY":"([^"]+)"/) ||
                    html.match(/INNERTUBE_API_KEY\\":\\"([^\\"]+)\\"/);
   if (!keyMatch) throw new Error("Could not extract Innertube API key");
-  const playerRes = await fetch(
-    `https://www.youtube.com/youtubei/v1/player?key=${keyMatch[1]}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "User-Agent": "Mozilla/5.0" },
-      body: JSON.stringify({
-        context: { client: { clientName: "ANDROID", clientVersion: "20.10.38" } },
-        videoId,
-      }),
+  // Try WEB client first — it returns captions & videoDetails reliably
+  const clients = [
+    { clientName: "WEB", clientVersion: "2.20231210.01.00", hl: "en", gl: "US" },
+    { clientName: "ANDROID", clientVersion: "20.10.38" },
+  ];
+  let lastError = null;
+  for (const client of clients) {
+    try {
+      const playerRes = await fetch(
+        `https://www.youtube.com/youtubei/v1/player?key=${keyMatch[1]}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+          },
+          body: JSON.stringify({ context: { client }, videoId }),
+        }
+      );
+      if (!playerRes.ok) throw new Error(`Player API HTTP ${playerRes.status}`);
+      const data = await playerRes.json();
+      // If this client returned captions or videoDetails, use it
+      const hasCaptions = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks?.length > 0;
+      const hasTitle    = data?.videoDetails?.title;
+      if (hasCaptions || hasTitle) return data;
+      lastError = new Error(`Client ${client.clientName} returned no usable data`);
+    } catch (e) {
+      lastError = e;
     }
-  );
-  if (!playerRes.ok) throw new Error(`Player API HTTP ${playerRes.status}`);
-  return playerRes.json();
+  }
+  throw lastError || new Error("All player clients failed");
 }
 
 async function ytCaptionBaseUrl(videoId) {

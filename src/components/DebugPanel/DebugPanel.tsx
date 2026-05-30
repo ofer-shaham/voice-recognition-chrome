@@ -9,6 +9,14 @@ interface LogEntry {
   detail: string;
 }
 
+interface ServerLogEntry {
+  id: number;
+  ts: string;
+  level: string;
+  msg: string;
+  meta: Record<string, unknown>;
+}
+
 let globalEntries: LogEntry[] = [];
 let listeners: Array<(entries: LogEntry[]) => void> = [];
 let interceptInstalled = false;
@@ -28,18 +36,16 @@ function installInterceptors() {
   if (interceptInstalled) return;
   interceptInstalled = true;
 
-  // ── Fetch interceptor ─────────────────────────────────────────────────────
   const origFetch = window.fetch.bind(window);
   (window as any).fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : (input as Request).url;
     const method = (init?.method || (input instanceof Request ? input.method : 'GET')).toUpperCase();
     const shortUrl = url.replace(window.location.origin, '');
+    if (shortUrl.startsWith('/api/logs')) return origFetch(input, init);
     const t0 = Date.now();
     try {
       const res = await origFetch(input, init);
       const elapsed = Date.now() - t0;
-      const ok = res.ok;
-      const kind = ok ? 'fetch-ok' : 'fetch-err';
       const cloned = res.clone();
       let body = '';
       try {
@@ -52,23 +58,18 @@ function installInterceptors() {
         }
       } catch { body = '(could not read body)'; }
       push({
-        kind,
+        kind: res.ok ? 'fetch-ok' : 'fetch-err',
         label: `${method} ${shortUrl}  →  ${res.status} ${res.statusText}  (${elapsed}ms)`,
         detail: body,
       });
       return res;
     } catch (err: any) {
       const elapsed = Date.now() - t0;
-      push({
-        kind: 'fetch-err',
-        label: `${method} ${shortUrl}  →  NETWORK ERROR  (${elapsed}ms)`,
-        detail: err?.message || String(err),
-      });
+      push({ kind: 'fetch-err', label: `${method} ${shortUrl}  →  NETWORK ERROR  (${elapsed}ms)`, detail: err?.message || String(err) });
       throw err;
     }
   };
 
-  // ── console.error / console.warn ──────────────────────────────────────────
   const origError = console.error.bind(console);
   const origWarn  = console.warn.bind(console);
   console.error = (...args: any[]) => {
@@ -80,7 +81,6 @@ function installInterceptors() {
     origWarn(...args);
   };
 
-  // ── window errors + unhandled promise rejections ──────────────────────────
   window.addEventListener('error', (e) => {
     push({ kind: 'js-error', label: `JS Error: ${e.message}`, detail: `${e.filename}:${e.lineno}:${e.colno}` });
   });
@@ -99,6 +99,34 @@ function useLogEntries() {
   return entries;
 }
 
+function useServerLogs(enabled: boolean) {
+  const [entries, setEntries] = useState<ServerLogEntry[]>([]);
+  const maxIdRef = useRef(0);
+
+  useEffect(() => {
+    if (!enabled) return;
+    let cancelled = false;
+
+    const poll = async () => {
+      try {
+        const res = await window.fetch(`/api/logs?since=${maxIdRef.current}`);
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (data.entries?.length) {
+          setEntries(prev => [...data.entries, ...prev].slice(0, 200));
+          maxIdRef.current = data.maxId;
+        }
+      } catch { /* server may not be up */ }
+      if (!cancelled) timer = setTimeout(poll, 2500);
+    };
+
+    let timer = setTimeout(poll, 0);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [enabled]);
+
+  return entries;
+}
+
 const ICONS: Record<LogEntry['kind'], string> = {
   'fetch-ok':      '✅',
   'fetch-err':     '❌',
@@ -108,31 +136,52 @@ const ICONS: Record<LogEntry['kind'], string> = {
   'console-warn':  '🟡',
 };
 
+const SERVER_LEVEL_ICON: Record<string, string> = {
+  INFO: '🔵', ERROR: '🔴', WARN: '🟡', DEBUG: '⚪',
+};
+
+type Tab = 'client' | 'server';
+
 export default function DebugPanel() {
-  const [open, setOpen]         = useState(false);
-  const [copied, setCopied]     = useState(false);
-  const [filter, setFilter]     = useState<'all' | 'errors'>('all');
-  const entries                 = useLogEntries();
-  const panelRef                = useRef<HTMLDivElement>(null);
+  const [open, setOpen]       = useState(false);
+  const [tab, setTab]         = useState<Tab>('client');
+  const [copied, setCopied]   = useState(false);
+  const [filter, setFilter]   = useState<'all' | 'errors'>('all');
+  const entries               = useLogEntries();
+  const serverEntries         = useServerLogs(open && tab === 'server');
+  const panelRef              = useRef<HTMLDivElement>(null);
 
   useEffect(() => { installInterceptors(); }, []);
 
-  const errorCount = entries.filter(e => e.kind === 'fetch-err' || e.kind === 'js-error' || e.kind === 'unhandled' || e.kind === 'console-error').length;
+  const errorCount = entries.filter(e =>
+    e.kind === 'fetch-err' || e.kind === 'js-error' || e.kind === 'unhandled' || e.kind === 'console-error'
+  ).length;
+
+  const serverErrorCount = serverEntries.filter(e => e.level === 'ERROR').length;
 
   const visible = filter === 'errors'
     ? entries.filter(e => e.kind === 'fetch-err' || e.kind === 'js-error' || e.kind === 'unhandled' || e.kind === 'console-error')
     : entries;
 
+  const visibleServer = filter === 'errors'
+    ? serverEntries.filter(e => e.level === 'ERROR' || e.level === 'WARN')
+    : serverEntries;
+
   const buildText = useCallback(() => {
-    const lines: string[] = [
+    const clientLines = entries.map(e => `[${e.ts}] ${ICONS[e.kind]} ${e.label}\n    ${e.detail}`);
+    const serverLines = serverEntries.map(e => `[${e.ts}] [${e.level}] ${e.msg} ${Object.keys(e.meta).length ? JSON.stringify(e.meta) : ''}`);
+    return [
       `=== Debug Log — ${now()} ===`,
       `URL: ${window.location.href}`,
       `UA:  ${navigator.userAgent}`,
       '',
-      ...entries.map(e => `[${e.ts}] ${ICONS[e.kind]} ${e.label}\n    ${e.detail}`),
-    ];
-    return lines.join('\n');
-  }, [entries]);
+      '--- CLIENT LOGS ---',
+      ...clientLines,
+      '',
+      '--- SERVER LOGS ---',
+      ...serverLines,
+    ].join('\n');
+  }, [entries, serverEntries]);
 
   const copyAll = () => {
     const text = buildText();
@@ -152,19 +201,22 @@ export default function DebugPanel() {
   };
 
   const clearAll = () => {
-    globalEntries = [];
-    listeners.forEach(fn => fn([]));
+    if (tab === 'client') {
+      globalEntries = [];
+      listeners.forEach(fn => fn([]));
+    }
   };
+
+  const totalErrors = errorCount + serverErrorCount;
 
   return (
     <div className="dbg-root" ref={panelRef}>
-      {/* Floating toggle button */}
       <button
-        className={`dbg-fab ${errorCount > 0 ? 'dbg-fab-errors' : ''}`}
+        className={`dbg-fab ${totalErrors > 0 ? 'dbg-fab-errors' : ''}`}
         onClick={() => setOpen(o => !o)}
         title="Debug logs"
       >
-        🐛{errorCount > 0 && <span className="dbg-badge">{errorCount}</span>}
+        🐛{totalErrors > 0 && <span className="dbg-badge">{totalErrors}</span>}
       </button>
 
       {open && (
@@ -173,49 +225,76 @@ export default function DebugPanel() {
             <span className="dbg-panel-title">Debug Logs</span>
             <div className="dbg-panel-actions">
               <button
+                className={`dbg-filter-btn ${tab === 'client' ? 'dbg-filter-active' : ''}`}
+                onClick={() => setTab('client')}
+              >
+                Client ({entries.length})
+              </button>
+              <button
+                className={`dbg-filter-btn ${tab === 'server' ? 'dbg-filter-active' : ''}`}
+                onClick={() => setTab('server')}
+              >
+                Server ({serverEntries.length})
+              </button>
+              <span className="dbg-tab-divider" />
+              <button
                 className={`dbg-filter-btn ${filter === 'all' ? 'dbg-filter-active' : ''}`}
                 onClick={() => setFilter('all')}
-              >
-                All ({entries.length})
-              </button>
+              >All</button>
               <button
                 className={`dbg-filter-btn ${filter === 'errors' ? 'dbg-filter-active' : ''}`}
                 onClick={() => setFilter('errors')}
-              >
-                Errors ({errorCount})
-              </button>
+              >Errors ({totalErrors})</button>
               <button className="dbg-action-btn dbg-copy-btn" onClick={copyAll} title="Copy all logs to clipboard">
                 {copied ? '✔ Copied!' : '📋 Copy All'}
               </button>
-              <button className="dbg-action-btn" onClick={clearAll} title="Clear logs">🗑</button>
+              {tab === 'client' && <button className="dbg-action-btn" onClick={clearAll} title="Clear logs">🗑</button>}
               <button className="dbg-action-btn dbg-close-btn" onClick={() => setOpen(false)}>✕</button>
             </div>
           </div>
 
-          {visible.length === 0 ? (
-            <div className="dbg-empty">
-              {filter === 'errors' ? 'No errors recorded 🎉' : 'No logs yet — try loading a video.'}
-            </div>
-          ) : (
-            <div className="dbg-entries">
-              {visible.map(e => (
-                <div key={e.id} className={`dbg-entry dbg-entry-${e.kind}`}>
-                  <div className="dbg-entry-header">
-                    <span className="dbg-entry-icon">{ICONS[e.kind]}</span>
-                    <span className="dbg-entry-label">{e.label}</span>
-                    <span className="dbg-entry-ts">{e.ts.slice(11)}</span>
+          {tab === 'client' ? (
+            visible.length === 0 ? (
+              <div className="dbg-empty">
+                {filter === 'errors' ? 'No errors recorded 🎉' : 'No logs yet.'}
+              </div>
+            ) : (
+              <div className="dbg-entries">
+                {visible.map(e => (
+                  <div key={e.id} className={`dbg-entry dbg-entry-${e.kind}`}>
+                    <div className="dbg-entry-header">
+                      <span className="dbg-entry-icon">{ICONS[e.kind]}</span>
+                      <span className="dbg-entry-label">{e.label}</span>
+                      <span className="dbg-entry-ts">{e.ts.slice(11)}</span>
+                    </div>
+                    {e.detail && <div className="dbg-entry-detail">{e.detail}</div>}
                   </div>
-                  {e.detail && (
-                    <div className="dbg-entry-detail">{e.detail}</div>
-                  )}
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )
+          ) : (
+            visibleServer.length === 0 ? (
+              <div className="dbg-empty">
+                {filter === 'errors' ? 'No server errors 🎉' : 'No server logs yet — waiting for activity…'}
+              </div>
+            ) : (
+              <div className="dbg-entries">
+                {visibleServer.map(e => (
+                  <div key={e.id} className={`dbg-entry dbg-entry-server-${e.level.toLowerCase()}`}>
+                    <div className="dbg-entry-header">
+                      <span className="dbg-entry-icon">{SERVER_LEVEL_ICON[e.level] ?? '⚪'}</span>
+                      <span className="dbg-entry-label">{e.msg}{Object.keys(e.meta).length > 0 ? ' — ' + JSON.stringify(e.meta) : ''}</span>
+                      <span className="dbg-entry-ts">{e.ts.slice(11, 23)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
           )}
 
           <div className="dbg-panel-footer">
             <span className="dbg-footer-hint">
-              Paste log with <strong>📋 Copy All</strong> and send to developer
+              {tab === 'server' ? <>Server logs poll every 2.5s — <strong>📋 Copy All</strong> includes both tabs</> : <>Paste with <strong>📋 Copy All</strong> to share with developer</>}
             </span>
           </div>
         </div>

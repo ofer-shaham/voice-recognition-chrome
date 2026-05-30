@@ -4,25 +4,16 @@ export const useAvailableVoices = () => {
     const [availableVoices, setAvailableVoices] = useState<SpeechSynthesisVoice[]>([]);
 
     useEffect(() => {
+        if (typeof speechSynthesis === 'undefined') return;
+
         const populateVoiceList = () => {
-            if (typeof speechSynthesis === 'undefined') {
-                return;
-            }
-
             const voices = speechSynthesis.getVoices();
-
-            setAvailableVoices(voices);
+            if (voices.length > 0) setAvailableVoices(voices);
         };
 
-
-        if (
-            typeof speechSynthesis !== 'undefined' &&
-            speechSynthesis.onvoiceschanged !== undefined
-        ) {
-            speechSynthesis.onvoiceschanged = populateVoiceList;
-        }
         populateVoiceList();
-
+        speechSynthesis.addEventListener('voiceschanged', populateVoiceList);
+        return () => speechSynthesis.removeEventListener('voiceschanged', populateVoiceList);
     }, []);
 
     return availableVoices;

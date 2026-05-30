@@ -185,13 +185,28 @@
   overflow: hidden;
 }
 
-/* Kind-specific label colours */
+/* Kind-specific label colours — client */
 .dbg-entry-fetch-ok    .dbg-entry-label { color: #86efac; }
 .dbg-entry-fetch-err   .dbg-entry-label { color: #fca5a5; }
 .dbg-entry-js-error    .dbg-entry-label { color: #fca5a5; }
 .dbg-entry-unhandled   .dbg-entry-label { color: #fde68a; }
 .dbg-entry-console-error .dbg-entry-label { color: #fca5a5; }
 .dbg-entry-console-warn  .dbg-entry-label { color: #fde68a; }
+
+/* Kind-specific label colours — server */
+.dbg-entry-server-info  .dbg-entry-label { color: #93c5fd; }
+.dbg-entry-server-error .dbg-entry-label { color: #fca5a5; }
+.dbg-entry-server-warn  .dbg-entry-label { color: #fde68a; }
+.dbg-entry-server-debug .dbg-entry-label { color: #6b7280; }
+
+/* Tab divider */
+.dbg-tab-divider {
+  width: 1px;
+  height: 1rem;
+  background: #2d3748;
+  margin: 0 0.1rem;
+  flex-shrink: 0;
+}
 
 /* ── Footer ────────────────────────────────────────────────────────────────── */
 .dbg-panel-footer {

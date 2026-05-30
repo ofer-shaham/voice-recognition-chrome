@@ -9,6 +9,11 @@ const PORT = process.env.PORT || 3001;
 const ENV_KEY = process.env.OPENROUTER_API_KEY || process.env.REACT_APP_OPENAI_API_KEY || "";
 const SERVER_START = Date.now();
 
+// ── In-memory log buffer ───────────────────────────────────────────────────────
+const LOG_BUFFER_MAX = 200;
+const logBuffer = [];
+let logSeq = 0;
+
 const formatAge = (ms) => {
   const totalSec = Math.floor(ms / 1000);
   const d = Math.floor(totalSec / 86400);
@@ -88,7 +93,10 @@ app.get("/api-docs.json", (_req, res) => res.json(swaggerSpec));
 
 const log = (level, msg, meta = {}) => {
   const rest = Object.keys(meta).length ? " " + JSON.stringify(meta) : "";
-  console.log(`[${new Date().toISOString()}] [${level.toUpperCase()}] ${msg}${rest}`);
+  const ts = new Date().toISOString();
+  console.log(`[${ts}] [${level.toUpperCase()}] ${msg}${rest}`);
+  logBuffer.unshift({ id: ++logSeq, ts, level: level.toUpperCase(), msg, meta });
+  if (logBuffer.length > LOG_BUFFER_MAX) logBuffer.length = LOG_BUFFER_MAX;
 };
 
 app.use((req, _res, next) => { log("info", `${req.method} ${req.path}`); next(); });
@@ -97,6 +105,13 @@ app.use("/api", (_req, res, next) => {
   res.set("Pragma", "no-cache");
   res.set("Expires", "0");
   next();
+});
+
+// ── Server logs ───────────────────────────────────────────────────────────────
+app.get("/api/logs", (req, res) => {
+  const since = parseInt(req.query.since || "0", 10);
+  const entries = since ? logBuffer.filter(e => e.id > since) : logBuffer;
+  res.json({ entries, maxId: logBuffer[0]?.id || 0 });
 });
 
 // ── Health ─────────────────────────────────────────────────────────────────────
