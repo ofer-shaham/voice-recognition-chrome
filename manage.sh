@@ -423,6 +423,20 @@ run_install() {
   info "All dependencies installed. Run './manage.sh --native start' or './manage.sh start'."
 }
 
+# ── URL helper ────────────────────────────────────────────────────────────────
+# Prints the public client URL (Replit domain when available) + server address.
+print_urls() {
+  local logs_hint="${1:-./manage.sh --native logs [client|server]}"
+  if [[ -n "${REPLIT_DEV_DOMAIN:-}" ]]; then
+    info "Client  → ${GREEN}https://${REPLIT_DEV_DOMAIN}${NC}  (port 80, public)"
+    info "Server  → http://localhost:3001  (port 3001, internal)"
+  else
+    info "Client  → http://localhost:5000"
+    info "Server  → http://localhost:3001"
+  fi
+  info "Logs    → ${logs_hint}"
+}
+
 # ── ensure ────────────────────────────────────────────────────────────────────
 # Idempotent: prereqs → deps → start → HTTP health-check
 
@@ -529,9 +543,7 @@ native_ensure() {
   echo ""
   if (( issues == 0 )); then
     info "Everything is up and healthy."
-    info "Client  → http://localhost:5000"
-    info "Server  → http://localhost:3001"
-    info "Logs    → ./manage.sh --native logs [client|server]"
+    print_urls "./manage.sh --native logs [client|server]"
   else
     error "${issues} service(s) failed the health check."
     info  "Check logs: ./manage.sh --native logs [client|server]"
@@ -562,8 +574,7 @@ compose_ensure() {
   echo ""
   if (( issues == 0 )); then
     info "Everything is up and healthy."
-    info "Client  → http://localhost:5000"
-    info "Server  → http://localhost:3001"
+    print_urls "./manage.sh logs [client|server]"
   else
     error "${issues} service(s) failed the health check."
     info  "Check logs: ./manage.sh logs [client|server]"
@@ -618,9 +629,7 @@ compose_start() {
   echo ""
   compose_cmd ps
   echo ""
-  info "Client  → http://localhost:5000"
-  info "Server  → http://localhost:3001"
-  info "Logs    → ./manage.sh logs [client|server]"
+  print_urls "./manage.sh logs [client|server]"
 }
 
 compose_stop() {
@@ -796,9 +805,7 @@ native_start() {
   || exit 1
 
   echo ""
-  info "Client  → http://localhost:5000"
-  info "Server  → http://localhost:3001"
-  info "Logs    → ./manage.sh --native logs [client|server]"
+  print_urls "./manage.sh --native logs [client|server]"
 }
 
 native_stop() {
