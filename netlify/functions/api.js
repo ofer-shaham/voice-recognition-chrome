@@ -209,6 +209,7 @@ const SWAGGER_SPEC = {
       },
     },
   },
+},
 };
 
 exports.handler = async (event) => {
