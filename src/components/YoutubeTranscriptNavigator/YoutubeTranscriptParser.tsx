@@ -738,6 +738,8 @@ function YoutubeTranscriptParser() {
         videoLookupLoading={menuLookupLoading}
         videoLookupTitle={menuVideoDetails?.title ?? null}
         videoLookupError={menuLookupError}
+        toLang={toLang}
+        onToLangChange={(v) => setToLang(v)}
       />
 
       {/* ── sticky header ── */}
