@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { YtProject, ParsedLine, ProjectConfig, ColSetting } from './types';
 import { buildLines, parseSrt, secondsToHms, colLabel, sleep } from './utils';
-import { LANG_OPTIONS, DEFAULT_TTS_RATE } from './constants';
+import { DEFAULT_TTS_RATE } from './constants';
 import { translate } from '../../utils/translate';
 import { freeSpeak } from '../../utils/freeSpeak';
 import isRtl from '../../utils/isRtl';
@@ -291,7 +291,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
   const [showDownload, setShowDownload] = useState(false);
 
   const downloadSrt = useCallback((track: { label: string; srtContent: string }) => {
-    const safe = (project.title + '-' + track.label).replace(/[^a-z0-9_\-]/gi, '_').slice(0, 80);
+    const safe = (project.title + '-' + track.label).replace(/[^a-z0-9_-]/gi, '_').slice(0, 80);
     const blob = new Blob([track.srtContent], { type: 'text/plain;charset=utf-8' });
     const url  = URL.createObjectURL(blob);
     const a    = document.createElement('a');
