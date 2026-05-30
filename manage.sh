@@ -5,7 +5,7 @@
 # Use --native to run without Docker (requires node/npm on PATH).
 #
 # Usage:
-#   ./manage.sh [--native] {start|stop|restart|status|build|install|doctor|fix}
+#   ./manage.sh [--native] {start|stop|restart|status|build|install|ensure|doctor|fix}
 #   ./manage.sh [--native] logs [client|server|openrouter|all]
 #
 # Docker Compose services:
@@ -14,6 +14,7 @@
 #   openrouter  Alias for 'server'
 #
 # Examples:
+#   ./manage.sh --native ensure         # check prereqs, install deps, start & health-check
 #   ./manage.sh install                 # install all client + server npm dependencies
 #   ./manage.sh doctor                  # diagnose Docker + environment issues
 #   ./manage.sh fix                     # auto-fix detected issues
@@ -46,7 +47,7 @@ head_()  { echo -e "${CYAN}── $* ──${NC}"; }
 for arg in "$@"; do
   case "$arg" in
     --native) USE_NATIVE=true ;;
-    start|stop|restart|status|build|install|doctor|fix) COMMAND="$arg" ;;
+    start|stop|restart|status|build|install|ensure|doctor|fix) COMMAND="$arg" ;;
     logs) COMMAND="logs" ;;
     client|server|openrouter|all)
       if [[ "$COMMAND" == "logs" ]]; then
@@ -62,14 +63,14 @@ for arg in "$@"; do
       ;;
     *)
       error "Unknown argument: $arg"
-      echo "Usage: $0 [--native] {start|stop|restart|status|build|install|doctor|fix|logs [service]}" >&2
+      echo "Usage: $0 [--native] {start|stop|restart|status|build|install|ensure|doctor|fix|logs [service]}" >&2
       exit 1
       ;;
   esac
 done
 
 if [[ -z "$COMMAND" ]]; then
-  echo "Usage: $0 [--native] {start|stop|restart|status|build|install|doctor|fix|logs [service]}"
+  echo "Usage: $0 [--native] {start|stop|restart|status|build|install|ensure|doctor|fix|logs [service]}"
   exit 1
 fi
 
@@ -422,6 +423,154 @@ run_install() {
   info "All dependencies installed. Run './manage.sh --native start' or './manage.sh start'."
 }
 
+# ── ensure ────────────────────────────────────────────────────────────────────
+# Idempotent: prereqs → deps → start → HTTP health-check
+
+http_probe() {
+  # Returns 0 if URL answers with any HTTP status (connection succeeds)
+  local url="$1"
+  node -e "
+    const http = require('http');
+    const { URL } = require('url');
+    try {
+      const u = new URL('${url}');
+      const req = http.request(
+        { hostname: u.hostname, port: u.port || 80, path: u.pathname || '/', method: 'GET' },
+        (r) => { process.exit(r.statusCode < 500 ? 0 : 1); }
+      );
+      req.on('error', () => process.exit(1));
+      req.setTimeout(3000, () => { req.destroy(); process.exit(1); });
+      req.end();
+    } catch(_) { process.exit(1); }
+  " 2>/dev/null
+}
+
+wait_for_http() {
+  local label="$1" url="$2" max="${3:-25}"
+  local i=0
+  echo -n "          Waiting for ${label}"
+  while (( i < max )); do
+    if http_probe "$url"; then
+      echo " ready"
+      echo -e "  ${PASS}  ${label} → ${url}"
+      return 0
+    fi
+    echo -n "."; sleep 1; (( i++ ))
+  done
+  echo " timeout"
+  echo -e "  ${FAIL}  ${label} did not respond after ${max}s"
+  return 1
+}
+
+native_ensure() {
+  local issues=0
+
+  echo ""
+  head_ "Prerequisites"
+  if command -v node &>/dev/null; then
+    echo -e "  ${PASS}  node $(node --version)"
+  else
+    echo -e "  ${FAIL}  node not found — install Node.js: https://nodejs.org/"; exit 1
+  fi
+  if command -v npm &>/dev/null; then
+    echo -e "  ${PASS}  npm $(npm --version)"
+  else
+    echo -e "  ${FAIL}  npm not found (usually bundled with Node.js)"; exit 1
+  fi
+
+  echo ""
+  head_ "Dependencies"
+  if [[ -d node_modules ]]; then
+    echo -e "  ${PASS}  Client node_modules present — skipping install."
+  else
+    echo -e "  ${FIX_}  Client node_modules missing — running npm install…"
+    if npm install --legacy-peer-deps; then
+      echo -e "  ${PASS}  Client dependencies installed."
+    else
+      echo -e "  ${FAIL}  Client npm install failed."; exit 1
+    fi
+  fi
+
+  if [[ -d server/node_modules ]]; then
+    echo -e "  ${PASS}  Server node_modules present — skipping install."
+  else
+    echo -e "  ${FIX_}  Server node_modules missing — running npm install…"
+    if (cd server && npm install); then
+      echo -e "  ${PASS}  Server dependencies installed."
+    else
+      echo -e "  ${FAIL}  Server npm install failed."; exit 1
+    fi
+  fi
+
+  echo ""
+  head_ "Services"
+
+  if ! port_is_free 3001; then
+    echo -e "  ${PASS}  Server already listening on port 3001."
+  else
+    native_start_service \
+      "server" "$SERVER_PID" "$LOG_DIR/server.log" 3001 \
+      node server/index.js || exit 1
+  fi
+
+  if ! port_is_free 5000; then
+    echo -e "  ${PASS}  Client already listening on port 5000."
+  else
+    native_start_service \
+      "client" "$CLIENT_PID" "$LOG_DIR/client.log" 5000 \
+      npm start || exit 1
+  fi
+
+  echo ""
+  head_ "Health checks"
+  wait_for_http "server (port 3001)" "http://localhost:3001" 20 || issues=$((issues+1))
+  wait_for_http "client (port 5000)" "http://localhost:5000" 40 || issues=$((issues+1))
+
+  echo ""
+  if (( issues == 0 )); then
+    info "Everything is up and healthy."
+    info "Client  → http://localhost:5000"
+    info "Server  → http://localhost:3001"
+    info "Logs    → ./manage.sh --native logs [client|server]"
+  else
+    error "${issues} service(s) failed the health check."
+    info  "Check logs: ./manage.sh --native logs [client|server]"
+    exit 1
+  fi
+}
+
+compose_ensure() {
+  echo ""
+  head_ "Prerequisites"
+  check_docker_installed || exit 1
+  check_docker_daemon    || exit 1
+  check_compose_available || exit 1
+
+  echo ""
+  head_ "Services"
+  info "Bringing containers up (building if needed)…"
+  compose_cmd up -d --build
+  echo ""
+  compose_cmd ps
+
+  echo ""
+  head_ "Health checks"
+  local issues=0
+  wait_for_http "server (port 3001)" "http://localhost:3001" 30 || issues=$((issues+1))
+  wait_for_http "client (port 5000)" "http://localhost:5000" 40 || issues=$((issues+1))
+
+  echo ""
+  if (( issues == 0 )); then
+    info "Everything is up and healthy."
+    info "Client  → http://localhost:5000"
+    info "Server  → http://localhost:3001"
+  else
+    error "${issues} service(s) failed the health check."
+    info  "Check logs: ./manage.sh logs [client|server]"
+    exit 1
+  fi
+}
+
 # ── Docker Compose helpers ────────────────────────────────────────────────────
 compose_cmd() {
   if docker compose version &>/dev/null 2>&1; then
@@ -716,6 +865,7 @@ if $USE_NATIVE; then
     restart) native_stop; native_start ;;
     status)  native_status || true ;;
     build)   warn "'build' is only relevant in Docker mode." ;;
+    ensure)  native_ensure ;;
     logs)    native_logs ;;
   esac
 else
@@ -725,6 +875,7 @@ else
     restart) compose_restart ;;
     status)  compose_status || true ;;
     build)   compose_build ;;
+    ensure)  compose_ensure ;;
     logs)    compose_logs ;;
   esac
 fi
