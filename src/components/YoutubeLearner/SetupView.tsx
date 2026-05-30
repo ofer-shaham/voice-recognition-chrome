@@ -49,7 +49,7 @@ export default function SetupView({ onProjectReady, recentProject, onLoadRecent 
 
   // ── Fetch mode state ─────────────────────────────────────────────────────
   const [fetchStep, setFetchStep] = useState<FetchStep>('url');
-  const [url, setUrl] = useState(process.env.NODE_ENV === 'development' ? 'https://www.youtube.com/watch?v=prSfxdmjNzE' : '');
+  const [url, setUrl] = useState('https://www.youtube.com/watch?v=prSfxdmjNzE');
   const [targetLang, setTargetLang] = useState('he');
   const [videoId, setVideoId] = useState('');
   const [videoTitle, setVideoTitle] = useState('');

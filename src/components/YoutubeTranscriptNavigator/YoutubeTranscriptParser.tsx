@@ -177,7 +177,7 @@ function YoutubeTranscriptParser() {
   const [pasteText, setPasteText] = useState("");
   const [fromLang, setFromLang] = useState(fromLangParam || "en-US");
   const [toLang,   setToLang]   = useState(toLangParam   || "he-IL");
-  const [videoUrl, setVideoUrl] = useState(videoUrlParam || "");
+  const [videoUrl, setVideoUrl] = useState(videoUrlParam || "https://www.youtube.com/watch?v=prSfxdmjNzE");
   const videoId = extractVideoId(videoUrl);
 
   const [lines,     setLines]     = useState<TranscriptLine[]>([]);
