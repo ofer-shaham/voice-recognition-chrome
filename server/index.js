@@ -37,7 +37,7 @@ const swaggerSpec = {
             in: "query",
             required: true,
             description: "YouTube video ID or full watch URL",
-            schema: { type: "string", example: "dQw4w9WgXcQ" },
+            schema: { type: "string", example: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
           },
         ],
         responses: {
@@ -80,7 +80,7 @@ const swaggerSpec = {
             in: "query",
             required: true,
             description: "YouTube video ID",
-            schema: { type: "string", example: "dQw4w9WgXcQ" },
+            schema: { type: "string", example: "https://www.youtube.com/watch?v=dQw4w9WgXcQ" },
           },
           {
             name: "lang",
@@ -88,6 +88,17 @@ const swaggerSpec = {
             required: false,
             description: "BCP-47 language code (short form, e.g. `en`, `he`, `ar`). Defaults to `en`.",
             schema: { type: "string", example: "en" },
+          },
+          {
+            name: "method",
+            in: "query",
+            required: false,
+            description:
+              "Force a specific fetch strategy. " +
+              "`1` = `youtube-transcript-plus` only (direct player API + timedtext). " +
+              "`2` = `youtube-transcript-api-js` only. " +
+              "Omit to use the default auto-fallback (tries 1, then 2).",
+            schema: { type: "string", enum: ["1", "2"] },
           },
         ],
         responses: {
@@ -557,33 +568,31 @@ app.get("/api/transcript/languages", async (req, res) => {
 });
 
 // ── /api/srt — fetch YouTube transcript as SRT text ───────────────────────────
-// Query params: videoId (required), lang (optional, default 'en')
-// Uses YouTube's native &tlang= parameter for server-side translation.
+// Query params: videoId (required), lang (optional, default 'en'), method ('1'|'2'|omit)
+// method=1 → youtube-transcript-plus only
+// method=2 → youtube-transcript-api-js only
+// method omitted → auto-fallback (try 1 then 2)
 app.get("/api/srt", async (req, res) => {
-  const { videoId, lang } = req.query;
+  const { videoId, lang, method } = req.query;
   if (!videoId) return res.status(400).json({ error: "videoId is required" });
   const langCode = String(lang || "en").split("-")[0];
 
-  let method1Error = null;
-
-  // ── Method 1: direct player API + timedtext with &tlang ──────────────────
-  try {
-    // First try the library (exact lang match — fastest path, no extra HTTP calls)
+  // ── Method 1: youtube-transcript-plus (direct player API + timedtext) ────
+  const runMethod1 = async () => {
+    // Fast path: exact lang match via library
     try {
       const segments = await fetchTranscript(String(videoId), { lang: langCode });
       log("info", "SRT m1 exact-lang OK", { videoId, lang: langCode, n: segments.length });
-      return res.type("text/plain; charset=utf-8").send(segmentsToSrt(segments));
+      return segmentsToSrt(segments);
     } catch {
       // exact lang not available — fall through to tlang approach
     }
 
-    // Get the signed captionTrack baseUrl from the player API
-    const baseUrl    = await ytCaptionBaseUrl(String(videoId));
-    // Strip any &fmt= the player may have included, then add tlang + XML format
+    const baseUrl      = await ytCaptionBaseUrl(String(videoId));
     const timedtextUrl = baseUrl.replace(/&fmt=[^&]*/g, "") + `&tlang=${langCode}`;
     log("info", "SRT m1 fetching tlang", { videoId, lang: langCode, url: timedtextUrl.slice(-80) });
 
-    const xml = await fetchTimedText(timedtextUrl);
+    const xml     = await fetchTimedText(timedtextUrl);
     const matches = [...xml.matchAll(RE_XML_TRANSCRIPT)];
     if (!matches.length) throw new Error("No segments parsed from timedtext XML");
 
@@ -594,14 +603,11 @@ app.get("/api/srt", async (req, res) => {
       lang:     langCode,
     }));
     log("info", "SRT m1 tlang OK", { videoId, lang: langCode, n: segments.length });
-    return res.type("text/plain; charset=utf-8").send(segmentsToSrt(segments));
-  } catch (e1) {
-    method1Error = e1.message;
-    log("warn", "SRT m1 failed → m2", { videoId, lang: langCode, error: e1.message });
-  }
+    return segmentsToSrt(segments);
+  };
 
-  // ── Method 2: youtube-transcript-api-js (ESM fallback) ───────────────────
-  try {
+  // ── Method 2: youtube-transcript-api-js (ESM) ─────────────────────────────
+  const runMethod2 = async () => {
     const { YouTubeTranscriptApi, SRTFormatter } = await import("youtube-transcript-api-js");
     const api  = new YouTubeTranscriptApi();
     const list = await api.list(String(videoId));
@@ -621,7 +627,39 @@ app.get("/api/srt", async (req, res) => {
     const fetched = await transcript.fetch();
     const srt     = new SRTFormatter().formatTranscript(fetched);
     log("info", "SRT m2 OK", { videoId, lang: langCode });
-    return res.type("text/plain; charset=utf-8").send(srt);
+    return srt;
+  };
+
+  // ── Dispatch based on ?method= ─────────────────────────────────────────────
+  if (method === "1") {
+    try {
+      return res.type("text/plain; charset=utf-8").send(await runMethod1());
+    } catch (e) {
+      log("error", "SRT m1 failed (forced)", { videoId, lang: langCode, error: e.message });
+      return res.status(500).json({ error: `Method 1 failed: ${e.message}` });
+    }
+  }
+
+  if (method === "2") {
+    try {
+      return res.type("text/plain; charset=utf-8").send(await runMethod2());
+    } catch (e) {
+      log("error", "SRT m2 failed (forced)", { videoId, lang: langCode, error: e.message });
+      return res.status(500).json({ error: `Method 2 failed: ${e.message}` });
+    }
+  }
+
+  // Auto-fallback: try m1 → m2
+  let method1Error = null;
+  try {
+    return res.type("text/plain; charset=utf-8").send(await runMethod1());
+  } catch (e1) {
+    method1Error = e1.message;
+    log("warn", "SRT m1 failed → m2", { videoId, lang: langCode, error: e1.message });
+  }
+
+  try {
+    return res.type("text/plain; charset=utf-8").send(await runMethod2());
   } catch (e2) {
     log("error", "SRT both methods failed", { videoId, lang: langCode, e1: method1Error, e2: e2.message });
     return res.status(500).json({ error: `Could not fetch transcript. m1: ${method1Error}. m2: ${e2.message}` });
