@@ -15,26 +15,30 @@ interface Props {
 }
 
 export default function PlayerView({ project, onSave, onNewVideo, projects, onSelectProject }: Props) {
-  const [lines, setLines]           = useState<ParsedLine[]>([]);
-  const [config, setConfig]         = useState<ProjectConfig>(project.config);
-  const [isPlaying, setIsPlaying]   = useState(false);
-  const [currentLine, setCurrentLine] = useState(-1);
-  const [windowStart, setWindowStart] = useState(0);
-  const [iframeSeg, setIframeSeg]   = useState({ startSec: 0, endSec: 0 });
-  const [iframeKey, setIframeKey]   = useState(0);
+  const [lines, setLines]               = useState<ParsedLine[]>([]);
+  const [config, setConfig]             = useState<ProjectConfig>(project.config);
+  const [isPlaying, setIsPlaying]       = useState(false);
+  const [currentLine, setCurrentLine]   = useState(-1);
+  const [windowStart, setWindowStart]   = useState(0);
+  const [iframeSeg, setIframeSeg]       = useState({ startSec: 0, endSec: 0 });
+  const [iframeKey, setIframeKey]       = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [translationVer, setTranslationVer] = useState(0);
+  const [seamlessMode, setSeamlessMode] = useState(false);
 
-  const cancelRef   = useRef(false);
-  const linesRef    = useRef<ParsedLine[]>([]);
-  const configRef   = useRef<ProjectConfig>(project.config);
-  const projectRef  = useRef<YtProject>(project);
-  const pendingSet  = useRef<Set<number>>(new Set());
-  const rowRefs     = useRef<Record<number, HTMLTableRowElement | null>>({});
+  const cancelRef      = useRef(false);
+  const linesRef       = useRef<ParsedLine[]>([]);
+  const configRef      = useRef<ProjectConfig>(project.config);
+  const projectRef     = useRef<YtProject>(project);
+  const pendingSet     = useRef<Set<number>>(new Set());
+  const rowRefs        = useRef<Record<number, HTMLTableRowElement | null>>({});
+  const iframeRef      = useRef<HTMLIFrameElement>(null);
+  const seamlessRef    = useRef(false);
 
   useEffect(() => { linesRef.current = lines; }, [lines]);
   useEffect(() => { configRef.current = config; }, [config]);
   useEffect(() => { projectRef.current = project; }, [project]);
+  useEffect(() => { seamlessRef.current = seamlessMode; }, [seamlessMode]);
 
   // ── Parse SRT on project change ─────────────────────────────────────────────
   useEffect(() => {
@@ -126,11 +130,23 @@ export default function PlayerView({ project, onSave, onNewVideo, projects, onSe
     setTranslationVer(v => v + 1);
   }, []);
 
+  // ── YouTube postMessage control (seamless mode) ───────────────────────────────
+  const ytCmd = useCallback((func: string, args: any[] = []) => {
+    try {
+      iframeRef.current?.contentWindow?.postMessage(
+        JSON.stringify({ event: 'command', func, args }),
+        '*'
+      );
+    } catch { /* ignore cross-origin errors */ }
+  }, []);
+
   // ── Playback ─────────────────────────────────────────────────────────────────
   const playLine = useCallback(async (lineIdx: number) => {
-    const line  = linesRef.current[lineIdx];
-    const cfg   = configRef.current;
+    const line = linesRef.current[lineIdx];
+    const cfg  = configRef.current;
     if (!line) return;
+
+    const isSeamless = seamlessRef.current;
 
     const playable = cfg.colOrder
       .filter(id => cfg.colSettings[id]?.visible && (cfg.colSettings[id]?.playOrder ?? 0) > 0)
@@ -139,10 +155,22 @@ export default function PlayerView({ project, onSave, onNewVideo, projects, onSe
     for (const colId of playable) {
       if (cancelRef.current) return;
       const s = cfg.colSettings[colId];
+
       if (colId === 'video') {
-        setIframeSeg({ startSec: line.startSec, endSec: line.endSec });
-        setIframeKey(k => k + 1);
-        await sleep(Math.max(1000, (line.endSec - line.startSec) * 1000 + 800));
+        if (isSeamless) {
+          // Seamless mode: seek + play the single persistent iframe, then pause after duration
+          const dur = Math.max(500, (line.endSec - line.startSec) * 1000);
+          ytCmd('seekTo', [line.startSec, true]);
+          await sleep(200); // give the seek a moment
+          ytCmd('playVideo');
+          await sleep(dur);
+          ytCmd('pauseVideo');
+        } else {
+          // Classic mode: re-key the iframe to play just this segment
+          setIframeSeg({ startSec: line.startSec, endSec: line.endSec });
+          setIframeKey(k => k + 1);
+          await sleep(Math.max(1000, (line.endSec - line.startSec) * 1000 + 800));
+        }
       } else {
         const text = colId === 'translation'
           ? (linesRef.current[lineIdx]?.translation || '')
@@ -156,14 +184,15 @@ export default function PlayerView({ project, onSave, onNewVideo, projects, onSe
       }
       if (cancelRef.current) return;
     }
-  }, []);
+  }, [ytCmd]);
 
   const stop = useCallback(() => {
     cancelRef.current = true;
     speechSynthesis.cancel();
+    ytCmd('pauseVideo');
     setIsPlaying(false);
     setCurrentLine(-1);
-  }, []);
+  }, [ytCmd]);
 
   const playFrom = useCallback(async (startIdx: number) => {
     cancelRef.current = false;
@@ -174,24 +203,39 @@ export default function PlayerView({ project, onSave, onNewVideo, projects, onSe
       onSave({ ...projectRef.current, lastLine: i, updatedAt: Date.now() });
       await playLine(i);
     }
-    if (!cancelRef.current) { setIsPlaying(false); setCurrentLine(-1); }
-  }, [playLine, onSave]);
+    if (!cancelRef.current) {
+      ytCmd('pauseVideo');
+      setIsPlaying(false);
+      setCurrentLine(-1);
+    }
+  }, [playLine, onSave, ytCmd]);
 
   // ── Derived ──────────────────────────────────────────────────────────────────
   const visibleCols = useMemo(
     () => config.colOrder.filter(id => id !== 'video' && config.colSettings[id]?.visible),
     [config.colOrder, config.colSettings]
   );
-  const showVideo = config.colSettings['video']?.visible;
+  const showVideo   = config.colSettings['video']?.visible && !!project.videoId;
   const visibleRows = lines.slice(windowStart, windowStart + config.visibleLines);
 
-  const iframeUrl = `https://www.youtube-nocookie.com/embed/${project.videoId}` +
+  // Classic mode iframe URL (segment-specific, re-keyed)
+  const classicIframeUrl = `https://www.youtube-nocookie.com/embed/${project.videoId}` +
     `?start=${Math.floor(iframeSeg.startSec)}&end=${Math.ceil(iframeSeg.endSec)}` +
-    `&autoplay=1&rel=0&modestbranding=1`;
+    `&autoplay=1&rel=0&modestbranding=1&enablejsapi=1`;
+
+  // Seamless mode iframe URL (full video, persistent, JS API enabled)
+  const seamlessIframeUrl = `https://www.youtube-nocookie.com/embed/${project.videoId}` +
+    `?enablejsapi=1&rel=0&modestbranding=1&autoplay=0`;
 
   const handleRowClick = (lineIdx: number) => {
     if (isPlaying) { stop(); setTimeout(() => playFrom(lineIdx), 150); }
     else { playFrom(lineIdx); }
+  };
+
+  const handleSeamlessToggle = () => {
+    if (isPlaying) stop();
+    setSeamlessMode(s => !s);
+    setIframeKey(k => k + 1); // reload iframe when switching modes
   };
 
   return (
@@ -213,6 +257,15 @@ export default function PlayerView({ project, onSave, onNewVideo, projects, onSe
           <span className="yl-line-info">
             {isPlaying ? `▶ ${currentLine + 1}/${lines.length}` : `${lines.length} lines`}
           </span>
+          {showVideo && (
+            <button
+              className={`yl-btn-ghost ${seamlessMode ? 'yl-active yl-btn-seamless-on' : ''}`}
+              onClick={handleSeamlessToggle}
+              title="Seamless mode: plays the full video and pauses at each subtitle for TTS"
+            >
+              🎬 Seamless
+            </button>
+          )}
           <button
             className={`yl-btn-play ${isPlaying ? 'yl-btn-stop' : ''}`}
             onClick={() => isPlaying ? stop() : playFrom(Math.max(0, currentLine >= 0 ? currentLine : project.lastLine))}
@@ -224,6 +277,13 @@ export default function PlayerView({ project, onSave, onNewVideo, projects, onSe
           </button>
         </div>
       </div>
+
+      {/* ── Seamless mode banner ────────────────────────────────────────────── */}
+      {seamlessMode && showVideo && (
+        <div className="yl-seamless-banner">
+          🎬 Seamless mode — the video plays each subtitle, then pauses while TTS reads it aloud.
+        </div>
+      )}
 
       {/* ── Settings Panel ─────────────────────────────────────────────────── */}
       {showSettings && (
@@ -298,7 +358,6 @@ export default function PlayerView({ project, onSave, onNewVideo, projects, onSe
 
         {/* Transcript Table */}
         <div className="yl-table-wrap">
-          {/* Window navigation */}
           <div className="yl-nav-bar">
             <button className="yl-btn-ghost yl-btn-sm"
               disabled={windowStart === 0}
@@ -358,16 +417,30 @@ export default function PlayerView({ project, onSave, onNewVideo, projects, onSe
         {/* YouTube Iframe */}
         {showVideo && (
           <div className="yl-video-wrap">
-            <iframe
-              key={iframeKey}
-              className="yl-iframe"
-              src={iframeKey === 0
-                ? `https://www.youtube-nocookie.com/embed/${project.videoId}?rel=0&modestbranding=1`
-                : iframeUrl}
-              title={project.title}
-              allow="autoplay; encrypted-media; fullscreen"
-              allowFullScreen
-            />
+            {seamlessMode ? (
+              // Seamless mode: single persistent iframe, controlled via postMessage
+              <iframe
+                key={`seamless-${project.videoId}`}
+                ref={iframeRef}
+                className="yl-iframe"
+                src={seamlessIframeUrl}
+                title={project.title}
+                allow="autoplay; encrypted-media; fullscreen"
+                allowFullScreen
+              />
+            ) : (
+              // Classic mode: re-keyed per segment
+              <iframe
+                key={iframeKey}
+                className="yl-iframe"
+                src={iframeKey === 0
+                  ? `https://www.youtube-nocookie.com/embed/${project.videoId}?rel=0&modestbranding=1&enablejsapi=1`
+                  : classicIframeUrl}
+                title={project.title}
+                allow="autoplay; encrypted-media; fullscreen"
+                allowFullScreen
+              />
+            )}
           </div>
         )}
       </div>
