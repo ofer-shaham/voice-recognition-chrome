@@ -40,13 +40,25 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
   const projectRef     = useRef<YtProject>(project);
   const pendingSet     = useRef<Set<number>>(new Set());
   const rowRefs        = useRef<Record<number, HTMLTableRowElement | null>>({});
-  const iframeRef      = useRef<HTMLIFrameElement>(null);
+  const iframeRef      = useRef<HTMLIFrameElement>(null);  // seamless visible iframe
+  const audioRef       = useRef<HTMLIFrameElement>(null);  // always-present background audio iframe
   const seamlessRef    = useRef(false);
+  const showVideoRef   = useRef(true);
+  const audioOnlyRef   = useRef(false);
 
   useEffect(() => { linesRef.current = lines; }, [lines]);
   useEffect(() => { configRef.current = config; }, [config]);
   useEffect(() => { projectRef.current = project; }, [project]);
   useEffect(() => { seamlessRef.current = seamlessMode; }, [seamlessMode]);
+
+  // ── Derived: video visible? audio-only mode? ─────────────────────────────────
+  const showVideo      = config.colSettings['video']?.visible && !!project.videoId;
+  const audioOnlyMode  = !showVideo && !!project.videoId;
+  const totalDuration  = lines.length > 0 ? lines[lines.length - 1].endSec : 0;
+  const currentTimeSec = currentLine >= 0 ? (lines[currentLine]?.startSec ?? 0) : 0;
+
+  useEffect(() => { showVideoRef.current  = showVideo;     }, [showVideo]);
+  useEffect(() => { audioOnlyRef.current  = audioOnlyMode; }, [audioOnlyMode]);
 
   // ── URL sync: reflect project + config in address bar ───────────────────────
   useEffect(() => {
@@ -153,10 +165,12 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     setTranslationVer(v => v + 1);
   }, []);
 
-  // ── YouTube postMessage control (seamless mode) ───────────────────────────────
+  // ── YouTube postMessage control ──────────────────────────────────────────────
+  // Routes to: visible seamless iframe (iframeRef) when seamless+video, else background audio iframe (audioRef)
   const ytCmd = useCallback((func: string, args: any[] = []) => {
     try {
-      iframeRef.current?.contentWindow?.postMessage(
+      const target = (seamlessRef.current && showVideoRef.current) ? iframeRef : audioRef;
+      target.current?.contentWindow?.postMessage(
         JSON.stringify({ event: 'command', func, args }),
         '*'
       );
@@ -180,11 +194,11 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
       const s = cfg.colSettings[colId];
 
       if (colId === 'video') {
-        if (isSeamless) {
-          // Seamless mode: seek + play the single persistent iframe, then pause after duration
+        if (isSeamless || audioOnlyRef.current) {
+          // Seamless/audio-only mode: seek + play the persistent iframe, then pause after duration
           const dur = Math.max(500, (line.endSec - line.startSec) * 1000);
           ytCmd('seekTo', [line.startSec, true]);
-          await sleep(200); // give the seek a moment
+          await sleep(200);
           ytCmd('playVideo');
           await sleep(dur);
           ytCmd('pauseVideo');
@@ -238,7 +252,6 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     () => config.colOrder.filter(id => id !== 'video' && config.colSettings[id]?.visible),
     [config.colOrder, config.colSettings]
   );
-  const showVideo   = config.colSettings['video']?.visible && !!project.videoId;
   const visibleRows = lines.slice(windowStart, windowStart + config.visibleLines);
 
   // Classic mode iframe URL (segment-specific, re-keyed)
@@ -259,6 +272,19 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     if (isPlaying) stop();
     setSeamlessMode(s => !s);
     setIframeKey(k => k + 1);
+  };
+
+  const toggleVideo = () => {
+    updateColSetting('video', { visible: !config.colSettings['video']?.visible });
+  };
+
+  const handleAudioSeek = (sec: number) => {
+    ytCmd('seekTo', [sec, true]);
+    if (lines.length === 0) return;
+    const idx = lines.reduce((best, line, i) =>
+      Math.abs(line.startSec - sec) < Math.abs(lines[best].startSec - sec) ? i : best, 0);
+    if (isPlaying) { stop(); setTimeout(() => playFrom(idx), 150); }
+    else { setCurrentLine(idx); }
   };
 
   // ── SRT download ─────────────────────────────────────────────────────────────
@@ -351,6 +377,15 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
             )}
           </div>
 
+          {project.videoId && (
+            <button
+              className={`yl-btn-ghost ${showVideo ? 'yl-active' : ''}`}
+              onClick={toggleVideo}
+              title={showVideo ? 'Hide video' : 'Show video'}
+            >
+              {showVideo ? '📺 Hide' : '📺 Video'}
+            </button>
+          )}
           {showVideo && (
             <button
               className={`yl-btn-ghost ${seamlessMode ? 'yl-active yl-btn-seamless-on' : ''}`}
@@ -376,6 +411,32 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
       {seamlessMode && showVideo && (
         <div className="yl-seamless-banner">
           🎬 Seamless mode — the video plays each subtitle, then pauses while TTS reads it aloud.
+        </div>
+      )}
+
+      {/* ── Audio player bar (shown when video is hidden but videoId exists) ── */}
+      {audioOnlyMode && (
+        <div className="yl-audio-bar">
+          <button
+            className={`yl-audio-playbtn ${isPlaying ? 'yl-btn-stop' : ''}`}
+            onClick={() => isPlaying ? stop() : playFrom(Math.max(0, currentLine >= 0 ? currentLine : project.lastLine))}
+          >
+            {isPlaying ? '⏹' : '▶'}
+          </button>
+          <span className="yl-audio-time">{secondsToHms(currentTimeSec)}</span>
+          <input
+            className="yl-audio-seek"
+            type="range"
+            min={0}
+            max={totalDuration || 1}
+            step={1}
+            value={currentTimeSec}
+            onChange={e => handleAudioSeek(Number(e.target.value))}
+          />
+          <span className="yl-audio-time yl-audio-total">{secondsToHms(totalDuration)}</span>
+          <button className="yl-btn-ghost yl-btn-sm" onClick={toggleVideo} title="Show video panel">
+            📺 Show
+          </button>
         </div>
       )}
 
@@ -563,6 +624,18 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
           </div>
         )}
       </div>
+
+      {/* Always-present background audio iframe — invisible, provides audio when video is hidden */}
+      {project.videoId && (
+        <iframe
+          key={`audio-bg-${project.videoId}`}
+          ref={audioRef}
+          src={seamlessIframeUrl}
+          title="audio-bg"
+          allow="autoplay; encrypted-media"
+          className="yl-iframe-bg"
+        />
+      )}
     </div>
   );
 }

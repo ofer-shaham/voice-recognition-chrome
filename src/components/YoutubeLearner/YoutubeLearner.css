@@ -704,6 +704,86 @@ input[type="range"] {
   color: #fca5a5 !important;
 }
 
+/* ── Background audio iframe (always invisible) ────────────────────────────── */
+.yl-iframe-bg {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  border: none;
+  top: 0;
+  left: 0;
+  overflow: hidden;
+}
+
+/* ── Audio player bar ──────────────────────────────────────────────────────── */
+.yl-audio-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.8rem;
+  background: #1a1f2e;
+  border-bottom: 1px solid #2d3448;
+  flex-shrink: 0;
+}
+
+.yl-audio-playbtn {
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: 50%;
+  width: 2rem;
+  height: 2rem;
+  font-size: 0.85rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+.yl-audio-playbtn:hover { background: #2563eb; }
+.yl-audio-playbtn.yl-btn-stop { background: #ef4444; }
+.yl-audio-playbtn.yl-btn-stop:hover { background: #dc2626; }
+
+.yl-audio-time {
+  font-size: 0.75rem;
+  color: #9ca3af;
+  white-space: nowrap;
+  min-width: 3rem;
+  font-variant-numeric: tabular-nums;
+}
+.yl-audio-total { text-align: right; }
+
+.yl-audio-seek {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  background: #374151;
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+  min-width: 0;
+}
+.yl-audio-seek::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+}
+.yl-audio-seek::-moz-range-thumb {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: none;
+}
+
 /* ── Delete confirm inline ─────────────────────────────────────────────────── */
 .yl-delete-confirm {
   display: flex;
