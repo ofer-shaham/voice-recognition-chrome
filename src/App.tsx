@@ -4,8 +4,8 @@ import Footer from "./components/Footer";
 import "./styles/App.css";
 
 const Intro = lazy(() => import("./components/Intro"));
-const YoutubeTranscriptParser = lazy(
-  () => import("./components/YoutubeTranscriptNavigator/YoutubeTranscriptParser")
+const YoutubeLearner = lazy(
+  () => import("./components/YoutubeLearner/index")
 );
 const ProverbList = lazy(() => import("./components/Proverbs/Proverbs"));
 const SimultaneousTranslation = lazy(
@@ -29,7 +29,7 @@ function AppInner() {
         <Suspense fallback={<Loading />}>
           <Routes>
             <Route path="/" element={<Intro />} />
-            <Route path="/youtube" element={<YoutubeTranscriptParser />} />
+            <Route path="/youtube" element={<YoutubeLearner />} />
             <Route path="/proverb" element={<ProverbList />} />
             <Route
               path="/simultanuos_translation"

@@ -1,0 +1,376 @@
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { YtProject, ParsedLine, ProjectConfig, ColSetting } from './types';
+import { buildLines, parseSrt, secondsToHms, colLabel, sleep } from './utils';
+import { LANG_OPTIONS, DEFAULT_TTS_RATE } from './constants';
+import { translate } from '../../utils/translate';
+import { freeSpeak } from '../../utils/freeSpeak';
+import isRtl from '../../utils/isRtl';
+
+interface Props {
+  project: YtProject;
+  onSave: (p: YtProject) => void;
+  onNewVideo: () => void;
+  projects: YtProject[];
+  onSelectProject: (p: YtProject) => void;
+}
+
+export default function PlayerView({ project, onSave, onNewVideo, projects, onSelectProject }: Props) {
+  const [lines, setLines]           = useState<ParsedLine[]>([]);
+  const [config, setConfig]         = useState<ProjectConfig>(project.config);
+  const [isPlaying, setIsPlaying]   = useState(false);
+  const [currentLine, setCurrentLine] = useState(-1);
+  const [windowStart, setWindowStart] = useState(0);
+  const [iframeSeg, setIframeSeg]   = useState({ startSec: 0, endSec: 0 });
+  const [iframeKey, setIframeKey]   = useState(0);
+  const [showSettings, setShowSettings] = useState(false);
+  const [translationVer, setTranslationVer] = useState(0);
+
+  const cancelRef   = useRef(false);
+  const linesRef    = useRef<ParsedLine[]>([]);
+  const configRef   = useRef<ProjectConfig>(project.config);
+  const projectRef  = useRef<YtProject>(project);
+  const pendingSet  = useRef<Set<number>>(new Set());
+  const rowRefs     = useRef<Record<number, HTMLTableRowElement | null>>({});
+
+  useEffect(() => { linesRef.current = lines; }, [lines]);
+  useEffect(() => { configRef.current = config; }, [config]);
+  useEffect(() => { projectRef.current = project; }, [project]);
+
+  // ── Parse SRT on project change ─────────────────────────────────────────────
+  useEffect(() => {
+    if (!project.tracks.length) return;
+    const [primary, ...rest] = project.tracks;
+    const primaryColId = `track:${primary.lang}`;
+    const parsed = buildLines(
+      primaryColId,
+      parseSrt(primary.srtContent),
+      rest.map(t => ({ colId: `track:${t.lang}`, segs: parseSrt(t.srtContent) }))
+    );
+    pendingSet.current = new Set(parsed.map((_, i) => i));
+    setLines(parsed);
+    setConfig(project.config);
+    setWindowStart(Math.max(0, project.lastLine - 3));
+    setTranslationVer(v => v + 1);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project.id]);
+
+  // ── Background translation ───────────────────────────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      const indices = Array.from(pendingSet.current).sort((a, b) => a - b);
+      for (const i of indices) {
+        if (cancelled) break;
+        const line = linesRef.current[i];
+        if (!line || line.translated) { pendingSet.current.delete(i); continue; }
+        const cfg = configRef.current;
+        const srcText = line.texts[cfg.translationSource] || '';
+        if (!srcText.trim()) {
+          pendingSet.current.delete(i);
+          setLines(prev => prev.map((l, idx) => idx === i ? { ...l, translation: '', translated: true } : l));
+          continue;
+        }
+        try {
+          const fromLang = cfg.translationSource.replace('track:', '').split('-')[0];
+          const result = await translate({ finalTranscriptProxy: srcText, fromLang, toLang: cfg.targetLang });
+          pendingSet.current.delete(i);
+          setLines(prev => prev.map((l, idx) => idx === i ? { ...l, translation: result, translated: true } : l));
+        } catch { /* ignore individual failures */ }
+        if (i % 10 === 9) await sleep(80);
+      }
+    };
+    run();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [translationVer]);
+
+  // ── Slide window to follow current line ─────────────────────────────────────
+  useEffect(() => {
+    if (currentLine < 0) return;
+    const mid = Math.floor(config.visibleLines / 2);
+    setWindowStart(prev => {
+      const ideal = Math.max(0, Math.min(lines.length - config.visibleLines, currentLine - mid));
+      return ideal !== prev ? ideal : prev;
+    });
+  }, [currentLine, config.visibleLines, lines.length]);
+
+  // ── Auto-scroll active row ───────────────────────────────────────────────────
+  useEffect(() => {
+    if (currentLine >= 0) rowRefs.current[currentLine]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [currentLine]);
+
+  // ── Config helpers ───────────────────────────────────────────────────────────
+  const updateConfig = useCallback((patch: Partial<ProjectConfig>) => {
+    setConfig(prev => {
+      const next = { ...prev, ...patch };
+      configRef.current = next;
+      onSave({ ...projectRef.current, config: next, updatedAt: Date.now() });
+      return next;
+    });
+  }, [onSave]);
+
+  const updateColSetting = useCallback((colId: string, patch: Partial<ColSetting>) => {
+    setConfig(prev => {
+      const next = { ...prev, colSettings: { ...prev.colSettings, [colId]: { ...prev.colSettings[colId], ...patch } } };
+      configRef.current = next;
+      onSave({ ...projectRef.current, config: next, updatedAt: Date.now() });
+      return next;
+    });
+  }, [onSave]);
+
+  const retranslate = useCallback(() => {
+    setLines(prev => {
+      pendingSet.current = new Set(prev.map((_, i) => i));
+      return prev.map(l => ({ ...l, translation: '', translated: false }));
+    });
+    setTranslationVer(v => v + 1);
+  }, []);
+
+  // ── Playback ─────────────────────────────────────────────────────────────────
+  const playLine = useCallback(async (lineIdx: number) => {
+    const line  = linesRef.current[lineIdx];
+    const cfg   = configRef.current;
+    if (!line) return;
+
+    const playable = cfg.colOrder
+      .filter(id => cfg.colSettings[id]?.visible && (cfg.colSettings[id]?.playOrder ?? 0) > 0)
+      .sort((a, b) => (cfg.colSettings[a]?.playOrder ?? 0) - (cfg.colSettings[b]?.playOrder ?? 0));
+
+    for (const colId of playable) {
+      if (cancelRef.current) return;
+      const s = cfg.colSettings[colId];
+      if (colId === 'video') {
+        setIframeSeg({ startSec: line.startSec, endSec: line.endSec });
+        setIframeKey(k => k + 1);
+        await sleep(Math.max(1000, (line.endSec - line.startSec) * 1000 + 800));
+      } else {
+        const text = colId === 'translation'
+          ? (linesRef.current[lineIdx]?.translation || '')
+          : (line.texts[colId] || '');
+        const lang = colId === 'translation'
+          ? cfg.targetLang
+          : colId.replace('track:', '');
+        if (text.trim()) {
+          try { await freeSpeak(text, lang, s?.ttsRate ?? DEFAULT_TTS_RATE); } catch { /* ignore */ }
+        }
+      }
+      if (cancelRef.current) return;
+    }
+  }, []);
+
+  const stop = useCallback(() => {
+    cancelRef.current = true;
+    speechSynthesis.cancel();
+    setIsPlaying(false);
+    setCurrentLine(-1);
+  }, []);
+
+  const playFrom = useCallback(async (startIdx: number) => {
+    cancelRef.current = false;
+    setIsPlaying(true);
+    for (let i = startIdx; i < linesRef.current.length; i++) {
+      if (cancelRef.current) break;
+      setCurrentLine(i);
+      onSave({ ...projectRef.current, lastLine: i, updatedAt: Date.now() });
+      await playLine(i);
+    }
+    if (!cancelRef.current) { setIsPlaying(false); setCurrentLine(-1); }
+  }, [playLine, onSave]);
+
+  // ── Derived ──────────────────────────────────────────────────────────────────
+  const visibleCols = useMemo(
+    () => config.colOrder.filter(id => id !== 'video' && config.colSettings[id]?.visible),
+    [config.colOrder, config.colSettings]
+  );
+  const showVideo = config.colSettings['video']?.visible;
+  const visibleRows = lines.slice(windowStart, windowStart + config.visibleLines);
+
+  const iframeUrl = `https://www.youtube-nocookie.com/embed/${project.videoId}` +
+    `?start=${Math.floor(iframeSeg.startSec)}&end=${Math.ceil(iframeSeg.endSec)}` +
+    `&autoplay=1&rel=0&modestbranding=1`;
+
+  const handleRowClick = (lineIdx: number) => {
+    if (isPlaying) { stop(); setTimeout(() => playFrom(lineIdx), 150); }
+    else { playFrom(lineIdx); }
+  };
+
+  return (
+    <div className="yl-player">
+
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <div className="yl-header">
+        <div className="yl-header-left">
+          <button className="yl-btn-ghost" onClick={onNewVideo}>＋ New</button>
+          {projects.length > 1 && (
+            <select className="yl-select-sm" value={project.id}
+              onChange={e => { const p = projects.find(x => x.id === e.target.value); if (p) onSelectProject(p); }}>
+              {projects.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+            </select>
+          )}
+          <span className="yl-video-title" title={project.title}>{project.title}</span>
+        </div>
+        <div className="yl-header-right">
+          <span className="yl-line-info">
+            {isPlaying ? `▶ ${currentLine + 1}/${lines.length}` : `${lines.length} lines`}
+          </span>
+          <button
+            className={`yl-btn-play ${isPlaying ? 'yl-btn-stop' : ''}`}
+            onClick={() => isPlaying ? stop() : playFrom(Math.max(0, currentLine >= 0 ? currentLine : project.lastLine))}
+          >
+            {isPlaying ? '⏹ Stop' : '▶ Play'}
+          </button>
+          <button className={`yl-btn-ghost ${showSettings ? 'yl-active' : ''}`} onClick={() => setShowSettings(s => !s)}>
+            ⚙ Settings
+          </button>
+        </div>
+      </div>
+
+      {/* ── Settings Panel ─────────────────────────────────────────────────── */}
+      {showSettings && (
+        <div className="yl-settings">
+          <div className="yl-settings-global">
+            <label className="yl-setting-field">
+              <span>Translate to</span>
+              <select className="yl-select-sm" value={config.targetLang}
+                onChange={e => { updateConfig({ targetLang: e.target.value }); retranslate(); }}>
+                {LANG_OPTIONS.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
+              </select>
+            </label>
+            <label className="yl-setting-field">
+              <span>Source column</span>
+              <select className="yl-select-sm" value={config.translationSource}
+                onChange={e => { updateConfig({ translationSource: e.target.value }); retranslate(); }}>
+                {config.colOrder.filter(id => id.startsWith('track:')).map(id => (
+                  <option key={id} value={id}>{colLabel(id, project)}</option>
+                ))}
+              </select>
+            </label>
+            <label className="yl-setting-field">
+              <span>Visible lines</span>
+              <input type="number" className="yl-input-sm" min={5} max={500}
+                value={config.visibleLines}
+                onChange={e => updateConfig({ visibleLines: Math.max(5, parseInt(e.target.value) || 30) })}
+              />
+            </label>
+          </div>
+
+          <div className="yl-settings-cols">
+            {config.colOrder.map(colId => {
+              const s = config.colSettings[colId];
+              if (!s) return null;
+              return (
+                <div key={colId} className={`yl-col-card ${s.visible ? '' : 'yl-col-card-hidden'}`}>
+                  <div className="yl-col-card-header">
+                    <span className="yl-col-card-name">{colLabel(colId, project)}</span>
+                    <label className="yl-toggle">
+                      <input type="checkbox" checked={s.visible}
+                        onChange={e => updateColSetting(colId, { visible: e.target.checked })} />
+                      <span className="yl-toggle-track" />
+                    </label>
+                  </div>
+                  <div className="yl-col-card-body">
+                    <label className="yl-setting-field">
+                      <span title="Play order (0 = skip)">Order</span>
+                      <input type="number" className="yl-input-sm" min={0} max={10}
+                        value={s.playOrder}
+                        onChange={e => updateColSetting(colId, { playOrder: Math.max(0, parseInt(e.target.value) || 0) })}
+                      />
+                    </label>
+                    {colId !== 'video' && (
+                      <label className="yl-setting-field">
+                        <span>Speed {s.ttsRate.toFixed(1)}×</span>
+                        <input type="range" min={0.5} max={2} step={0.1}
+                          value={s.ttsRate}
+                          onChange={e => updateColSetting(colId, { ttsRate: parseFloat(e.target.value) })}
+                        />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* ── Main Content ───────────────────────────────────────────────────── */}
+      <div className={`yl-content${showVideo ? ' yl-split' : ''}`}>
+
+        {/* Transcript Table */}
+        <div className="yl-table-wrap">
+          {/* Window navigation */}
+          <div className="yl-nav-bar">
+            <button className="yl-btn-ghost yl-btn-sm"
+              disabled={windowStart === 0}
+              onClick={() => setWindowStart(w => Math.max(0, w - config.visibleLines))}>
+              ↑ Prev
+            </button>
+            <span className="yl-nav-info">
+              Lines {windowStart + 1}–{Math.min(windowStart + config.visibleLines, lines.length)} of {lines.length}
+            </span>
+            <button className="yl-btn-ghost yl-btn-sm"
+              disabled={windowStart + config.visibleLines >= lines.length}
+              onClick={() => setWindowStart(w => Math.min(lines.length - config.visibleLines, w + config.visibleLines))}>
+              ↓ Next
+            </button>
+          </div>
+
+          <table className="yl-table">
+            <thead>
+              <tr>
+                <th className="yl-th-time">Time</th>
+                {visibleCols.map(colId => (
+                  <th key={colId} className="yl-th-text"
+                    dir={colId === 'translation' ? (isRtl(config.targetLang) ? 'rtl' : 'ltr') : undefined}>
+                    {colLabel(colId, project)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {visibleRows.map(line => (
+                <tr
+                  key={line.index}
+                  ref={el => { rowRefs.current[line.index] = el; }}
+                  className={`yl-row${line.index === currentLine ? ' yl-row-active' : ''}`}
+                  onClick={() => handleRowClick(line.index)}
+                >
+                  <td className="yl-td-time">{secondsToHms(line.startSec)}</td>
+                  {visibleCols.map(colId => {
+                    const text = colId === 'translation'
+                      ? (line.translated ? line.translation : '…')
+                      : (line.texts[colId] || '');
+                    const rtl = colId === 'translation'
+                      ? isRtl(config.targetLang)
+                      : isRtl(colId.replace('track:', ''));
+                    return (
+                      <td key={colId} className="yl-td-text" dir={rtl ? 'rtl' : 'ltr'}>
+                        {text}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* YouTube Iframe */}
+        {showVideo && (
+          <div className="yl-video-wrap">
+            <iframe
+              key={iframeKey}
+              className="yl-iframe"
+              src={iframeKey === 0
+                ? `https://www.youtube-nocookie.com/embed/${project.videoId}?rel=0&modestbranding=1`
+                : iframeUrl}
+              title={project.title}
+              allow="autoplay; encrypted-media; fullscreen"
+              allowFullScreen
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
