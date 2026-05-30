@@ -9,6 +9,7 @@ export interface ColSetting {
   ttsRate: number;
   playOrder: number;
   visible: boolean;
+  voiceName?: string;
 }
 
 export interface ProjectConfig {

@@ -5,6 +5,7 @@ import { LANG_OPTIONS, DEFAULT_TTS_RATE } from './constants';
 import { translate } from '../../utils/translate';
 import { freeSpeak } from '../../utils/freeSpeak';
 import isRtl from '../../utils/isRtl';
+import { useVoices } from './useVoices';
 
 interface Props {
   project: YtProject;
@@ -25,6 +26,8 @@ export default function PlayerView({ project, onSave, onNewVideo, projects, onSe
   const [showSettings, setShowSettings] = useState(false);
   const [translationVer, setTranslationVer] = useState(0);
   const [seamlessMode, setSeamlessMode] = useState(false);
+
+  const { langOptions, voicesForLang } = useVoices();
 
   const cancelRef      = useRef(false);
   const linesRef       = useRef<ParsedLine[]>([]);
@@ -179,7 +182,7 @@ export default function PlayerView({ project, onSave, onNewVideo, projects, onSe
           ? cfg.targetLang
           : colId.replace('track:', '');
         if (text.trim()) {
-          try { await freeSpeak(text, lang, s?.ttsRate ?? DEFAULT_TTS_RATE); } catch { /* ignore */ }
+          try { await freeSpeak(text, lang, s?.ttsRate ?? DEFAULT_TTS_RATE, s?.voiceName || undefined); } catch { /* ignore */ }
         }
       }
       if (cancelRef.current) return;
@@ -345,7 +348,7 @@ export default function PlayerView({ project, onSave, onNewVideo, projects, onSe
               <span>Translate to</span>
               <select className="yl-select-sm" value={config.targetLang}
                 onChange={e => { updateConfig({ targetLang: e.target.value }); retranslate(); }}>
-                {LANG_OPTIONS.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
+                {langOptions.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
               </select>
             </label>
             <label className="yl-setting-field">
@@ -388,15 +391,40 @@ export default function PlayerView({ project, onSave, onNewVideo, projects, onSe
                         onChange={e => updateColSetting(colId, { playOrder: Math.max(0, parseInt(e.target.value) || 0) })}
                       />
                     </label>
-                    {colId !== 'video' && (
-                      <label className="yl-setting-field">
-                        <span>Speed {s.ttsRate.toFixed(1)}×</span>
-                        <input type="range" min={0.5} max={2} step={0.1}
-                          value={s.ttsRate}
-                          onChange={e => updateColSetting(colId, { ttsRate: parseFloat(e.target.value) })}
-                        />
-                      </label>
-                    )}
+                    {colId !== 'video' && (() => {
+                      const colLang = colId === 'translation'
+                        ? config.targetLang
+                        : colId.replace('track:', '');
+                      const colVoices = voicesForLang(colLang);
+                      return (
+                        <>
+                          <label className="yl-setting-field">
+                            <span>Speed {s.ttsRate.toFixed(1)}×</span>
+                            <input type="range" min={0.5} max={2} step={0.1}
+                              value={s.ttsRate}
+                              onChange={e => updateColSetting(colId, { ttsRate: parseFloat(e.target.value) })}
+                            />
+                          </label>
+                          {colVoices.length > 0 && (
+                            <label className="yl-setting-field yl-voice-field">
+                              <span>Voice</span>
+                              <select
+                                className="yl-select-sm yl-voice-select"
+                                value={s.voiceName ?? ''}
+                                onChange={e => updateColSetting(colId, { voiceName: e.target.value || undefined })}
+                              >
+                                <option value="">Auto</option>
+                                {colVoices.map(v => (
+                                  <option key={v.name} value={v.name}>
+                                    {v.name}{v.localService ? '' : ' ☁'}
+                                  </option>
+                                ))}
+                              </select>
+                            </label>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               );

@@ -704,6 +704,19 @@ input[type="range"] {
   color: #fca5a5 !important;
 }
 
+/* ── Voice selector ────────────────────────────────────────────────────────── */
+.yl-voice-field {
+  flex-direction: column;
+  align-items: flex-start !important;
+  gap: 0.25rem !important;
+}
+
+.yl-voice-select {
+  max-width: 100% !important;
+  width: 100%;
+  font-size: 0.78rem !important;
+}
+
 /* ── Download SRT dropdown ─────────────────────────────────────────────────── */
 .yl-download-wrap {
   position: relative;
