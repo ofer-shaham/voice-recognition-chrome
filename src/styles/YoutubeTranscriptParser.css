@@ -1661,3 +1661,23 @@
 /* ── debug mode toggle button ── */
 .yt-debug-btn        { opacity: 0.6; }
 .yt-debug-btn.active { opacity: 1; color: #90e070; border-color: #50a030 !important; }
+
+/* ── + SRT column: YouTube tab info panel ── */
+.yt-yt-fetch-info {
+  padding: 8px 10px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  color: #ccc;
+  min-height: 36px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.yt-col-hint {
+  font-size: 0.78rem;
+  color: #888;
+  font-style: italic;
+}
