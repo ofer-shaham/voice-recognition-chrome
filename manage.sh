@@ -518,7 +518,7 @@ native_ensure() {
   else
     native_start_service \
       "client" "$CLIENT_PID" "$LOG_DIR/client.log" 5000 \
-      npm start || exit 1
+      env PORT=5000 DANGEROUSLY_DISABLE_HOST_CHECK=true npm start || exit 1
   fi
 
   echo ""
@@ -792,7 +792,7 @@ native_start() {
 
   native_start_service \
     "client" "$CLIENT_PID" "$LOG_DIR/client.log" 5000 \
-    npm start \
+    env PORT=5000 DANGEROUSLY_DISABLE_HOST_CHECK=true npm start \
   || exit 1
 
   echo ""
