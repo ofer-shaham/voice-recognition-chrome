@@ -218,6 +218,15 @@ function YoutubeTranscriptParser() {
   const [eventLog, setEventLog] = useState<LogEntry[]>([]);
   const [showLog,  setShowLog]  = useState(false);
 
+  // ── debug mode (on by default; persisted) ─────────────────────────────────
+  const [debugMode, setDebugMode] = useState<boolean>(() => {
+    try { return localStorage.getItem("yt_debug_mode") !== "false"; } catch { return true; }
+  });
+
+  // ── global error banner ───────────────────────────────────────────────────
+  interface GlobalError { msg: string; detail: string; context: string; time: string; }
+  const [globalError, setGlobalError] = useState<GlobalError | null>(null);
+
   // ── audio-only / fullscreen mode ──────────────────────────────────────────
   const [audioOnly, setAudioOnly] = useState(false);
   const [fsMode,    setFsMode]    = useState(false);
@@ -240,6 +249,14 @@ function YoutubeTranscriptParser() {
 
   const logEvent = useCallback((msg: string, type: LogEntry["type"] = "info") => {
     setEventLog((prev) => [{ time: nowTs(), msg, type }, ...prev].slice(0, 200));
+  }, []);
+
+  // reportError: logs + surfaces a visible banner (always, not just in debug mode)
+  const reportError = useCallback((context: string, err: unknown) => {
+    const detail = err instanceof Error ? err.message : String(err);
+    const time   = nowTs();
+    setEventLog((prev) => [{ time, msg: `[${context}] ${detail}`, type: "error" as const }, ...prev].slice(0, 200));
+    setGlobalError({ msg: context, detail, context, time });
   }, []);
 
   // ── refs for stale-closure-safe playback loop ─────────────────────────────
@@ -296,7 +313,7 @@ function YoutubeTranscriptParser() {
         setCurrentPage(1);
         logEvent(`Loaded ${parsed.length} lines`);
       })
-      .catch((e) => { setLoadError(e.message); logEvent(e.message, "error"); })
+      .catch((e) => { setLoadError(e.message); reportError("Load SRT", e); })
       .finally(() => setLoading(false));
   };
 
@@ -329,11 +346,11 @@ function YoutubeTranscriptParser() {
       setSrtUrl(""); // clear URL field so it's clear this was fetched from YouTube
     } catch (e: any) {
       setYtFetchError(e.message);
-      logEvent(`📺 Fetch failed: ${e.message}`, "error");
+      reportError(`Fetch subtitles [${videoId} / ${ytFetchLang.split("-")[0]}]`, e);
     } finally {
       setYtFetchLoading(false);
     }
-  }, [videoId, ytFetchLang, buildLines, logEvent]);
+  }, [videoId, ytFetchLang, buildLines, logEvent, reportError]);
 
   // ── job history helpers ────────────────────────────────────────────────────
   const handleSaveJob = useCallback(() => {
@@ -388,11 +405,11 @@ function YoutubeTranscriptParser() {
       logEvent(`🔍 Video found: "${data.videoDetails?.title || vid}"`);
     } catch (e: any) {
       setMenuLookupError(e.message);
-      logEvent(`🔍 Video lookup failed: ${e.message}`, "error");
+      reportError(`Video lookup [${url}]`, e);
     } finally {
       setMenuLookupLoading(false);
     }
-  }, [logEvent]);
+  }, [logEvent, reportError]);
 
   // ── project load ──────────────────────────────────────────────────────────
   const loadProject = useCallback((project: YtProject) => {
@@ -508,7 +525,7 @@ function YoutubeTranscriptParser() {
         texts = parseContent(await r.text()).map(p => p.text);
         if (!texts.length) throw new Error("No lines parsed");
       } catch (e: any) {
-        logEvent(`Extra SRT load failed: ${e.message}`, "error");
+        reportError("Extra SRT load", e);
         setNewSrtLoading(false);
         return;
       }
@@ -758,6 +775,26 @@ function YoutubeTranscriptParser() {
   return (
     <div className="yt-page">
 
+      {/* ── global error banner ── */}
+      {globalError && (
+        <div className="yt-global-error-banner">
+          <div className="yt-geb-header">
+            <span className="yt-geb-icon">⛔</span>
+            <span className="yt-geb-title">{globalError.msg}</span>
+            <span className="yt-geb-time">{globalError.time}</span>
+            <button className="yt-geb-dismiss" onClick={() => setGlobalError(null)} title="Dismiss">✕</button>
+          </div>
+          {debugMode && (
+            <div className="yt-geb-detail">{globalError.detail}</div>
+          )}
+          {!debugMode && (
+            <div className="yt-geb-nodebug">
+              Enable 🐛 Debug mode for full error details.
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ── projects bar ── */}
       <ProjectsMenu
         projects={projects}
@@ -852,6 +889,16 @@ function YoutubeTranscriptParser() {
             {eventLog.some(e => e.type === "error") && !showLog && (
               <span className="yt-log-error-dot" title="Errors in log — click to view">●</span>
             )}
+          </button>
+          <button
+            className={`yt-icon-btn yt-debug-btn${debugMode ? " active" : ""}`}
+            title={debugMode ? "Debug mode ON — full errors shown. Click to disable." : "Debug mode OFF. Click to enable full error display."}
+            onClick={() => {
+              const next = !debugMode;
+              setDebugMode(next);
+              try { localStorage.setItem("yt_debug_mode", next ? "true" : "false"); } catch {}
+            }}>
+            🐛 Debug{debugMode ? " ●" : ""}
           </button>
           {isPlaying && <button className="yt-stop-btn" onClick={stopPlayback}>■ Stop</button>}
         </div>
