@@ -1,16 +1,6 @@
-const SERVER_START = Date.now();
+const { fetchTranscript } = require("youtube-transcript-plus");
 
-const formatAge = (ms) => {
-  const totalSec = Math.floor(ms / 1000);
-  const d = Math.floor(totalSec / 86400);
-  const h = Math.floor((totalSec % 86400) / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  if (d > 0) return `${d}d ${h}h ${m}m ${s}s`;
-  if (h > 0) return `${h}h ${m}m ${s}s`;
-  if (m > 0) return `${m}m ${s}s`;
-  return `${s}s`;
-};
+const SERVER_START = Date.now();
 
 const ENV_KEY =
   process.env.OPENROUTER_API_KEY || process.env.REACT_APP_OPENAI_API_KEY || "";
@@ -27,53 +17,256 @@ const json = (statusCode, body) => ({
   body: JSON.stringify(body),
 });
 
+const textResp = (statusCode, body) => ({
+  statusCode,
+  headers: { ...corsHeaders, "Content-Type": "text/plain; charset=utf-8" },
+  body,
+});
+
+const formatAge = (ms) => {
+  const totalSec = Math.floor(ms / 1000);
+  const d = Math.floor(totalSec / 86400);
+  const h = Math.floor((totalSec % 86400) / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  if (d > 0) return `${d}d ${h}h ${m}m ${s}s`;
+  if (h > 0) return `${h}h ${m}m ${s}s`;
+  if (m > 0) return `${m}m ${s}s`;
+  return `${s}s`;
+};
+
+// ── SRT helpers ────────────────────────────────────────────────────────────────
+function padN(n, len) { return String(n).padStart(len, "0"); }
+function msToSrtTime(ms) {
+  const h = Math.floor(ms / 3600000);
+  const m = Math.floor((ms % 3600000) / 60000);
+  const s = Math.floor((ms % 60000) / 1000);
+  const x = Math.floor(ms % 1000);
+  return `${padN(h,2)}:${padN(m,2)}:${padN(s,2)},${padN(x,3)}`;
+}
+function segmentsToSrt(segments) {
+  return segments
+    .map((seg, i) => {
+      const start = msToSrtTime(Math.round(seg.offset * 1000));
+      const end   = msToSrtTime(Math.round((seg.offset + seg.duration) * 1000));
+      return `${i + 1}\n${start} --> ${end}\n${seg.text}`;
+    })
+    .join("\n\n");
+}
+
+// ── YouTube timedtext XML fetcher ─────────────────────────────────────────────
+const RE_XML_TRANSCRIPT = /<text start="([^"]*)" dur="([^"]*)">([^<]*)<\/text>/g;
+function decodeXml(str) {
+  return str
+    .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+    .replace(/&#(\d+);/g, (_, n) => String.fromCharCode(+n));
+}
+
+async function fetchTimedText(url, { retries = 3, delayMs = 6000 } = {}) {
+  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36";
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const r = await fetch(url, { headers: { "User-Agent": UA } });
+    if (r.status === 429) {
+      if (attempt === retries) throw new Error("YouTube rate-limited (429) after retries");
+      await new Promise(ok => setTimeout(ok, delayMs * Math.pow(2, attempt)));
+      continue;
+    }
+    if (!r.ok) throw new Error(`YouTube timedtext HTTP ${r.status}`);
+    return r.text();
+  }
+}
+
+// ── YouTube player API fetcher ────────────────────────────────────────────────
+async function ytPlayerData(videoId) {
+  const watchPage = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+    headers: { "User-Agent": "Mozilla/5.0", "Accept-Language": "en-US,en;q=0.9" },
+  });
+  if (!watchPage.ok) throw new Error(`Watch page HTTP ${watchPage.status}`);
+  const html = await watchPage.text();
+
+  const keyMatch = html.match(/"INNERTUBE_API_KEY":"([^"]+)"/) ||
+                   html.match(/INNERTUBE_API_KEY\\":\\"([^\\"]+)\\"/);
+  if (!keyMatch) throw new Error("Could not extract Innertube API key");
+
+  const playerRes = await fetch(
+    `https://www.youtube.com/youtubei/v1/player?key=${keyMatch[1]}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "User-Agent": "Mozilla/5.0" },
+      body: JSON.stringify({
+        context: { client: { clientName: "ANDROID", clientVersion: "20.10.38" } },
+        videoId,
+      }),
+    }
+  );
+  if (!playerRes.ok) throw new Error(`Player API HTTP ${playerRes.status}`);
+  return playerRes.json();
+}
+
+async function ytCaptionBaseUrl(videoId) {
+  const data   = await ytPlayerData(videoId);
+  const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+  if (!tracks?.length) throw new Error("No caption tracks found");
+  return tracks[0].baseUrl;
+}
+
+// ── SRT method 1: youtube-transcript-plus ─────────────────────────────────────
+async function runMethod1(videoId, langCode) {
+  try {
+    const segments = await fetchTranscript(String(videoId), { lang: langCode });
+    return segmentsToSrt(segments);
+  } catch {
+    // exact lang not available — fall through to tlang approach
+  }
+  const baseUrl      = await ytCaptionBaseUrl(String(videoId));
+  const timedtextUrl = baseUrl.replace(/&fmt=[^&]*/g, "") + `&tlang=${langCode}`;
+  const xml          = await fetchTimedText(timedtextUrl);
+  const matches      = [...xml.matchAll(RE_XML_TRANSCRIPT)];
+  if (!matches.length) throw new Error("No segments parsed from timedtext XML");
+  const segments = matches.map(m => ({
+    text:     decodeXml(m[3]),
+    duration: parseFloat(m[2]),
+    offset:   parseFloat(m[1]),
+    lang:     langCode,
+  }));
+  return segmentsToSrt(segments);
+}
+
+// ── SRT method 2: youtube-transcript-api-js (ESM) ─────────────────────────────
+async function runMethod2(videoId, langCode) {
+  const { YouTubeTranscriptApi, SRTFormatter } = await import("youtube-transcript-api-js");
+  const api  = new YouTubeTranscriptApi();
+  const list = await api.list(String(videoId));
+  let transcript;
+  try {
+    transcript = list.findTranscript([langCode]);
+  } catch {
+    transcript = list.findTranscript(["en", "ar", "he", "fr", "es", "de", "ru", "zh", "ja"]);
+  }
+  if (transcript.languageCode !== langCode && transcript.isTranslatable
+      && transcript.translationLanguagesDict?.has(langCode)) {
+    transcript = transcript.translate(langCode);
+  }
+  const fetched = await transcript.fetch();
+  return new SRTFormatter().formatTranscript(fetched);
+}
+
+// ── Main handler ───────────────────────────────────────────────────────────────
 exports.handler = async (event) => {
-  // Handle CORS preflight
   if (event.httpMethod === "OPTIONS") {
     return { statusCode: 204, headers: corsHeaders, body: "" };
   }
 
-  // Strip the function path prefix: /.netlify/functions/api/api/health -> /api/health
+  // Extract /api/... from the full Netlify function path.
+  // e.g. /.netlify/functions/api/api/transcript/languages → /api/transcript/languages
   const rawPath = event.path || "";
-  // Netlify passes the full path; extract the part after /api
-  const match = rawPath.match(/\/api(\/.*)?$/);
+  const match   = rawPath.match(/\/api(\/.*)?$/);
   const apiPath = match ? "/api" + (match[1] || "") : rawPath;
 
-  // GET /api/health
+  const qs = event.queryStringParameters || {};
+
+  // ── GET /api/health ──────────────────────────────────────────────────────────
   if (event.httpMethod === "GET" && apiPath === "/api/health") {
     const now = Date.now();
     return json(200, {
-      ok: true,
-      timestamp: now,
-      startedAt: SERVER_START,
-      age: formatAge(now - SERVER_START),
-      uptime: Math.floor(process.uptime()),
+      ok: true, timestamp: now, startedAt: SERVER_START,
+      age: formatAge(now - SERVER_START), uptime: Math.floor(process.uptime()),
     });
   }
 
-  // GET /api/config
+  // ── GET /api/config ──────────────────────────────────────────────────────────
   if (event.httpMethod === "GET" && apiPath === "/api/config") {
     return json(200, { serverHasKey: !!ENV_KEY });
   }
 
-  // GET /api/free-models
+  // ── GET /api/transcript/languages ───────────────────────────────────────────
+  if (event.httpMethod === "GET" && apiPath === "/api/transcript/languages") {
+    const { videoId } = qs;
+    if (!videoId) return json(400, { error: "videoId is required" });
+    try {
+      const data   = await ytPlayerData(String(videoId));
+      const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
+      const vd     = data?.videoDetails || {};
+      return json(200, {
+        videoDetails: {
+          title:         vd.title         || null,
+          author:        vd.author        || null,
+          lengthSeconds: vd.lengthSeconds || null,
+          videoId:       vd.videoId       || videoId,
+        },
+        availableLanguages: tracks.map(t => ({
+          languageCode:    t.languageCode,
+          name:            t.name?.simpleText || t.languageCode,
+          isAutoGenerated: t.kind === "asr",
+        })),
+      });
+    } catch (e) {
+      return json(500, { error: e.message });
+    }
+  }
+
+  // ── GET /api/srt ─────────────────────────────────────────────────────────────
+  if (event.httpMethod === "GET" && apiPath === "/api/srt") {
+    const { videoId, lang, method } = qs;
+    if (!videoId) return json(400, { error: "videoId is required" });
+    const langCode = String(lang || "en").split("-")[0];
+
+    if (method === "1") {
+      try   { return textResp(200, await runMethod1(videoId, langCode)); }
+      catch (e) { return json(500, { error: `Method 1 failed: ${e.message}` }); }
+    }
+    if (method === "2") {
+      try   { return textResp(200, await runMethod2(videoId, langCode)); }
+      catch (e) { return json(500, { error: `Method 2 failed: ${e.message}` }); }
+    }
+
+    // Auto-fallback: try m1 → m2
+    let m1Error = null;
+    try { return textResp(200, await runMethod1(videoId, langCode)); }
+    catch (e1) { m1Error = e1.message; }
+    try { return textResp(200, await runMethod2(videoId, langCode)); }
+    catch (e2) {
+      return json(500, { error: `Could not fetch transcript. m1: ${m1Error}. m2: ${e2.message}` });
+    }
+  }
+
+  // ── GET /api/tts ─────────────────────────────────────────────────────────────
+  if (event.httpMethod === "GET" && apiPath === "/api/tts") {
+    const { text: ttsText, lang } = qs;
+    if (!ttsText || !lang) return json(400, { error: "text and lang are required" });
+    const shortLang = String(lang).split("-")[0];
+    const encoded   = encodeURIComponent(String(ttsText).slice(0, 200));
+    const ttsUrl    = `https://translate.google.com/translate_tts?ie=UTF-8&tl=${shortLang}&client=tw-ob&q=${encoded}`;
+    try {
+      const upstream = await fetch(ttsUrl, {
+        headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36" },
+      });
+      if (!upstream.ok) return json(upstream.status, { error: `TTS upstream returned ${upstream.status}` });
+      const buf = Buffer.from(await upstream.arrayBuffer());
+      return {
+        statusCode: 200,
+        headers: { ...corsHeaders, "Content-Type": "audio/mpeg", "Cache-Control": "public, max-age=3600" },
+        body: buf.toString("base64"),
+        isBase64Encoded: true,
+      };
+    } catch (err) {
+      return json(500, { error: err.message });
+    }
+  }
+
+  // ── GET /api/free-models ─────────────────────────────────────────────────────
   if (event.httpMethod === "GET" && apiPath === "/api/free-models") {
     try {
       const orRes = await fetch(
         "https://openrouter.ai/api/frontend/models/find?active=true&fmt=cards&max_price=0&order=top-weekly",
         { headers: { Accept: "application/json" } }
       );
-      if (!orRes.ok) {
-        return json(orRes.status, { error: "OpenRouter returned " + orRes.status });
-      }
-      const data = await orRes.json();
-      const rawList =
-        data?.data?.models ?? data?.data ?? data?.models ?? data ?? [];
-      const models = rawList
-        .map((m) => ({
-          id: m.slug || m.id || "",
-          label: m.name || m.short_name || m.slug || "",
-        }))
+      if (!orRes.ok) return json(orRes.status, { error: "OpenRouter returned " + orRes.status });
+      const data    = await orRes.json();
+      const rawList = data?.data?.models ?? data?.data ?? data?.models ?? data ?? [];
+      const models  = rawList
+        .map((m) => ({ id: m.slug || m.id || "", label: m.name || m.short_name || m.slug || "" }))
         .filter((m) => m.id);
       return json(200, { models });
     } catch (err) {
@@ -81,31 +274,22 @@ exports.handler = async (event) => {
     }
   }
 
-  // POST /api/health_ai
+  // ── POST /api/health_ai ──────────────────────────────────────────────────────
   if (event.httpMethod === "POST" && apiPath === "/api/health_ai") {
     let body = {};
     try { body = JSON.parse(event.body || "{}"); } catch {}
     const key = body.apiKey || ENV_KEY;
-
-    if (!key) {
-      return json(401, {
-        ok: false,
-        error: "No API key available. Set OPENROUTER_API_KEY or pass one in the request body.",
-      });
-    }
-
+    if (!key) return json(401, { ok: false, error: "No API key available." });
     const t0 = Date.now();
     try {
       const orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${key}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": "https://netlify.app",
-          "X-Title": "Voice Translation App",
+          Authorization: `Bearer ${key}`, "Content-Type": "application/json",
+          "HTTP-Referer": "https://netlify.app", "X-Title": "Voice Translation App",
         },
         body: JSON.stringify({
-          model: "meta-llama/llama-3.1-8b-instruct",
+          model: "meta-llama/llama-3.1-8b-instruct:free",
           messages: [{ role: "user", content: "Reply with the single word: OK" }],
           max_tokens: 5,
         }),
@@ -113,9 +297,9 @@ exports.handler = async (event) => {
       const elapsed = Date.now() - t0;
       if (!orRes.ok) {
         const errBody = await orRes.text().catch(() => "");
-        return json(200, { ok: false, status: orRes.status, error: errBody.slice(0, 200) || orRes.statusText, elapsed, timestamp: Date.now() });
+        return json(200, { ok: false, status: orRes.status, error: errBody.slice(0, 200), elapsed, timestamp: Date.now() });
       }
-      const data = await orRes.json();
+      const data  = await orRes.json();
       const reply = data?.choices?.[0]?.message?.content || "";
       return json(200, { ok: true, elapsed, reply, timestamp: Date.now() });
     } catch (err) {
@@ -123,7 +307,7 @@ exports.handler = async (event) => {
     }
   }
 
-  // POST /api/chat
+  // ── POST /api/chat ───────────────────────────────────────────────────────────
   if (event.httpMethod === "POST" && apiPath === "/api/chat") {
     let body = {};
     try { body = JSON.parse(event.body || "{}"); } catch {}
@@ -132,42 +316,32 @@ exports.handler = async (event) => {
     if (!Array.isArray(messages) || !model) {
       return json(400, { error: "messages (array) and model (string) are required" });
     }
-
     const key = apiKey || ENV_KEY;
     if (!key) {
-      return json(401, {
-        error: "No API key available. Set OPENROUTER_API_KEY on the server, or enter one in the UI.",
-      });
+      return json(401, { error: "No API key available. Set OPENROUTER_API_KEY, or enter one in the UI." });
     }
 
     const orBody = { model, messages };
-    if (maxTokens && Number.isInteger(maxTokens) && maxTokens > 0) {
-      orBody.max_tokens = maxTokens;
-    }
+    if (maxTokens && Number.isInteger(maxTokens) && maxTokens > 0) orBody.max_tokens = maxTokens;
 
     const t0 = Date.now();
     try {
       const orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${key}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": "https://netlify.app",
-          "X-Title": "Voice Translation App",
+          Authorization: `Bearer ${key}`, "Content-Type": "application/json",
+          "HTTP-Referer": "https://netlify.app", "X-Title": "Voice Translation App",
         },
         body: JSON.stringify(orBody),
       });
-
       if (!orRes.ok) {
         const errBody = await orRes.text().catch(() => "");
         return json(orRes.status, { error: `OpenRouter ${orRes.status}: ${errBody || orRes.statusText}` });
       }
-
-      const data = await orRes.json();
+      const data    = await orRes.json();
       const content = data?.choices?.[0]?.message?.content;
-      const actualModel = data?.model || model;
       if (!content) return json(500, { error: "No content in OpenRouter response" });
-      return json(200, { content, model: actualModel });
+      return json(200, { content, model: data?.model || model });
     } catch (err) {
       return json(500, { error: err.message });
     }

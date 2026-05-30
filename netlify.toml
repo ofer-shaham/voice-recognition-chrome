@@ -3,6 +3,10 @@
   publish = "build"
   functions = "netlify/functions"
 
+[functions]
+  # Use nft (Node File Tracing) instead of esbuild so ESM dynamic imports work correctly
+  node_bundler = "nft"
+
 # Rewrite /api/* to the serverless function
 [[redirects]]
   from = "/api/*"
