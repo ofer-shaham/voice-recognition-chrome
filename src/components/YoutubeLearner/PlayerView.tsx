@@ -11,11 +11,15 @@ interface Props {
   project: YtProject;
   onSave: (p: YtProject) => void;
   onNewVideo: () => void;
+  onDelete: (id: string) => void;
   projects: YtProject[];
   onSelectProject: (p: YtProject) => void;
 }
 
-export default function PlayerView({ project, onSave, onNewVideo, projects, onSelectProject }: Props) {
+// Encode colId for URL: track:en → en, translation → t
+const shortCol = (id: string) => id === 'translation' ? 't' : id.replace('track:', '');
+
+export default function PlayerView({ project, onSave, onNewVideo, onDelete, projects, onSelectProject }: Props) {
   const [lines, setLines]               = useState<ParsedLine[]>([]);
   const [config, setConfig]             = useState<ProjectConfig>(project.config);
   const [isPlaying, setIsPlaying]       = useState(false);
@@ -25,7 +29,8 @@ export default function PlayerView({ project, onSave, onNewVideo, projects, onSe
   const [iframeKey, setIframeKey]       = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [translationVer, setTranslationVer] = useState(0);
-  const [seamlessMode, setSeamlessMode] = useState(false);
+  const [seamlessMode, setSeamlessMode]       = useState(false);
+  const [confirmDelete, setConfirmDelete]     = useState(false);
 
   const { langOptions, voicesForLang } = useVoices();
 
@@ -42,6 +47,21 @@ export default function PlayerView({ project, onSave, onNewVideo, projects, onSe
   useEffect(() => { configRef.current = config; }, [config]);
   useEffect(() => { projectRef.current = project; }, [project]);
   useEffect(() => { seamlessRef.current = seamlessMode; }, [seamlessMode]);
+
+  // ── URL sync: reflect project + config in address bar ───────────────────────
+  useEffect(() => {
+    const p = new URLSearchParams();
+    if (project.videoId) p.set('v', project.videoId);
+    else p.set('p', project.id);
+    p.set('tl', config.targetLang);
+    for (const [colId, s] of Object.entries(config.colSettings)) {
+      if (colId === 'video') continue;
+      const sid = shortCol(colId);
+      if (s.ttsRate !== DEFAULT_TTS_RATE) p.set(`r_${sid}`, s.ttsRate.toFixed(1));
+      if (s.voiceName) p.set(`vn_${sid}`, s.voiceName);
+    }
+    window.history.replaceState(null, '', `${window.location.pathname}?${p.toString()}`);
+  }, [project.id, project.videoId, config]);
 
   // ── Parse SRT on project change ─────────────────────────────────────────────
   useEffect(() => {
@@ -265,11 +285,30 @@ export default function PlayerView({ project, onSave, onNewVideo, projects, onSe
           <button className="yl-btn-ghost" onClick={onNewVideo}>＋ New</button>
           {projects.length > 1 && (
             <select className="yl-select-sm" value={project.id}
-              onChange={e => { const p = projects.find(x => x.id === e.target.value); if (p) onSelectProject(p); }}>
+              onChange={e => { const p = projects.find(x => x.id === e.target.value); if (p) { setConfirmDelete(false); onSelectProject(p); } }}>
               {projects.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
             </select>
           )}
           <span className="yl-video-title" title={project.title}>{project.title}</span>
+
+          {/* ── Delete project ── */}
+          {confirmDelete ? (
+            <span className="yl-delete-confirm">
+              Delete?
+              <button className="yl-btn-ghost yl-btn-sm yl-btn-danger"
+                onClick={() => { setConfirmDelete(false); if (isPlaying) stop(); onDelete(project.id); }}>
+                Yes
+              </button>
+              <button className="yl-btn-ghost yl-btn-sm" onClick={() => setConfirmDelete(false)}>
+                No
+              </button>
+            </span>
+          ) : (
+            <button className="yl-btn-ghost yl-btn-sm yl-btn-danger" title="Delete this project"
+              onClick={() => setConfirmDelete(true)}>
+              🗑
+            </button>
+          )}
         </div>
         <div className="yl-header-right">
           <span className="yl-line-info">

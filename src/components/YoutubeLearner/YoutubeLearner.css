@@ -704,6 +704,16 @@ input[type="range"] {
   color: #fca5a5 !important;
 }
 
+/* ── Delete confirm inline ─────────────────────────────────────────────────── */
+.yl-delete-confirm {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: #f87171;
+  white-space: nowrap;
+}
+
 /* ── Voice selector ────────────────────────────────────────────────────────── */
 .yl-voice-field {
   flex-direction: column;
