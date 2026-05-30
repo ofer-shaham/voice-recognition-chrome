@@ -3,8 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "dependencies": {
-    "youtube-transcript-plus": "^2.0.0",
-    "youtube-transcript-api-js": "^3.0.3",
     "@testing-library/jest-dom": "^5.17.0",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
@@ -12,6 +10,8 @@
     "@types/node": "^16.18.126",
     "@types/react-speech-recognition": "^3.9.6",
     "@types/youtube": "^0.0.50",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
     "js-yaml": "^4.1.1",
     "marked": "^12.0.2",
     "react": "^18.3.1",
@@ -21,10 +21,13 @@
     "react-scripts": "^5.0.1",
     "react-speech-recognition": "^3.10.0",
     "react-swipeable": "^7.0.2",
+    "swagger-ui-express": "^5.0.1",
     "tts-react": "^3.0.7",
     "typescript": "^4.9.5",
     "use-debounce": "^10.1.1",
-    "web-vitals": "^2.1.4"
+    "web-vitals": "^2.1.4",
+    "youtube-transcript-api-js": "^3.0.3",
+    "youtube-transcript-plus": "^2.0.0"
   },
   "proxy": "http://localhost:3001",
   "scripts": {
