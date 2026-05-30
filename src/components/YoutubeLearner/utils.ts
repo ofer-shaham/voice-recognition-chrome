@@ -44,10 +44,38 @@ export function buildLines(
 
 export function extractVideoId(input: string): string | null {
   const clean = input.trim();
-  const m =
-    clean.match(/(?:youtu\.be\/|[?&]v=)([\w-]{11})/) ||
-    clean.match(/^([\w-]{11})$/);
-  return m ? m[1] : null;
+  // Bare 11-char video ID
+  if (/^[\w-]{11}$/.test(clean)) return clean;
+  try {
+    const url = new URL(clean.startsWith('http') ? clean : 'https://' + clean);
+    const host = url.hostname.replace(/^www\./, '');
+    // youtu.be/VIDEO_ID
+    if (host === 'youtu.be') {
+      const id = url.pathname.slice(1).split('/')[0];
+      if (/^[\w-]{11}$/.test(id)) return id;
+    }
+    // youtube.com/shorts/VIDEO_ID
+    // youtube.com/live/VIDEO_ID
+    // youtube.com/embed/VIDEO_ID
+    // youtube.com/v/VIDEO_ID
+    // youtube-nocookie.com/embed/VIDEO_ID
+    if (host === 'youtube.com' || host === 'youtube-nocookie.com' || host === 'm.youtube.com') {
+      const parts = url.pathname.split('/').filter(Boolean);
+      const pathPrefixes = ['shorts', 'live', 'embed', 'v', 'e'];
+      for (let i = 0; i < parts.length - 1; i++) {
+        if (pathPrefixes.includes(parts[i]) && /^[\w-]{11}$/.test(parts[i + 1])) {
+          return parts[i + 1];
+        }
+      }
+      // ?v= or &v=
+      const v = url.searchParams.get('v');
+      if (v && /^[\w-]{11}$/.test(v)) return v;
+    }
+  } catch { /* not a valid URL, fall through */ }
+  // Last-resort: grab first 11-char word-like segment after known path tokens
+  const m = clean.match(/(?:\/|v=|vi=|vi\/|v\/|embed\/|shorts\/|live\/)([\w-]{11})/);
+  if (m) return m[1].trim();
+  return null;
 }
 
 export function secondsToHms(sec: number): string {
