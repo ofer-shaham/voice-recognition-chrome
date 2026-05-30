@@ -101,14 +101,99 @@ const swaggerSpec = {
       },
     },
   },
+},
 };
 
 // ── Middleware ─────────────────────────────────────────────────────────────────
 app.use(cors());
 app.use(express.json({ limit: "1mb" }));
 
+const SWAGGER_DARK_CSS = `
+  body { background:#0d1117!important; }
+  .swagger-ui { color:#c9d1d9; background:#0d1117; }
+  .swagger-ui .topbar { background:#161b29; border-bottom:1px solid #21262d; padding:8px 0; }
+  .swagger-ui .topbar a { color:#58a6ff; }
+  .swagger-ui .info .title,
+  .swagger-ui .info h1,
+  .swagger-ui .info h2,
+  .swagger-ui .info h3 { color:#e6edf3; }
+  .swagger-ui .info p,
+  .swagger-ui .info li { color:#8b949e; }
+  .swagger-ui .info a { color:#58a6ff; }
+  .swagger-ui .scheme-container { background:#0d1117; box-shadow:none; border-bottom:1px solid #21262d; }
+  .swagger-ui select { background:#161b29; color:#c9d1d9; border-color:#30363d; }
+  .swagger-ui input[type=text],
+  .swagger-ui textarea { background:#0d1117; color:#c9d1d9; border-color:#30363d; }
+  .swagger-ui input[type=text]:focus,
+  .swagger-ui textarea:focus { border-color:#58a6ff; outline:none; }
+  .swagger-ui .opblock { border-color:#21262d!important; background:#161b29; border-radius:6px; margin-bottom:8px; }
+  .swagger-ui .opblock .opblock-summary { border-color:#21262d; }
+  .swagger-ui .opblock .opblock-summary-operation-id,
+  .swagger-ui .opblock .opblock-summary-path,
+  .swagger-ui .opblock .opblock-summary-path__deprecated,
+  .swagger-ui .opblock .opblock-summary-description { color:#c9d1d9; }
+  .swagger-ui .opblock .opblock-section-header { background:#1c2128; border-color:#30363d; }
+  .swagger-ui .opblock .opblock-section-header h4 { color:#e6edf3; }
+  .swagger-ui .opblock.opblock-get { border-color:#1f6feb!important; background:#0d1e36; }
+  .swagger-ui .opblock.opblock-get .opblock-summary { border-color:#1f6feb; background:#0d1e36; }
+  .swagger-ui .opblock.opblock-post { border-color:#238636!important; background:#0d2818; }
+  .swagger-ui .opblock.opblock-post .opblock-summary { border-color:#238636; background:#0d2818; }
+  .swagger-ui .opblock.opblock-put { border-color:#9e6a03!important; background:#271d04; }
+  .swagger-ui .opblock.opblock-delete { border-color:#b91c1c!important; background:#2d1010; }
+  .swagger-ui .opblock-tag { color:#e6edf3; border-color:#21262d; }
+  .swagger-ui .opblock-tag:hover { background:#161b29; }
+  .swagger-ui .opblock-tag small { color:#8b949e; }
+  .swagger-ui .tab li { color:#8b949e; }
+  .swagger-ui .tab li.active { color:#e6edf3; }
+  .swagger-ui table thead tr td,
+  .swagger-ui table thead tr th { color:#8b949e; border-color:#21262d; }
+  .swagger-ui .parameter__name { color:#c9d1d9; }
+  .swagger-ui .parameter__type { color:#79c0ff; }
+  .swagger-ui .parameter__deprecated { color:#f85149; }
+  .swagger-ui .parameter__in { color:#56d364; }
+  .swagger-ui table.model tr td { color:#c9d1d9; border-color:#21262d; }
+  .swagger-ui .response-col_status { color:#c9d1d9; }
+  .swagger-ui .response-col_description { color:#8b949e; }
+  .swagger-ui .responses-inner h4,
+  .swagger-ui .responses-inner h5 { color:#e6edf3; }
+  .swagger-ui .response .response-col_description__inner { color:#8b949e; }
+  .swagger-ui section.models { border-color:#21262d; background:#0d1117; }
+  .swagger-ui section.models h4 { color:#e6edf3; }
+  .swagger-ui section.models .model-container { background:#161b29; border-color:#30363d; }
+  .swagger-ui .model { color:#c9d1d9; }
+  .swagger-ui .model-title { color:#e6edf3; }
+  .swagger-ui .model .property.primitive { color:#79c0ff; }
+  .swagger-ui .btn { border-color:#30363d; color:#c9d1d9; background:#21262d; }
+  .swagger-ui .btn:hover { background:#30363d; }
+  .swagger-ui .btn.execute { background:#1f6feb; border-color:#1f6feb; color:#fff; }
+  .swagger-ui .btn.execute:hover { background:#388bfd; }
+  .swagger-ui .btn.cancel { background:#b91c1c; border-color:#b91c1c; color:#fff; }
+  .swagger-ui .btn.authorize { background:#238636; border-color:#238636; color:#fff; }
+  .swagger-ui .loading-container .loading::after { border-color:#58a6ff transparent #58a6ff transparent; }
+  .swagger-ui .markdown p,
+  .swagger-ui .markdown li { color:#8b949e; }
+  .swagger-ui .markdown code,
+  .swagger-ui .renderedMarkdown code { background:#161b29; color:#79c0ff; padding:2px 6px; border-radius:4px; }
+  .swagger-ui .highlight-code { background:#161b29; }
+  .swagger-ui .microlight { background:#161b29!important; color:#c9d1d9; }
+  .swagger-ui .copy-to-clipboard { background:#21262d; }
+  .swagger-ui .copy-to-clipboard button { background:#21262d; }
+  .swagger-ui .arrow { fill:#8b949e; }
+  .swagger-ui svg.arrow { fill:#8b949e; }
+  .swagger-ui .expand-methods svg,
+  .swagger-ui .expand-operation svg { fill:#8b949e; }
+  .swagger-ui .servers > label { color:#8b949e; }
+  .swagger-ui .servers > label select { background:#161b29; color:#c9d1d9; border-color:#30363d; }
+  .swagger-ui .auth-wrapper .authorize { border-color:#238636; }
+  .swagger-ui .dialog-ux .modal-ux { background:#161b29; border-color:#30363d; }
+  .swagger-ui .dialog-ux .modal-ux-header { background:#1c2128; border-color:#30363d; }
+  .swagger-ui .dialog-ux .modal-ux-header h3 { color:#e6edf3; }
+  .swagger-ui .dialog-ux .modal-ux-content { color:#c9d1d9; }
+`;
+
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   customSiteTitle: "Transcript API Docs",
+  customCss: SWAGGER_DARK_CSS,
   swaggerOptions: { defaultModelsExpandDepth: -1 },
 }));
 app.get("/api-docs.json", (_req, res) => res.json(swaggerSpec));
