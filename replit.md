@@ -10,6 +10,19 @@
 | `./manage.sh logs [client\|server\|openrouter]` | Follow logs |
 | `./manage.sh --native start` | Start server + client without Docker |
 
+### One-time setup — serve on port 80 (public URL)
+
+Replit's proxy automatically maps internal port 5000 → external port 80 (public HTTPS URL).
+Run this once after cloning to build Docker images and start both services:
+
+```bash
+cp .env.example .env          # add your OPENROUTER_API_KEY to .env
+./manage.sh start             # builds images + starts client (5000) and server (3001)
+```
+
+After that the app is live at `https://$REPLIT_DEV_DOMAIN` (port 80/443 publicly).
+Subsequent restarts: `./manage.sh restart` (no rebuild needed unless code changed).
+
 **Required env vars (Replit Secrets):**
 - `REACT_APP_OPENAI_API_KEY` — OpenRouter key (used by the server as `OPENROUTER_API_KEY`)
 
