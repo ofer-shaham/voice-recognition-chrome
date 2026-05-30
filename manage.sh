@@ -5,7 +5,7 @@
 # Use --native to run without Docker (requires node/npm on PATH).
 #
 # Usage:
-#   ./manage.sh [--native] {start|stop|restart|status|build|doctor|fix}
+#   ./manage.sh [--native] {start|stop|restart|status|build|install|doctor|fix}
 #   ./manage.sh [--native] logs [client|server|openrouter|all]
 #
 # Docker Compose services:
@@ -14,6 +14,7 @@
 #   openrouter  Alias for 'server'
 #
 # Examples:
+#   ./manage.sh install                 # install all client + server npm dependencies
 #   ./manage.sh doctor                  # diagnose Docker + environment issues
 #   ./manage.sh fix                     # auto-fix detected issues
 #   ./manage.sh start                   # docker compose up (build if needed)
@@ -45,7 +46,7 @@ head_()  { echo -e "${CYAN}── $* ──${NC}"; }
 for arg in "$@"; do
   case "$arg" in
     --native) USE_NATIVE=true ;;
-    start|stop|restart|status|build|doctor|fix) COMMAND="$arg" ;;
+    start|stop|restart|status|build|install|doctor|fix) COMMAND="$arg" ;;
     logs) COMMAND="logs" ;;
     client|server|openrouter|all)
       if [[ "$COMMAND" == "logs" ]]; then
@@ -61,14 +62,14 @@ for arg in "$@"; do
       ;;
     *)
       error "Unknown argument: $arg"
-      echo "Usage: $0 [--native] {start|stop|restart|status|build|doctor|fix|logs [service]}" >&2
+      echo "Usage: $0 [--native] {start|stop|restart|status|build|install|doctor|fix|logs [service]}" >&2
       exit 1
       ;;
   esac
 done
 
 if [[ -z "$COMMAND" ]]; then
-  echo "Usage: $0 [--native] {start|stop|restart|status|build|doctor|fix|logs [service]}"
+  echo "Usage: $0 [--native] {start|stop|restart|status|build|install|doctor|fix|logs [service]}"
   exit 1
 fi
 
@@ -394,6 +395,33 @@ run_fix() {
   fi
 }
 
+# ── install ───────────────────────────────────────────────────────────────────
+run_install() {
+  echo ""
+  head_ "Installing project dependencies"
+
+  echo ""
+  info "Client dependencies (npm install --legacy-peer-deps)…"
+  if npm install --legacy-peer-deps; then
+    echo -e "  ${PASS}  Client dependencies installed."
+  else
+    echo -e "  ${FAIL}  Client npm install failed — check the output above."
+    return 1
+  fi
+
+  echo ""
+  info "Server dependencies (cd server && npm install)…"
+  if (cd server && npm install); then
+    echo -e "  ${PASS}  Server dependencies installed."
+  else
+    echo -e "  ${FAIL}  Server npm install failed — check the output above."
+    return 1
+  fi
+
+  echo ""
+  info "All dependencies installed. Run './manage.sh --native start' or './manage.sh start'."
+}
+
 # ── Docker Compose helpers ────────────────────────────────────────────────────
 compose_cmd() {
   if docker compose version &>/dev/null 2>&1; then
@@ -676,9 +704,10 @@ native_logs() {
 }
 
 # ── dispatch ──────────────────────────────────────────────────────────────────
-# doctor and fix run regardless of --native flag
-if [[ "$COMMAND" == "doctor" ]]; then run_doctor; exit 0; fi
-if [[ "$COMMAND" == "fix"    ]]; then run_fix;    exit 0; fi
+# install, doctor and fix run regardless of --native flag
+if [[ "$COMMAND" == "install" ]]; then run_install; exit 0; fi
+if [[ "$COMMAND" == "doctor"  ]]; then run_doctor;  exit 0; fi
+if [[ "$COMMAND" == "fix"     ]]; then run_fix;     exit 0; fi
 
 if $USE_NATIVE; then
   case "$COMMAND" in
