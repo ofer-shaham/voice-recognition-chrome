@@ -144,9 +144,126 @@ async function fetchSrtMethod2(videoId, langCode) {
   return new SRTFormatter().formatTranscript(fetched);
 }
 
+// ── Method 3: parse ytInitialPlayerResponse from watch-page HTML ──────────────
+// Completely different code path from methods 1 & 2 — no Innertube POST,
+// no third-party library. Parses the JSON blob YouTube embeds in the page,
+// downloads captions in json3 format, converts to SRT.
+
+function extractJsonObject(html, marker) {
+  const idx = html.indexOf(marker);
+  if (idx === -1) return null;
+  // Advance to the opening '{'
+  let start = html.indexOf("{", idx + marker.length);
+  if (start === -1) return null;
+  let depth = 0, inStr = false, esc = false;
+  for (let i = start; i < html.length; i++) {
+    const c = html[i];
+    if (esc)           { esc = false; continue; }
+    if (c === "\\" && inStr) { esc = true;  continue; }
+    if (c === '"')     { inStr = !inStr; continue; }
+    if (inStr)         { continue; }
+    if (c === "{")     { depth++; }
+    if (c === "}")     { depth--; if (depth === 0) return html.slice(start, i + 1); }
+  }
+  return null;
+}
+
+function json3ToSrt(data) {
+  const events = (data.events || []).filter(e => e.segs?.length);
+  if (!events.length) throw new Error("No caption events in json3 response");
+  let idx = 1;
+  const parts = [];
+  for (const ev of events) {
+    const text = ev.segs.map(s => s.utf8 || "").join("").trim();
+    if (!text) continue;
+    const start = ev.tStartMs || 0;
+    const end   = start + (ev.dDurationMs || 3000);
+    parts.push(`${idx}\n${msToSrtTime(start)} --> ${msToSrtTime(end)}\n${text}`);
+    idx++;
+  }
+  if (!parts.length) throw new Error("All caption events were empty");
+  return parts.join("\n\n");
+}
+
+async function fetchSrtMethod3(videoId, langCode) {
+  const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+
+  // Strategy: get caption track baseUrl, then download as json3 format.
+  // Primary path — parse ytInitialPlayerResponse from the watch page HTML
+  // (no Innertube POST request, same approach as tools like downsub.com).
+  // Fallback — use ytPlayerData (IOS Innertube client) if the page is 429'd.
+  let tracks = null;
+
+  try {
+    const watchRes = await fetch(`https://www.youtube.com/watch?v=${videoId}`, {
+      headers: { "User-Agent": UA, "Accept-Language": "en-US,en;q=0.9", "Accept": "text/html,application/xhtml+xml" },
+    });
+    if (!watchRes.ok) throw new Error(`Watch page HTTP ${watchRes.status}`);
+    const html = await watchRes.text();
+
+    const raw = extractJsonObject(html, "ytInitialPlayerResponse");
+    if (!raw) throw new Error("ytInitialPlayerResponse not found");
+
+    const playerResponse = JSON.parse(raw);
+    const t = playerResponse?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+    if (t?.length) tracks = t;
+  } catch (_pageErr) {
+    // Page fetch failed (e.g. 429 rate-limit on this IP) — fall back to
+    // ytPlayerData which uses the IOS Innertube client (more bot-evasion).
+  }
+
+  if (!tracks) {
+    // Watch page was rate-limited — call the Innertube player API directly
+    // using a well-known public API key (no watch-page fetch required).
+    const INNERTUBE_KEY = "AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
+    const fallbackClients = [
+      { clientName: "IOS",     clientVersion: "19.29.1",          deviceMake: "Apple", deviceModel: "iPhone16,2", osName: "iPhone", osVersion: "17.5.1" },
+      { clientName: "TVHTML5", clientVersion: "7.20240724.13.00", hl: "en", gl: "US" },
+      { clientName: "WEB",     clientVersion: "2.20240726.00.00", hl: "en", gl: "US" },
+    ];
+    for (const client of fallbackClients) {
+      try {
+        const res = await fetch(
+          `https://www.youtube.com/youtubei/v1/player?key=${INNERTUBE_KEY}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "User-Agent": UA,
+                        "X-YouTube-Client-Name": client.clientName === "IOS" ? "5" : "1",
+                        "X-YouTube-Client-Version": client.clientVersion },
+            body: JSON.stringify({ context: { client }, videoId }),
+          }
+        );
+        if (!res.ok) continue;
+        const d = await res.json();
+        const t = d?.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+        if (t?.length) { tracks = t; break; }
+      } catch (_) { /* try next client */ }
+    }
+  }
+
+  if (!tracks?.length) throw new Error("No caption tracks found (method 3)");
+
+  // Pick the best matching language track
+  const langBase = langCode.split("-")[0];
+  const track =
+    tracks.find(t => t.languageCode === langCode) ||
+    tracks.find(t => t.languageCode.startsWith(langBase)) ||
+    tracks.find(t => t.kind !== "asr") ||
+    tracks[0];
+
+  // Download as json3 (structured JSON — handles overlapping captions better than XML)
+  const captionUrl = track.baseUrl.replace(/&fmt=[^&]*/g, "") + "&fmt=json3";
+  const capRes = await fetch(captionUrl, { headers: { "User-Agent": UA } });
+  if (!capRes.ok) throw new Error(`Caption download HTTP ${capRes.status}`);
+  const data = await capRes.json();
+
+  return json3ToSrt(data);
+}
+
 async function fetchSrt(videoId, langCode, method) {
   if (method === "1") return fetchSrtMethod1(videoId, langCode);
   if (method === "2") return fetchSrtMethod2(videoId, langCode);
+  if (method === "3") return fetchSrtMethod3(videoId, langCode);
   let m1Error = null;
   try { return await fetchSrtMethod1(videoId, langCode); }
   catch (e1) { m1Error = e1.message; }
@@ -156,4 +273,4 @@ async function fetchSrt(videoId, langCode, method) {
   }
 }
 
-module.exports = { ytPlayerData, ytCaptionBaseUrl, fetchSrt, fetchSrtMethod1, fetchSrtMethod2, segmentsToSrt };
+module.exports = { ytPlayerData, ytCaptionBaseUrl, fetchSrt, fetchSrtMethod1, fetchSrtMethod2, fetchSrtMethod3, segmentsToSrt };
