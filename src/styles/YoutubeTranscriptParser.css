@@ -1430,3 +1430,171 @@
 .yt-wizard-fetch-label { flex: 1; }
 .yt-wizard-fetch-meta  { font-size: 0.75rem; color: #4a8060; font-family: monospace; }
 .yt-wizard-fetch-err   { font-size: 0.72rem; color: #c04050; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── #2: line range in pagination ── */
+.yt-line-range {
+  font-size: 0.78rem;
+  color: #5a7a90;
+}
+
+/* ── #8: error dot on log button ── */
+.yt-log-error-dot {
+  color: #e94560;
+  font-size: 0.7rem;
+  margin-left: 3px;
+  animation: yt-blink 1.2s ease infinite;
+}
+@keyframes yt-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+
+/* ── #10: audio-only button & fullscreen button ── */
+.yt-fs-btn { font-weight: 600; }
+
+/* ── #11: Fullscreen player overlay ── */
+.yt-fs-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.yt-fs-video-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  overflow: hidden;
+}
+
+.yt-fs-player-inner {
+  width: 100%;
+  height: 100%;
+}
+
+.yt-fs-player-inner iframe {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+.yt-fs-hud {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(transparent, rgba(0,0,0,0.92) 30%);
+  padding: 24px 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.yt-fs-progress-bar {
+  height: 3px;
+  background: rgba(255,255,255,0.12);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.yt-fs-progress-fill {
+  height: 100%;
+  background: #e94560;
+  border-radius: 2px;
+  transition: width 0.3s;
+}
+
+.yt-fs-lines {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 30vh;
+  overflow-y: auto;
+}
+
+.yt-fs-line {
+  font-size: 1.4rem;
+  line-height: 1.5;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+  padding: 4px 0;
+}
+
+.yt-fs-line-source  { font-weight: 600; }
+.yt-fs-line-trans   { color: #a0d0ff; font-size: 1.15rem; }
+.yt-fs-line-extra   { color: #c0e0c0; font-size: 1.05rem; }
+
+.yt-fs-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.yt-fs-status {
+  font-size: 0.78rem;
+  color: #7a9ab0;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.yt-fs-btns {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.yt-fs-ctrl-btn {
+  padding: 7px 16px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.08);
+  color: #e0ecf8;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.yt-fs-ctrl-btn:hover:not(:disabled) { background: rgba(255,255,255,0.18); }
+.yt-fs-ctrl-btn:disabled { opacity: 0.4; cursor: default; }
+
+.yt-fs-play-btn {
+  background: #1a4d80;
+  border-color: #3a8fd0;
+  color: #70c8ff;
+  font-weight: 600;
+}
+.yt-fs-play-btn:hover:not(:disabled) { background: #235c96; }
+
+.yt-fs-stop-btn {
+  background: #2a1020;
+  border-color: #e94560;
+  color: #e94560;
+  font-weight: 600;
+}
+.yt-fs-stop-btn:hover { background: #3d0a18; }
+
+.yt-fs-close-btn {
+  padding: 7px 14px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.2);
+  background: rgba(0,0,0,0.5);
+  color: #ccc;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.yt-fs-close-btn:hover { background: rgba(255,50,50,0.25); border-color: #e94560; color: #fff; }
+
+.yt-fs-line-counter {
+  font-size: 0.8rem;
+  color: #6a8090;
+  padding: 0 4px;
+}
