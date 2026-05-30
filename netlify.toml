@@ -14,6 +14,13 @@
   status = 200
   force = true
 
+# Route /api-docs/* to the serverless function
+[[redirects]]
+  from = "/api-docs*"
+  to = "/.netlify/functions/api/api-docs:splat"
+  status = 200
+  force = true
+
 # SPA fallback — must be last
 [[redirects]]
   from = "/*"

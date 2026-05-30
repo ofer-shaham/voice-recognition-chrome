@@ -172,9 +172,10 @@ exports.handler = async (event) => {
 
   // Extract /api/... from the full Netlify function path.
   // e.g. /.netlify/functions/api/api/transcript/languages → /api/transcript/languages
+  // or /.netlify/functions/api/api-docs → /api-docs
   const rawPath = event.path || "";
-  const match   = rawPath.match(/\/api(\/.*)?$/);
-  const apiPath = match ? "/api" + (match[1] || "") : rawPath;
+  const match   = rawPath.match(/(\/api(?:\/|-).*|\/api)$/);
+  const apiPath = match ? match[1] : rawPath;
 
   const qs = event.queryStringParameters || {};
 
