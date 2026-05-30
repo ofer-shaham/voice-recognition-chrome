@@ -813,29 +813,53 @@ native_stop() {
   native_stop_service "server" "$SERVER_PID" 3001
 }
 
+service_url() {
+  # Return the public URL for a given port.
+  # Port 5000 (client) → Replit public domain when available, else localhost.
+  # All other ports → always localhost.
+  local port="$1"
+  if [[ "$port" == "5000" && -n "${REPLIT_DEV_DOMAIN:-}" ]]; then
+    echo "https://${REPLIT_DEV_DOMAIN}  (port 80, public)"
+  else
+    echo "http://localhost:${port}"
+  fi
+}
+
 native_status() {
   head_ "Native service status"
+  echo ""
+  local any_running=false
+
   for pair in "server:$SERVER_PID:3001" "client:$CLIENT_PID:5000"; do
     local name="${pair%%:*}" rest="${pair#*:}"
     local pidfile="${rest%%:*}" port="${rest##*:}"
+    local url; url=$(service_url "$port")
+
     if native_is_running "$pidfile"; then
-      info "$name  Running (PID $(cat "$pidfile"), managed) → http://localhost:$port"
+      any_running=true
+      info "$name  ${GREEN}Running${NC}  PID $(cat "$pidfile") (managed)  → $url"
     elif ! port_is_free "$port"; then
-      # Port is occupied — find the PID via /proc even without a PID file
+      # Port occupied by a process started outside manage.sh
+      any_running=true
       local pid; pid=$(pid_on_port "$port") || true
-      local cmd=""
+      local cmd="?"
       [[ -n "${pid:-}" ]] && cmd=$(cat "/proc/${pid}/comm" 2>/dev/null || echo "?")
       if [[ -n "${pid:-}" ]]; then
-        info "$name  Running (PID ${pid} [${cmd}], external) → http://localhost:$port"
+        info "$name  ${GREEN}Running${NC}  PID ${pid} [${cmd}] (external)  → $url"
       else
-        info "$name  Running (port ${port} in use) → http://localhost:$port"
+        info "$name  ${YELLOW}Running${NC}  port ${port} in use (PID unknown)  → $url"
       fi
       [[ -f "$pidfile" ]] && rm -f "$pidfile"
     else
-      warn "$name  Stopped"
+      warn "$name  ${RED}Stopped${NC}"
       [[ -f "$pidfile" ]] && rm -f "$pidfile"
     fi
   done
+
+  echo ""
+  if $any_running; then
+    print_urls "./manage.sh --native logs [client|server]"
+  fi
 }
 
 native_logs() {
