@@ -704,6 +704,43 @@ input[type="range"] {
   color: #fca5a5 !important;
 }
 
+/* ── Download SRT dropdown ─────────────────────────────────────────────────── */
+.yl-download-wrap {
+  position: relative;
+}
+
+.yl-download-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  background: #1e2535;
+  border: 1px solid #2d3748;
+  border-radius: 7px;
+  padding: 0.3rem 0;
+  min-width: 160px;
+  z-index: 100;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+}
+
+.yl-download-item {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: #cbd5e1;
+  font-size: 0.85rem;
+  padding: 0.45rem 0.9rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s;
+  white-space: nowrap;
+}
+
+.yl-download-item:hover {
+  background: #2d3748;
+  color: #f1f5f9;
+}
+
 /* ── Seamless mode ─────────────────────────────────────────────────────────── */
 .yl-btn-seamless-on {
   background: #1a3a2a !important;

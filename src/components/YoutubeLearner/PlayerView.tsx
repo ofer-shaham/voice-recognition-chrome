@@ -235,8 +235,23 @@ export default function PlayerView({ project, onSave, onNewVideo, projects, onSe
   const handleSeamlessToggle = () => {
     if (isPlaying) stop();
     setSeamlessMode(s => !s);
-    setIframeKey(k => k + 1); // reload iframe when switching modes
+    setIframeKey(k => k + 1);
   };
+
+  // ── SRT download ─────────────────────────────────────────────────────────────
+  const [showDownload, setShowDownload] = useState(false);
+
+  const downloadSrt = useCallback((track: { label: string; srtContent: string }) => {
+    const safe = (project.title + '-' + track.label).replace(/[^a-z0-9_\-]/gi, '_').slice(0, 80);
+    const blob = new Blob([track.srtContent], { type: 'text/plain;charset=utf-8' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `${safe}.srt`;
+    a.click();
+    URL.revokeObjectURL(url);
+    setShowDownload(false);
+  }, [project.title]);
 
   return (
     <div className="yl-player">
@@ -257,6 +272,43 @@ export default function PlayerView({ project, onSave, onNewVideo, projects, onSe
           <span className="yl-line-info">
             {isPlaying ? `▶ ${currentLine + 1}/${lines.length}` : `${lines.length} lines`}
           </span>
+
+          {/* ── Download SRT ── */}
+          <div className="yl-download-wrap">
+            {project.tracks.length === 1 ? (
+              <button
+                className="yl-btn-ghost"
+                title="Download SRT"
+                onClick={() => downloadSrt(project.tracks[0])}
+              >
+                ⬇ SRT
+              </button>
+            ) : (
+              <>
+                <button
+                  className={`yl-btn-ghost ${showDownload ? 'yl-active' : ''}`}
+                  title="Download SRT"
+                  onClick={() => setShowDownload(s => !s)}
+                >
+                  ⬇ SRT
+                </button>
+                {showDownload && (
+                  <div className="yl-download-menu">
+                    {project.tracks.map(t => (
+                      <button
+                        key={t.lang}
+                        className="yl-download-item"
+                        onClick={() => downloadSrt(t)}
+                      >
+                        {t.label || t.lang}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
           {showVideo && (
             <button
               className={`yl-btn-ghost ${seamlessMode ? 'yl-active yl-btn-seamless-on' : ''}`}
