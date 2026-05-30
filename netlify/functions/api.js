@@ -67,10 +67,24 @@ exports.handler = async (event) => {
     return { statusCode: 204, headers: corsHeaders, body: "" };
   }
 
-  const rawPath = event.path || "";
-  const match   = rawPath.match(/(\/api(?:\/|-).*|\/api)$/);
-  const apiPath = match ? match[1] : rawPath;
-  const qs      = event.queryStringParameters || {};
+  // Extract the original request path before Netlify's rewrite.
+  // event.rawUrl holds the full original URL (e.g. https://site.netlify.app/api/srt?v=xxx).
+  // Parsing its pathname gives us "/api/srt" reliably, regardless of how the
+  // redirect rule is written or whether classic Functions strip sub-paths.
+  const apiPath = (() => {
+    if (event.rawUrl) {
+      try {
+        const p = new URL(event.rawUrl).pathname;
+        // Grab from the first /api or /api-docs occurrence onward
+        const idx = p.search(/\/api(-docs)?([/?]|$)/);
+        if (idx !== -1) return p.slice(idx).replace(/\/$/, "") || "/api";
+      } catch { /* fall through */ }
+    }
+    // Fallback: strip any /.netlify/functions/<name> prefix from event.path
+    const p = (event.path || "").replace(/^\/.netlify\/functions\/[^/]+/, "");
+    return p || "/api";
+  })();
+  const qs = event.queryStringParameters || {};
 
   // ── Swagger ──────────────────────────────────────────────────────────────────
   if (event.httpMethod === "GET" && /\/api-docs\.json$/.test(apiPath)) {

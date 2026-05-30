@@ -1,6 +1,7 @@
 import React, { lazy, Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
 import Footer from "./components/Footer";
+import DebugPanel from "./components/DebugPanel/DebugPanel";
 import "./styles/App.css";
 
 const Intro = lazy(() => import("./components/Intro"));
@@ -48,6 +49,7 @@ function App() {
   return (
     <Router>
       <AppInner />
+      <DebugPanel />
     </Router>
   );
 }

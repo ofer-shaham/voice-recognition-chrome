@@ -4,20 +4,21 @@
   functions = "netlify/functions"
 
 [functions]
-  # Use nft (Node File Tracing) instead of esbuild so ESM dynamic imports work correctly
   node_bundler = "nft"
 
-# Rewrite /api/* to the serverless function
+# Rewrite /api/* and /api-docs* to the serverless function.
+# Classic Netlify Functions only respond at the exact base URL
+# (/.netlify/functions/<name>), so DO NOT append any path suffix here.
+# The function reads the original request path from event.rawUrl.
 [[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/api/api/:splat"
+  to = "/.netlify/functions/api"
   status = 200
   force = true
 
-# Route /api-docs/* to the serverless function
 [[redirects]]
   from = "/api-docs*"
-  to = "/.netlify/functions/api/api-docs:splat"
+  to = "/.netlify/functions/api"
   status = 200
   force = true
 

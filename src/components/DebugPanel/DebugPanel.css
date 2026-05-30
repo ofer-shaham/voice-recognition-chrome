@@ -1,0 +1,208 @@
+/* ── Floating button ───────────────────────────────────────────────────────── */
+.dbg-root {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  z-index: 99999;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+.dbg-fab {
+  width: 2.8rem;
+  height: 2.8rem;
+  border-radius: 50%;
+  border: none;
+  background: #1e2535;
+  color: #e2e8f0;
+  font-size: 1.2rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.5);
+  transition: background 0.15s, transform 0.15s;
+  position: relative;
+}
+.dbg-fab:hover { background: #2d3748; transform: scale(1.08); }
+.dbg-fab-errors { background: #3b1f1f; }
+.dbg-fab-errors:hover { background: #4a2020; }
+
+.dbg-badge {
+  position: absolute;
+  top: -4px;
+  right: -4px;
+  background: #ef4444;
+  color: #fff;
+  font-size: 0.65rem;
+  font-weight: 700;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 3px;
+}
+
+/* ── Panel ─────────────────────────────────────────────────────────────────── */
+.dbg-panel {
+  position: absolute;
+  bottom: 3.5rem;
+  right: 0;
+  width: min(520px, calc(100vw - 1.5rem));
+  max-height: min(70vh, 500px);
+  background: #0f1117;
+  border: 1px solid #2d3748;
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.7);
+  overflow: hidden;
+}
+
+/* ── Header ────────────────────────────────────────────────────────────────── */
+.dbg-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: #161b29;
+  border-bottom: 1px solid #2d3748;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+
+.dbg-panel-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #e2e8f0;
+  margin-right: auto;
+}
+
+.dbg-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.dbg-filter-btn {
+  background: transparent;
+  border: 1px solid #374151;
+  border-radius: 5px;
+  color: #64748b;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.dbg-filter-btn:hover { color: #e2e8f0; border-color: #64748b; }
+.dbg-filter-active { background: #1e2d4a; color: #93c5fd !important; border-color: #3b5280 !important; }
+
+.dbg-action-btn {
+  background: transparent;
+  border: 1px solid #374151;
+  border-radius: 5px;
+  color: #64748b;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.dbg-action-btn:hover { color: #e2e8f0; border-color: #64748b; }
+
+.dbg-copy-btn {
+  background: #162a1e;
+  border-color: #166534;
+  color: #4ade80;
+  font-weight: 600;
+  font-size: 0.78rem;
+  padding: 0.25rem 0.65rem;
+}
+.dbg-copy-btn:hover { background: #1a3d27 !important; border-color: #22c55e !important; color: #86efac !important; }
+
+.dbg-close-btn { font-size: 0.85rem; }
+
+/* ── Entries ───────────────────────────────────────────────────────────────── */
+.dbg-entries {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.4rem 0;
+}
+
+.dbg-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #4b5563;
+  font-size: 0.85rem;
+  padding: 2rem;
+  text-align: center;
+}
+
+.dbg-entry {
+  padding: 0.3rem 0.75rem;
+  border-bottom: 1px solid #1a1f2e;
+}
+.dbg-entry:hover { background: #12161f; }
+
+.dbg-entry-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+}
+
+.dbg-entry-icon { flex-shrink: 0; line-height: 1.4; }
+
+.dbg-entry-label {
+  flex: 1;
+  color: #cbd5e1;
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.dbg-entry-ts {
+  flex-shrink: 0;
+  color: #374151;
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  padding-top: 1px;
+}
+
+.dbg-entry-detail {
+  margin-top: 0.15rem;
+  margin-left: 1.4rem;
+  font-size: 0.72rem;
+  color: #64748b;
+  word-break: break-all;
+  font-family: 'Courier New', monospace;
+  line-height: 1.4;
+  max-height: 4.5rem;
+  overflow: hidden;
+}
+
+/* Kind-specific label colours */
+.dbg-entry-fetch-ok    .dbg-entry-label { color: #86efac; }
+.dbg-entry-fetch-err   .dbg-entry-label { color: #fca5a5; }
+.dbg-entry-js-error    .dbg-entry-label { color: #fca5a5; }
+.dbg-entry-unhandled   .dbg-entry-label { color: #fde68a; }
+.dbg-entry-console-error .dbg-entry-label { color: #fca5a5; }
+.dbg-entry-console-warn  .dbg-entry-label { color: #fde68a; }
+
+/* ── Footer ────────────────────────────────────────────────────────────────── */
+.dbg-panel-footer {
+  padding: 0.4rem 0.75rem;
+  background: #0a0e18;
+  border-top: 1px solid #1e2535;
+  flex-shrink: 0;
+}
+
+.dbg-footer-hint {
+  font-size: 0.72rem;
+  color: #374151;
+}
+.dbg-footer-hint strong { color: #4ade80; }
