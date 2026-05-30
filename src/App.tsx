@@ -4,6 +4,7 @@ import Footer from "./components/Footer";
 import DebugPanel from "./components/DebugPanel/DebugPanel";
 import "./styles/App.css";
 
+const AppHub = lazy(() => import("./components/AppHub"));
 const Intro = lazy(() => import("./components/Intro"));
 const YoutubeLearner = lazy(
   () => import("./components/YoutubeLearner/index")
@@ -29,7 +30,8 @@ function AppInner() {
       <div className={showFooter ? "App-content" : ""}>
         <Suspense fallback={<Loading />}>
           <Routes>
-            <Route path="/" element={<Intro />} />
+            <Route path="/" element={<AppHub />} />
+            <Route path="/listen" element={<Intro />} />
             <Route path="/youtube" element={<YoutubeLearner />} />
             <Route path="/proverb" element={<ProverbList />} />
             <Route

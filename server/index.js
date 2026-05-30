@@ -78,6 +78,28 @@ const swaggerSpec = {
     "/api/health":     { get: { tags: ["Health"], summary: "Server liveness check", responses: { 200: { description: "Server is up" } } } },
     "/api/config":     { get: { tags: ["Health"], summary: "Check whether the server has an API key configured", responses: { 200: { description: "Key presence flag" } } } },
     "/api/chat":       { post: { tags: ["AI"], summary: "OpenRouter chat completions proxy", responses: { 200: { description: "OpenRouter response" }, 401: { description: "No API key" }, 500: { description: "OpenRouter error" } } } },
+    "/api/logs": {
+      get: {
+        tags: ["Health"],
+        summary: "Server request logs (in-memory ring buffer, last 200 entries)",
+        parameters: [{ name: "since", in: "query", required: false, schema: { type: "integer" }, description: "Return only entries with id > since (for incremental polling)" }],
+        responses: {
+          200: {
+            description: "Log entries",
+            content: { "application/json": { schema: { type: "object", properties: {
+              entries: { type: "array", items: { type: "object", properties: {
+                id:    { type: "integer" },
+                ts:    { type: "string", format: "date-time" },
+                level: { type: "string", enum: ["INFO", "WARN", "ERROR"] },
+                msg:   { type: "string" },
+                meta:  { type: "object" },
+              }}},
+              maxId: { type: "integer" },
+            }}},
+          },
+        },
+      },
+    },
   },
 };
 

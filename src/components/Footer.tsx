@@ -8,7 +8,7 @@ function Footer() {
             <nav>
                 <ul className="footer-list">
                     <li>
-                        <Link to="/">listen,translate,speak</Link>
+                        <Link to="/listen">listen,translate,speak</Link>
                     </li>
                     <li>
                         <Link to="/youtube">Youtube Transcript Parser</Link>

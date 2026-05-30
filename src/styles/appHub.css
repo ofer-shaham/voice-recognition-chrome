@@ -1,0 +1,126 @@
+/* ── Root ───────────────────────────────────────────────────────────────────── */
+.hub-root {
+  min-height: 100vh;
+  background: #0d1117;
+  color: #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 2.5rem 1rem 1.5rem;
+  font-family: system-ui, -apple-system, sans-serif;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────────── */
+.hub-header {
+  text-align: center;
+  max-width: 600px;
+  margin-bottom: 2.5rem;
+}
+
+.hub-title {
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
+  font-weight: 800;
+  margin: 0 0 0.5rem;
+  letter-spacing: -0.5px;
+}
+
+.hub-subtitle {
+  font-size: 1rem;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.6;
+}
+
+/* ── Grid ───────────────────────────────────────────────────────────────────── */
+.hub-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+  width: 100%;
+  max-width: 900px;
+}
+
+/* ── Card ───────────────────────────────────────────────────────────────────── */
+.hub-card {
+  background: #161b29;
+  border: 1px solid #1e2d4a;
+  border-radius: 12px;
+  padding: 1.4rem 1.25rem 1.1rem;
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  transition: border-color 0.18s, background 0.18s, transform 0.18s;
+  cursor: pointer;
+}
+.hub-card:hover {
+  background: #1a2235;
+  border-color: #3b82f6;
+  transform: translateY(-2px);
+}
+
+.hub-card-emoji {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.hub-card-title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin: 0;
+  color: #e2e8f0;
+}
+
+.hub-card-desc {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin: 0;
+  line-height: 1.5;
+  flex: 1;
+}
+
+.hub-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.2rem;
+}
+
+.hub-tag {
+  background: #1e2d4a;
+  color: #93c5fd;
+  font-size: 0.68rem;
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  letter-spacing: 0.02em;
+}
+
+/* ── API bar ────────────────────────────────────────────────────────────────── */
+.hub-api-bar {
+  margin-top: 2.5rem;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  font-size: 0.8rem;
+  color: #374151;
+}
+
+.hub-api-label {
+  font-weight: 600;
+  color: #4b5563;
+}
+
+.hub-api-link {
+  color: #3b82f6;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+.hub-api-link:hover { color: #60a5fa; text-decoration: underline; }
+
+/* ── Mobile ─────────────────────────────────────────────────────────────────── */
+@media (max-width: 480px) {
+  .hub-grid { grid-template-columns: 1fr; }
+  .hub-root { padding: 1.5rem 0.75rem 1rem; }
+}
