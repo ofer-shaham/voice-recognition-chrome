@@ -100,7 +100,7 @@ export default function PlayerView({ project, onSave, onNewVideo, projects, onSe
 
   // ── Auto-scroll active row ───────────────────────────────────────────────────
   useEffect(() => {
-    if (currentLine >= 0) rowRefs.current[currentLine]?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (currentLine >= 0) rowRefs.current[currentLine]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [currentLine]);
 
   // ── Config helpers ───────────────────────────────────────────────────────────
