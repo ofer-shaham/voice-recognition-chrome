@@ -11,6 +11,18 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization",
 };
 
+// Mini OpenAPI spec (served from Netlify functions at /api-docs.json)
+const swaggerSpec = {
+  openapi: "3.0.0",
+  info: { title: "YouTube Transcript & TTS API", version: "1.0.0" },
+  servers: [{ url: "/", description: "Netlify Functions" }],
+  paths: {
+    "/api/transcript/languages": { get: { summary: "List caption languages", parameters: [{ name: "videoId", in: "query", required: true, schema: { type: "string" } }], responses: { 200: { description: "OK" } } } },
+    "/api/srt": { get: { summary: "Fetch SRT", parameters: [{ name: "videoId", in: "query", required: true, schema: { type: "string" } }, { name: "lang", in: "query", required: false, schema: { type: "string" } }], responses: { 200: { description: "SRT text" } } } },
+    "/api/tts": { get: { summary: "TTS proxy", parameters: [{ name: "text", in: "query", required: true, schema: { type: "string" } }, { name: "lang", in: "query", required: true, schema: { type: "string" } }], responses: { 200: { description: "audio/mpeg" } } } }
+  }
+};
+
 const json = (statusCode, body) => ({
   statusCode,
   headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -166,6 +178,33 @@ exports.handler = async (event) => {
 
   const qs = event.queryStringParameters || {};
 
+  // Serve OpenAPI JSON for Swagger UI
+  if (event.httpMethod === "GET" && (apiPath === "/api/api-docs.json" || apiPath === "/api-docs.json")) {
+    return json(200, swaggerSpec);
+  }
+
+  // Serve Swagger UI HTML
+  if (event.httpMethod === "GET" && (apiPath === "/api/api-docs" || apiPath === "/api-docs")) {
+    const html = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>API Docs</title>
+  <link rel="stylesheet" href="https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui.css" />
+</head>
+<body>
+  <div id="swagger-ui"></div>
+  <script src="https://unpkg.com/swagger-ui-dist@4.15.5/swagger-ui-bundle.js"></script>
+  <script>
+    const specUrl = window.location.pathname.replace(/api$/, 'api-docs.json');
+    window.ui = SwaggerUIBundle({ url: specUrl, dom_id: '#swagger-ui', presets: [SwaggerUIBundle.presets.apis], layout: 'BaseLayout' });
+  </script>
+</body>
+</html>`;
+    return { statusCode: 200, headers: { ...corsHeaders, 'Content-Type': 'text/html; charset=utf-8' }, body: html };
+  }
+
   // ── GET /api/health ──────────────────────────────────────────────────────────
   if (event.httpMethod === "GET" && apiPath === "/api/health") {
     const now = Date.now();
@@ -186,7 +225,24 @@ exports.handler = async (event) => {
     if (!videoId) return json(400, { error: "videoId is required" });
     try {
       const data   = await ytPlayerData(String(videoId));
-      const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
+      let tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
+      // Fallback: if player API didn't return caption tracks, try youtube-transcript-api-js
+      if (!tracks.length) {
+        try {
+          const { YouTubeTranscriptApi } = await import('youtube-transcript-api-js');
+          const api = new YouTubeTranscriptApi();
+          const list = await api.list(String(videoId));
+          // list.transcripts may contain available transcript entries
+          const transcripts = list?.transcripts || list?.items || [];
+          tracks = transcripts.map(t => ({
+            languageCode: t.languageCode || t.language || t.code || '',
+            name: t.name || t.language || t.languageCode || '',
+            kind: t.isGenerated ? 'asr' : undefined,
+          }));
+        } catch (err) {
+          // ignore fallback failure and continue with empty tracks
+        }
+      }
       const vd     = data?.videoDetails || {};
       return json(200, {
         videoDetails: {

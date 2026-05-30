@@ -24,3 +24,10 @@ yarn-debug.log*
 yarn-error.log*
 
 cypress/screenshots
+tools/run_netlify_test.js
+.client.pid
+.server.pid
+logs/client.log
+logs/server.log
+.client.pid
+.server.pid
