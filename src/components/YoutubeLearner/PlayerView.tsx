@@ -128,7 +128,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
       if (s.voiceName) p.set(`vn_${sid}`, s.voiceName);
     }
     window.history.replaceState(null, '', `${window.location.pathname}?${p.toString()}`);
-  }, [project.id, project.videoId, config, seamlessMode]);
+  }, [project.id, project.videoId, project.lastLine, config, seamlessMode]);
 
   // ── Parse SRT on project change ─────────────────────────────────────────────
   useEffect(() => {
