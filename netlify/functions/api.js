@@ -156,7 +156,7 @@ const SWAGGER_SPEC = {
         parameters: [
           { name: "videoId", in: "query", required: true,  schema: { type: "string" } },
           { name: "lang",    in: "query", required: false, schema: { type: "string", default: "en" } },
-          { name: "method",  in: "query", required: false, schema: { type: "string", enum: ["1", "2", "3"] }, description: "1=youtube-transcript-plus, 2=youtube-transcript-api-js, 3=ytInitialPlayerResponse+json3 (downsub-style)" },
+          { name: "method",  in: "query", required: false, schema: { type: "string", enum: ["1", "2", "3"] }, description: "1=youtube-transcript-plus (deprecated, requires Node>=20), 2=youtube-transcript-api-js, 3=ytInitialPlayerResponse+json3 (downsub-style)" },
         ],
         responses: { 200: { description: "SRT text" }, 400: { description: "Missing videoId" }, 500: { description: "Error" } },
       },

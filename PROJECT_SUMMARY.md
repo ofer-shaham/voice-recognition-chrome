@@ -8,7 +8,7 @@ A language-learning app with voice conversation, YouTube transcript navigation, 
 - **Backend**: Node.js Express server, port 3001
 - **AI**: OpenRouter (free models: Llama, Gemma, Mistral, DeepSeek, Qwen, etc.)
 - **TTS**: Google Translate TTS proxy (server-side to avoid CORS)
-- **Transcripts**: `youtube-transcript-plus` (method 1) + `youtube-transcript-api-js` (method 2, ESM dynamic import)
+- **Transcripts**: `youtube-transcript-api-js` (method 2), ytInitialPlayerResponse (method 3), DownSub API (method 4, default). Method 1 (`youtube-transcript-plus`) is **deprecated** (requires Node >=20).
 - **Deployment**: Netlify (static build + Netlify Functions for API)
 - **Monorepo**: frontend at root, server at `server/`, netlify function at `netlify/functions/`
 
@@ -31,16 +31,16 @@ src/
 server/
   index.js                        — Express server (imports shared services)
   services/
-    youtube-transcript.js         — SHARED: ytPlayerData, fetchSrt, fetchSrtMethod1/2 (CJS)
+    youtube-transcript.js         — SHARED: ytPlayerData, fetchSrt, fetchSrtMethod1/2/3/4 (CJS)
     tts-proxy.js                  — SHARED: fetchTtsAudio (CJS)
-    transcript-plus-standalone.js — Reference: standalone Express using youtube-transcript-plus
-    transcript-api-standalone.js  — Reference: standalone Express using youtube-transcript-api-js
-    transcript-plus-quickstart.js — Reference: quickstart code sample
+    transcript-plus-standalone.js — Reference: standalone Express using youtube-transcript-api-js
+    transcript-api-standalone.js  — [DEPRECATED] Reference: youtube-transcript-plus (requires Node>=20)
+    transcript-plus-quickstart.js — [DEPRECATED] Reference: youtube-transcript-plus quickstart
     tts-download-to-file.js       — Utility: CLI download TTS audio to disk
 
 netlify/
   functions/api.js                — Netlify Function handler (imports same shared services)
-  functions/package.json          — Lists youtube-transcript-plus, youtube-transcript-api-js
+  functions/package.json          — Lists youtube-transcript-api-js; youtube-transcript-plus is optional
 ```
 
 ## API endpoints (both Express & Netlify)

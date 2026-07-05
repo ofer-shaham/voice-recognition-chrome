@@ -1,13 +1,20 @@
+/**
+ * @deprecated This file uses youtube-transcript-plus which requires Node >=20.
+ * Use youtube-transcript-api-js instead (method 2 in youtube-transcript.js).
+ * This file is kept for reference only and will not run.
+ */
 import express from 'express';
-import { 
-  fetchTranscript, 
-  FsCache,
-  YoutubeTranscriptVideoUnavailableError,
-  YoutubeTranscriptDisabledError,
-  YoutubeTranscriptNotAvailableError,
-  YoutubeTranscriptNotAvailableLanguageError,
-  YoutubeTranscriptInvalidLangError
-} from 'youtube-transcript-plus';
+// DISABLED - requires Node >=20
+// import {
+//   fetchTranscript,
+//   FsCache,
+//   YoutubeTranscriptVideoUnavailableError,
+//   YoutubeTranscriptDisabledError,
+//   YoutubeTranscriptNotAvailableError,
+//   YoutubeTranscriptNotAvailableLanguageError,
+//   YoutubeTranscriptInvalidLangError
+// } from 'youtube-transcript-plus';
+const fetchTranscript = null; // Module disabled
 
 const app = express();
 const PORT = process.env.PORT || 3000;

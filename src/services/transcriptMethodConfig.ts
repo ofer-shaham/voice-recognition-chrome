@@ -1,6 +1,6 @@
 import appConfig from '../config/appConfig.json';
 
-// "validated" — fetch via youtube-transcript-plus → youtube-transcript-api-js fallback chain (methods 1+2)
+// "validated" — fetch via youtube-transcript-api-js (method 2; method 1 youtube-transcript-plus is deprecated)
 // "fast"      — parse ytInitialPlayerResponse from watch-page HTML (method 3)
 // "downsub"   — DownSub-hosted API at youtube-dl-jrte.onrender.com (method 4, default)
 export type TranscriptMethod = "validated" | "fast" | "downsub";
@@ -37,6 +37,7 @@ export function setTranscriptMethod(method: TranscriptMethod): void {
 }
 
 // Maps the UI method to the backend `method` query param.
+// Note: method=1 (youtube-transcript-plus) is deprecated and requires Node >=20.
 export function transcriptMethodQueryParam(): string {
   const m = getTranscriptMethod();
   if (m === "fast")     return "&method=3";

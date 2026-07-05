@@ -59,7 +59,7 @@ const swaggerSpec = {
         parameters: [
           { name: "videoId", in: "query", required: true, schema: { type: "string" } },
           { name: "lang", in: "query", required: false, schema: { type: "string", example: "en" } },
-          { name: "method", in: "query", required: false, schema: { type: "string", enum: ["1", "2", "3", "4"] }, description: "1=youtube-transcript-plus, 2=youtube-transcript-api-js, 3=ytInitialPlayerResponse+json3 (downsub-style), 4=DownSub-hosted API (default)" },
+          { name: "method", in: "query", required: false, schema: { type: "string", enum: ["1", "2", "3", "4"] }, description: "1=youtube-transcript-plus (deprecated, requires Node>=20), 2=youtube-transcript-api-js, 3=ytInitialPlayerResponse+json3 (downsub-style), 4=DownSub-hosted API (default)" },
         ],
         responses: { 200: { description: "SRT-formatted transcript" }, 400: { description: "Missing videoId" }, 500: { description: "All fetch methods failed" } },
       },
