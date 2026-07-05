@@ -1,10 +1,13 @@
 [build]
-  command = "rm -rf node_modules && npm install && npm run build"
+  command = "rm -rf node_modules && npm install --omit=dev --legacy-peer-deps && npm run build"
   publish = "build"
   functions = "netlify/functions"
 
 [build.environment]
   NODE_VERSION = "20"
+  PUPPETEER_SKIP_DOWNLOAD = "true"
+  CYPRESS_INSTALL_BINARY = "0"
+  CI = "false"
 
 [functions]
   node_bundler = "nft"
