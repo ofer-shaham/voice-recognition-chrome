@@ -375,6 +375,33 @@
   white-space: nowrap;
 }
 
+.yl-menu-lang-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.yl-menu-lang-label {
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.yl-menu-lang-input {
+  width: 80px;
+  background: #0f1420;
+  border: 1px solid #2d3748;
+  border-radius: 6px;
+  color: #e2e8f0;
+  font-size: 0.85rem;
+  padding: 0.3rem 0.5rem;
+}
+
+.yl-menu-lang-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+}
+
 /* ── Settings Panel ────────────────────────────────────────────────────────── */
 .yl-settings {
   background: #161b29;

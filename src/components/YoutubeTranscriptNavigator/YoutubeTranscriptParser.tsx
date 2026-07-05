@@ -1,5 +1,4 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
 import { translate } from "../../utils/translate";
 import isRtl from "../../utils/isRtl";
 import '../../styles/YoutubeTranscriptParser.css';
@@ -8,7 +7,6 @@ import { convertTimeToSeconds } from "../../utils/YoutubeUtils";
 import { freeSpeak } from "../../utils/freeSpeak";
 import { populateAvailableVoices } from "../../utils/getVoice";
 import { useAvailableVoices } from "../../hooks/useAvailableVoices";
-import { useYtHistory } from "../../hooks/useYtHistory";
 import { useYtProjects, YtProject } from "../../hooks/useYtProjects";
 import ProjectsMenu from "./ProjectsMenu";
 import NewProjectWizard from "./NewProjectWizard";
@@ -164,37 +162,22 @@ function WordHighlight({ text, active }: { text: string; active: ActiveWord | nu
 // ── Main component ────────────────────────────────────────────────────────────
 
 function YoutubeTranscriptParser() {
-  const [searchParams, setSearchParams] = useSearchParams();
-
-  const urlParam      = searchParams.get("url");
-  const fromLangParam = searchParams.get("fromLang");
-  const toLangParam   = searchParams.get("toLang");
-  const videoUrlParam = searchParams.get("videoUrl");
-
-  // ── input / config state ──────────────────────────────────────────────────
-  const [inputTab, setInputTab] = useState<"url" | "paste" | "youtube" | "jobs">("url");
-  const [srtUrl,   setSrtUrl]   = useState(urlParam   || "");
-  const [pasteText, setPasteText] = useState("");
-  const [fromLang, setFromLang] = useState(fromLangParam || "en-US");
-  const [toLang,   setToLang]   = useState(toLangParam   || "he-IL");
-  const [videoUrl, setVideoUrl] = useState(videoUrlParam || "https://www.youtube.com/watch?v=prSfxdmjNzE");
+  // ── input / config state (auto-mode only — no URL/paste setup, no default params) ──
+  const [fromLang, setFromLang] = useState("en-US");
+  const [toLang,   setToLang]   = useState("he-IL");
+  const [videoUrl, setVideoUrl] = useState("");
   const videoId = extractVideoId(videoUrl);
 
-  const [lines,     setLines]     = useState<TranscriptLine[]>([]);
-  const [loading,   setLoading]   = useState(false);
-  const [loadError, setLoadError] = useState("");
+  const [lines, setLines] = useState<TranscriptLine[]>([]);
 
   const [playbackConfig, setPlaybackConfig] = useState<PlaybackConfig>({
     source: true, translation: false, video: false,
   });
 
-  // extra SRT columns
+  // extra SRT columns — fetched from YouTube only (auto-mode only)
   const [extraCols,      setExtraCols]      = useState<ExtraSrtCol[]>([]);
   const [nextColIndex,   setNextColIndex]   = useState(1);
   const [addSrtOpen,     setAddSrtOpen]     = useState(false);
-  const [newSrtInputTab, setNewSrtInputTab] = useState<"url" | "paste" | "youtube">("url");
-  const [newSrtUrl,      setNewSrtUrl]      = useState("");
-  const [newSrtPaste,    setNewSrtPaste]    = useState("");
   const [newSrtLang,     setNewSrtLang]     = useState("en-US");
   const [newSrtLabel,    setNewSrtLabel]    = useState("");
   const [newSrtLoading,  setNewSrtLoading]  = useState(false);
@@ -218,17 +201,6 @@ function YoutubeTranscriptParser() {
   // Google TTS usage counters
   const [gttsCount, setGttsCount] = useState(0);
   const [gttsChars, setGttsChars] = useState(0);
-
-  // YouTube SRT fetch (📺 tab)
-  const [ytFetchLang,    setYtFetchLang]    = useState(fromLang);
-  const [ytFetchLoading, setYtFetchLoading] = useState(false);
-  const [ytFetchError,   setYtFetchError]   = useState("");
-
-  // Job history (📂 tab)
-  const { jobs, saveJob, deleteJob, updateTitle } = useYtHistory();
-  const [saveTitle,      setSaveTitle]      = useState("");
-  const [editingId,      setEditingId]      = useState<string | null>(null);
-  const [editingTitle,   setEditingTitle]   = useState("");
 
   // Projects system
   const { projects, saveProject, deleteProject, setLastProjectId } = useYtProjects();
@@ -273,13 +245,6 @@ function YoutubeTranscriptParser() {
   useEffect(() => {
     if (availableVoices.length) populateAvailableVoices(availableVoices);
   }, [availableVoices]);
-
-  useEffect(() => {
-    setSearchParams({
-      ...(srtUrl ? { url: srtUrl } : {}),
-      fromLang, toLang, videoUrl,
-    });
-  }, [srtUrl, fromLang, toLang, videoUrl, setSearchParams]);
 
   const logEvent = useCallback((msg: string, type: LogEntry["type"] = "info") => {
     setEventLog((prev) => [{ time: nowTs(), msg, type }, ...prev].slice(0, 200));
@@ -328,83 +293,6 @@ function YoutubeTranscriptParser() {
       })),
     [fromLang, toLang]
   );
-
-  // ── load primary SRT ──────────────────────────────────────────────────────
-  const handleLoad = () => {
-    setLoadError(""); setLines([]); setLoading(true);
-    logEvent(`Loading SRT: ${srtUrl}`);
-    fetch(srtUrl)
-      .then((r) => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        if ((r.headers.get("Content-Type") || "").includes("text/html"))
-          throw new Error("Got HTML, not SRT");
-        return r.text();
-      })
-      .then((raw) => {
-        const parsed = parseContent(raw);
-        if (!parsed.length) throw new Error("No lines parsed — check file format");
-        setLines(buildLines(parsed));
-        setCurrentPage(1);
-        logEvent(`Loaded ${parsed.length} lines`);
-      })
-      .catch((e) => { setLoadError(e.message); reportError("Load SRT", e); })
-      .finally(() => setLoading(false));
-  };
-
-  const handlePasteLoad = () => {
-    setLoadError("");
-    if (!pasteText.trim()) { setLoadError("Paste some SRT content first"); return; }
-    const parsed = parseContent(pasteText);
-    if (!parsed.length) { setLoadError("No lines parsed — check format"); return; }
-    setLines(buildLines(parsed)); setCurrentPage(1);
-    logEvent(`Pasted ${parsed.length} lines`);
-  };
-
-  // ── YouTube SRT fetch ─────────────────────────────────────────────────────
-  const handleYtFetch = useCallback(async () => {
-    if (!videoId) { setYtFetchError("Enter a YouTube URL / video ID first"); return; }
-    setYtFetchError(""); setYtFetchLoading(true); setLines([]);
-    const langCode = ytFetchLang.split("-")[0];
-    logEvent(`📺 Fetching YouTube SRT: ${videoId} [${langCode}]`);
-    try {
-      const r = await fetch(`/api/srt?videoId=${encodeURIComponent(videoId)}&lang=${langCode}`);
-      if (!r.ok) {
-        const j = await r.json().catch(() => ({ error: r.statusText }));
-        throw new Error(j.error || `HTTP ${r.status}`);
-      }
-      const raw = await r.text();
-      const parsed = parseContent(raw);
-      if (!parsed.length) throw new Error("No lines parsed from transcript");
-      setLines(buildLines(parsed)); setCurrentPage(1);
-      logEvent(`📺 Loaded ${parsed.length} lines from YouTube [${langCode}]`);
-      setSrtUrl(""); // clear URL field so it's clear this was fetched from YouTube
-    } catch (e: any) {
-      setYtFetchError(e.message);
-      reportError(`Fetch subtitles [${videoId} / ${ytFetchLang.split("-")[0]}]`, e);
-    } finally {
-      setYtFetchLoading(false);
-    }
-  }, [videoId, ytFetchLang, buildLines, logEvent, reportError]);
-
-  // ── job history helpers ────────────────────────────────────────────────────
-  const handleSaveJob = useCallback(() => {
-    const title = saveTitle.trim() ||
-      (srtUrl ? srtUrl.split("/").pop()?.replace(/\.[^.]+$/, "") || srtUrl : `YouTube ${videoId}`) ||
-      new Date().toLocaleString();
-    saveJob({ title, srtUrl, fromLang, toLang, videoUrl });
-    setSaveTitle("");
-    logEvent(`💾 Saved job: "${title}"`);
-  }, [saveTitle, srtUrl, fromLang, toLang, videoUrl, saveJob, logEvent, videoId]);
-
-  const handleLoadJob = useCallback((job: import("../../hooks/useYtHistory").YtJob) => {
-    setSrtUrl(job.srtUrl);
-    setFromLang(job.fromLang);
-    setToLang(job.toLang);
-    setVideoUrl(job.videoUrl);
-    setInputTab("url");
-    setLines([]); setLoadError("");
-    logEvent(`📂 Loaded job: "${job.title}"`);
-  }, []);
 
   // ── top-menu video URL lookup ─────────────────────────────────────────────
   const handleMenuVideoSubmit = useCallback(async (url: string) => {
@@ -497,7 +385,6 @@ function YoutubeTranscriptParser() {
     currentProjectRef.current = project;
     setCurrentProjectId(project.id);
     setLastProjectId(project.id);
-    setInputTab("youtube");
     setLines([]); // reset first so translation effect re-fires on page 1
     setLines(parsed.map(p => ({
       text: p.text, translation: "", fromLang: primary.lang, toLang,
@@ -534,44 +421,10 @@ function YoutubeTranscriptParser() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playingIndex]);
 
-  // ── extra SRT columns ─────────────────────────────────────────────────────
-  const handleAddExtraSrt = useCallback(async () => {
-    const colIndex = nextColIndex;
-    const id       = `extra_${colIndex}_${Date.now()}`;
-    const label    = buildColLabel(colIndex, newSrtLang, { customLabel: newSrtLabel.trim() || undefined });
-    let texts: string[] = [];
-
-    if (newSrtInputTab === "paste") {
-      texts = parseContent(newSrtPaste).map(p => p.text);
-      if (!texts.length) { logEvent("Extra SRT: no lines parsed", "error"); return; }
-    } else {
-      if (!newSrtUrl.trim()) return;
-      setNewSrtLoading(true);
-      try {
-        const r = await fetch(newSrtUrl.trim());
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        texts = parseContent(await r.text()).map(p => p.text);
-        if (!texts.length) throw new Error("No lines parsed");
-      } catch (e: any) {
-        reportError("Extra SRT load", e);
-        setNewSrtLoading(false);
-        return;
-      }
-      setNewSrtLoading(false);
-    }
-
-    setExtraCols(prev => [...prev, { id, colIndex, label, lang: newSrtLang, texts, visible: true, playEnabled: true, isAutoGenerated: false }]);
-    setNextColIndex(n => n + 1);
-    setPlayOrder(prev => [...prev, id]);
-    setAddSrtOpen(false);
-    setNewSrtUrl(""); setNewSrtLabel(""); setNewSrtPaste("");
-    logEvent(`Added SRT column "${label}" (${texts.length} entries)`);
-  }, [nextColIndex, newSrtUrl, newSrtPaste, newSrtLang, newSrtLabel, newSrtInputTab, logEvent, reportError]);
-
   /** Adds an extra column by fetching a YouTube transcript track via /api/srt.
    *  Calls /api/transcript/languages to determine isAutoGenerated and translatedFrom. */
   const handleAddExtraSrtYt = useCallback(async () => {
-    if (!videoId) { setNewSrtYtError("Load a YouTube video first (use the 📺 YouTube tab above)"); return; }
+    if (!videoId) { setNewSrtYtError("Load a YouTube video first from the top menu"); return; }
     setNewSrtYtError("");
     setNewSrtLoading(true);
     const langCode = newSrtLang.split("-")[0];
@@ -914,57 +767,65 @@ function YoutubeTranscriptParser() {
       <div className="yt-header">
         <h2 className="yt-title">📺 YouTube SRT Player</h2>
 
-        {/* Column play toggles */}
-        <div className="yt-playback-config">
-          <span className="yt-config-label">Play:</span>
-          {(["source", "translation", "video"] as (keyof PlaybackConfig)[]).map((col) => (
-            <label key={col} className={`yt-col-toggle${playbackConfig[col] ? " active" : ""}`}>
-              <input type="checkbox" checked={playbackConfig[col]} onChange={() => toggleCol(col)} />
-              {col === "source"      ? `🔊 ${LANG_OPTIONS.find(l => l.code === fromLang)?.label ?? fromLang}`
-               : col === "translation" ? `📝 ${LANG_OPTIONS.find(l => l.code === toLang)?.label ?? toLang}`
-               : "🎬 Video"}
-            </label>
-          ))}
-          {extraCols.map(col => (
-            <label key={col.id} className={`yt-col-toggle${col.playEnabled ? " active" : ""}`}>
-              <input type="checkbox" checked={col.playEnabled} onChange={() => toggleExtraColProp(col.id, "playEnabled")} />
-              💬 {col.label}
-            </label>
-          ))}
-        </div>
+        {/* Column play toggles — only relevant once transcript lines exist (#4) */}
+        {lines.length > 0 && (
+          <div className="yt-playback-config">
+            <span className="yt-config-label">Play:</span>
+            {(["source", "translation", "video"] as (keyof PlaybackConfig)[]).map((col) => (
+              <label key={col} className={`yt-col-toggle${playbackConfig[col] ? " active" : ""}`}>
+                <input type="checkbox" checked={playbackConfig[col]} onChange={() => toggleCol(col)} />
+                {col === "source"      ? `🔊 ${LANG_OPTIONS.find(l => l.code === fromLang)?.label ?? fromLang}`
+                 : col === "translation" ? `📝 ${LANG_OPTIONS.find(l => l.code === toLang)?.label ?? toLang}`
+                 : "🎬 Video"}
+              </label>
+            ))}
+            {extraCols.map(col => (
+              <label key={col.id} className={`yt-col-toggle${col.playEnabled ? " active" : ""}`}>
+                <input type="checkbox" checked={col.playEnabled} onChange={() => toggleExtraColProp(col.id, "playEnabled")} />
+                💬 {col.label}
+              </label>
+            ))}
+          </div>
+        )}
 
-        {/* TTS speed — #7: update refs immediately so next utterance picks up change */}
-        <div className="yt-rate-controls">
-          <span className="yt-config-label">Speed:</span>
-          <label className="yt-rate-label">
-            Src
-            <input type="range" min={0.5} max={2} step={0.1} value={ttsRateSource}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                ttsRateSourceRef.current = v;
-                setTtsRateSource(v);
-              }} className="yt-rate-slider" />
-            <span className="yt-rate-val">{ttsRateSource.toFixed(1)}×</span>
-          </label>
-          <label className="yt-rate-label">
-            Trans
-            <input type="range" min={0.5} max={2} step={0.1} value={ttsRateTrans}
-              onChange={(e) => {
-                const v = Number(e.target.value);
-                ttsRateTransRef.current = v;
-                setTtsRateTrans(v);
-              }} className="yt-rate-slider" />
-            <span className="yt-rate-val">{ttsRateTrans.toFixed(1)}×</span>
-          </label>
-        </div>
+        {/* TTS speed — only relevant once transcript lines exist (#6) */}
+        {lines.length > 0 && (
+          <div className="yt-rate-controls">
+            <span className="yt-config-label">Speed:</span>
+            <label className="yt-rate-label">
+              Src
+              <input type="range" min={0.5} max={2} step={0.1} value={ttsRateSource}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  ttsRateSourceRef.current = v;
+                  setTtsRateSource(v);
+                }} className="yt-rate-slider" />
+              <span className="yt-rate-val">{ttsRateSource.toFixed(1)}×</span>
+            </label>
+            <label className="yt-rate-label">
+              Trans
+              <input type="range" min={0.5} max={2} step={0.1} value={ttsRateTrans}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  ttsRateTransRef.current = v;
+                  setTtsRateTrans(v);
+                }} className="yt-rate-slider" />
+              <span className="yt-rate-val">{ttsRateTrans.toFixed(1)}×</span>
+            </label>
+          </div>
+        )}
 
         {/* Action buttons */}
         <div className="yt-header-actions">
-          <button className={`yt-icon-btn${showThumbnails ? " active" : ""}`}
-            onClick={() => setShowThumbnails(v => !v)} title="Toggle thumbnails">🖼 Thumbs</button>
-          <button className={`yt-icon-btn${audioOnly ? " active" : ""}`}
-            onClick={() => setAudioOnly(v => !v)} title="Audio-only: hide video, use TTS only">🔈 Audio</button>
-          {videoId && (
+          {lines.length > 0 && (
+            <>
+              <button className={`yt-icon-btn${showThumbnails ? " active" : ""}`}
+                onClick={() => setShowThumbnails(v => !v)} title="Toggle thumbnails">🖼 Thumbs</button>
+              <button className={`yt-icon-btn${audioOnly ? " active" : ""}`}
+                onClick={() => setAudioOnly(v => !v)} title="Audio-only: hide video, use TTS only">🔈 Audio</button>
+            </>
+          )}
+          {videoId && lines.length > 0 && (
             <button className={`yt-icon-btn yt-fs-btn${fsMode ? " active" : ""}`}
               onClick={() => setFsMode(v => !v)} title="Fullscreen transcript-driven playback">⛶ Fullscreen</button>
           )}
@@ -990,206 +851,82 @@ function YoutubeTranscriptParser() {
         </div>
       </div>
 
-      {/* ── playback order strip ── */}
-      <div className="yt-order-strip">
-        <span className="yt-config-label">Order:</span>
-        <div className="yt-order-items">
-          {playOrder.map((step, idx) => (
-            <div key={step} className={`yt-order-item${stepEnabled(step) ? " active" : ""}`}>
-              <span className="yt-order-label">{stepLabel(step)}</span>
-              <button className="yt-order-btn" onClick={() => moveStep(idx, -1)} disabled={idx === 0} title="Earlier">▲</button>
-              <button className="yt-order-btn" onClick={() => moveStep(idx, 1)} disabled={idx === playOrder.length - 1} title="Later">▼</button>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ── input card ── */}
-      <div className="yt-input-card">
-        <div className="yt-tabs">
-          <button className={`yt-tab${inputTab === "url"     ? " active" : ""}`} onClick={() => setInputTab("url")}>🔗 URL</button>
-          <button className={`yt-tab${inputTab === "paste"   ? " active" : ""}`} onClick={() => setInputTab("paste")}>📋 Paste SRT</button>
-          <button className={`yt-tab${inputTab === "youtube" ? " active" : ""}`} onClick={() => setInputTab("youtube")}>📺 YouTube</button>
-          <button className={`yt-tab${inputTab === "jobs"    ? " active" : ""}`} onClick={() => setInputTab("jobs")}>
-            📂 Jobs{jobs.length > 0 ? ` (${jobs.length})` : ""}
-          </button>
-        </div>
-
-        {inputTab === "url" && (
-          <div className="yt-url-row">
-            <input className="yt-url-input" type="text" value={srtUrl}
-              onChange={(e) => setSrtUrl(e.target.value)} placeholder="https://example.com/subtitles.srt" />
-            <button className="yt-load-btn" onClick={handleLoad} disabled={loading}>{loading ? "Loading…" : "Load"}</button>
-          </div>
-        )}
-
-        {inputTab === "paste" && (
-          <div className="yt-paste-area">
-            <textarea className="yt-paste-textarea" value={pasteText}
-              onChange={(e) => setPasteText(e.target.value)}
-              placeholder={"Paste SRT content here…\n\n1\n00:00:01,000 --> 00:00:04,000\nHello world"} rows={8} />
-            <button className="yt-load-btn" onClick={handlePasteLoad}>Parse</button>
-          </div>
-        )}
-
-        {/* ── 📺 YouTube fetch tab ── */}
-        {inputTab === "youtube" && (
-          <div className="yt-yt-fetch-panel">
-            <p className="yt-yt-fetch-hint">
-              Fetch the transcript directly from YouTube using the video ID below.
-              Enter the video URL in the meta row first.
-            </p>
-            {videoId ? (
-              <div className="yt-yt-fetch-row">
-                <span className="yt-yt-id-pill">📺 {videoId}</span>
-                <input
-                  className="yt-select"
-                  type="text"
-                  value={ytFetchLang}
-                  onChange={(e) => setYtFetchLang(e.target.value)}
-                  placeholder="en"
-                  style={{ maxWidth: 80 }}
-                  title="Language code (e.g. en, he, ar)"
-                />
-                <button className="yt-load-btn" onClick={handleYtFetch} disabled={ytFetchLoading}>
-                  {ytFetchLoading ? "Fetching…" : "Fetch Transcript"}
-                </button>
+      {/* ── playback order strip — only relevant once transcript lines exist (#4) ── */}
+      {lines.length > 0 && (
+        <div className="yt-order-strip">
+          <span className="yt-config-label">Order:</span>
+          <div className="yt-order-items">
+            {playOrder.map((step, idx) => (
+              <div key={step} className={`yt-order-item${stepEnabled(step) ? " active" : ""}`}>
+                <span className="yt-order-label">{stepLabel(step)}</span>
+                <button className="yt-order-btn" onClick={() => moveStep(idx, -1)} disabled={idx === 0} title="Earlier">▲</button>
+                <button className="yt-order-btn" onClick={() => moveStep(idx, 1)} disabled={idx === playOrder.length - 1} title="Later">▼</button>
               </div>
-            ) : (
-              <div className="yt-error">⚠ Enter a YouTube URL or video ID in the meta row first</div>
-            )}
-            {ytFetchError && <div className="yt-error" style={{ marginTop: 6 }}>⚠ {ytFetchError}</div>}
+            ))}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* ── 📂 Job history tab ── */}
-        {inputTab === "jobs" && (
-          <div className="yt-jobs-panel">
-            <div className="yt-jobs-save-row">
-              <input className="yt-url-input" type="text" value={saveTitle}
-                onChange={(e) => setSaveTitle(e.target.value)}
-                placeholder="Job title (auto-generated if blank)" />
-              <button className="yt-load-btn" onClick={handleSaveJob}>💾 Save current</button>
+      {/* ── extra tracks + display config — only relevant once a project is loaded (#4) ── */}
+      {lines.length > 0 && (
+        <div className="yt-input-card">
+          <div className="yt-meta-row">
+            <div className="yt-field-group">
+              <label className="yt-field-label">Lines / page</label>
+              <input className="yt-select" type="number" min={1} max={MAX_LINES} value={linesPerPage}
+                onChange={(e) => setLinesPerPage(Math.min(MAX_LINES, Math.max(1, Number(e.target.value))))} />
             </div>
-            {jobs.length === 0 ? (
-              <div className="yt-jobs-empty">No saved jobs yet — load an SRT and click Save.</div>
-            ) : (
-              <div className="yt-jobs-list">
-                {jobs.map(job => (
-                  <div key={job.id} className="yt-job-item">
-                    <div className="yt-job-left">
-                      {editingId === job.id ? (
-                        <input className="yt-job-title-input" value={editingTitle}
-                          onChange={(e) => setEditingTitle(e.target.value)}
-                          onBlur={() => { updateTitle(job.id, editingTitle); setEditingId(null); }}
-                          onKeyDown={(e) => { if (e.key === "Enter") { updateTitle(job.id, editingTitle); setEditingId(null); } }}
-                          autoFocus />
-                      ) : (
-                        <span className="yt-job-title"
-                          onClick={() => { setEditingId(job.id); setEditingTitle(job.title); }}
-                          title="Click to rename">{job.title}</span>
-                      )}
-                      <span className="yt-job-meta">
-                        {new Date(job.createdAt).toLocaleDateString()} · {job.fromLang} → {job.toLang}
-                        {job.srtUrl && <> · <span className="yt-job-url">{job.srtUrl.split("/").pop()}</span></>}
-                      </span>
-                    </div>
-                    <div className="yt-job-actions">
-                      <button className="yt-job-load-btn" onClick={() => handleLoadJob(job)}>▶ Load</button>
-                      <button className="yt-job-del-btn" onClick={() => deleteJob(job.id)}>✕</button>
-                    </div>
+          </div>
+
+          {/* ── extra SRT columns — fetched from YouTube only (auto-mode only) ── */}
+          <div className="yt-extra-srts">
+            {extraCols.length > 0 && (
+              <div className="yt-extra-cols-list">
+                {extraCols.map(col => (
+                  <div key={col.id} className={`yt-extra-col-badge${col.visible ? " visible" : ""}`}>
+                    <span className="yt-extra-col-name">{col.label}</span>
+                    <span className="yt-extra-col-meta">[{col.lang}] {col.texts.length}ln</span>
+                    <button
+                      className={`yt-extra-col-eye${col.visible ? " on" : ""}`}
+                      onClick={() => toggleExtraColProp(col.id, "visible")}
+                      title={col.visible ? "Hide column" : "Show column"}
+                    >{col.visible ? "👁" : "🙈"}</button>
+                    <button className="yt-extra-col-rm" onClick={() => removeExtraCol(col.id)} title="Remove">✕</button>
                   </div>
                 ))}
               </div>
             )}
-          </div>
-        )}
 
-        <div className="yt-meta-row">
-          <div className="yt-field-group">
-            <label className="yt-field-label">Translate to</label>
-            <select className="yt-select" value={toLang} onChange={(e) => setToLang(e.target.value)}>
-              {LANG_OPTIONS.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
-            </select>
-          </div>
-          <div className="yt-field-group yt-field-group--wide">
-            <label className="yt-field-label">YouTube URL or ID</label>
-            <input className="yt-select" type="text" value={videoUrl}
-              onChange={(e) => setVideoUrl(e.target.value)}
-              placeholder="https://www.youtube.com/watch?v=... or video ID" />
-            {videoId && videoId !== videoUrl && <span className="yt-video-id-hint">ID: {videoId}</span>}
-          </div>
-          <div className="yt-field-group">
-            <label className="yt-field-label">Lines / page</label>
-            <input className="yt-select" type="number" min={1} max={MAX_LINES} value={linesPerPage}
-              onChange={(e) => setLinesPerPage(Math.min(MAX_LINES, Math.max(1, Number(e.target.value))))} />
-          </div>
-        </div>
+            {videoId && (
+              <button className={`yt-icon-btn${addSrtOpen ? " active" : ""}`}
+                onClick={() => setAddSrtOpen(v => !v)}>＋ Fetch another language track</button>
+            )}
 
-        {/* ── extra SRT columns ── */}
-        <div className="yt-extra-srts">
-          {extraCols.length > 0 && (
-            <div className="yt-extra-cols-list">
-              {extraCols.map(col => (
-                <div key={col.id} className={`yt-extra-col-badge${col.visible ? " visible" : ""}`}>
-                  <span className="yt-extra-col-name">{col.label}</span>
-                  <span className="yt-extra-col-meta">[{col.lang}] {col.texts.length}ln</span>
-                  <button
-                    className={`yt-extra-col-eye${col.visible ? " on" : ""}`}
-                    onClick={() => toggleExtraColProp(col.id, "visible")}
-                    title={col.visible ? "Hide column" : "Show column"}
-                  >{col.visible ? "👁" : "🙈"}</button>
-                  <button className="yt-extra-col-rm" onClick={() => removeExtraCol(col.id)} title="Remove">✕</button>
-                </div>
-              ))}
-            </div>
-          )}
-
-          <button className={`yt-icon-btn${addSrtOpen ? " active" : ""}`}
-            onClick={() => setAddSrtOpen(v => !v)}>＋ SRT column</button>
-
-          {addSrtOpen && (
-            <div className="yt-add-srt-panel">
-              <div className="yt-tabs" style={{ marginBottom: 8 }}>
-                <button className={`yt-tab${newSrtInputTab === "url"     ? " active" : ""}`} onClick={() => setNewSrtInputTab("url")}>🔗 URL</button>
-                <button className={`yt-tab${newSrtInputTab === "paste"   ? " active" : ""}`} onClick={() => setNewSrtInputTab("paste")}>📋 Paste</button>
-                <button className={`yt-tab${newSrtInputTab === "youtube" ? " active" : ""}`} onClick={() => { setNewSrtInputTab("youtube"); setNewSrtYtError(""); }}>📺 YouTube</button>
-              </div>
-              {newSrtInputTab === "url" ? (
-                <input className="yt-url-input" type="text" value={newSrtUrl}
-                  onChange={(e) => setNewSrtUrl(e.target.value)} placeholder="SRT URL…" />
-              ) : newSrtInputTab === "paste" ? (
-                <textarea className="yt-paste-textarea" value={newSrtPaste}
-                  onChange={(e) => setNewSrtPaste(e.target.value)}
-                  placeholder="Paste SRT here…" rows={4} />
-              ) : (
+            {addSrtOpen && videoId && (
+              <div className="yt-add-srt-panel">
                 <div className="yt-yt-fetch-info">
-                  {videoId
-                    ? <span>Fetch track for: <b>{videoId}</b>{" "}
-                        <span className="yt-col-hint">(label will include [N], (auto), and source language automatically)</span>
-                      </span>
-                    : <span className="yt-col-hint">⚠ Load a YouTube video first (use the 📺 YouTube tab above)</span>}
+                  <span>Fetch track for: <b>{videoId}</b>{" "}
+                    <span className="yt-col-hint">(label will include [N], (auto), and source language automatically)</span>
+                  </span>
                   {newSrtYtError && <div className="yt-error" style={{ marginTop: 4 }}>⚠ {newSrtYtError}</div>}
                 </div>
-              )}
-              <div className="yt-add-srt-meta">
-                <select className="yt-select" value={newSrtLang} onChange={(e) => setNewSrtLang(e.target.value)}>
-                  {LANG_OPTIONS.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
-                </select>
-                <input className="yt-select" type="text" value={newSrtLabel}
-                  onChange={(e) => setNewSrtLabel(e.target.value)} placeholder="Label (optional)" style={{ flex: 1 }} />
-                <button className="yt-load-btn"
-                  onClick={newSrtInputTab === "youtube" ? handleAddExtraSrtYt : handleAddExtraSrt}
-                  disabled={newSrtLoading || (newSrtInputTab === "youtube" && !videoId)}>
-                  {newSrtLoading ? "Loading…" : "Add"}
-                </button>
+                <div className="yt-add-srt-meta">
+                  <select className="yt-select" value={newSrtLang} onChange={(e) => setNewSrtLang(e.target.value)}>
+                    {LANG_OPTIONS.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
+                  </select>
+                  <input className="yt-select" type="text" value={newSrtLabel}
+                    onChange={(e) => setNewSrtLabel(e.target.value)} placeholder="Label (optional)" style={{ flex: 1 }} />
+                  <button className="yt-load-btn"
+                    onClick={handleAddExtraSrtYt}
+                    disabled={newSrtLoading}>
+                    {newSrtLoading ? "Loading…" : "Add"}
+                  </button>
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-
-        {loadError && <div className="yt-error">⚠ {loadError}</div>}
-      </div>
+      )}
 
       {/* ── transcript table ── */}
       {lines.length > 0 && (
@@ -1332,18 +1069,11 @@ function YoutubeTranscriptParser() {
         </>
       )}
 
-      {!lines.length && !loading && (
+      {!lines.length && (
         <div className="yt-empty">
           <div className="yt-empty-icon">📄</div>
-          <p>Load an SRT file or paste SRT content to get started.</p>
-          <p className="yt-empty-sub">Use the URL or Paste tabs above, then click Load / Parse.</p>
-        </div>
-      )}
-
-      {loading && (
-        <div className="yt-empty">
-          <div className="yt-empty-icon">⏳</div>
-          <p>Loading…</p>
+          <p>Enter a YouTube URL in the top menu to get started.</p>
+          <p className="yt-empty-sub">Create a project — the transcript is fetched automatically from YouTube.</p>
         </div>
       )}
 

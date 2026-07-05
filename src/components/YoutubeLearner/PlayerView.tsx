@@ -517,98 +517,119 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
             {isPlaying ? `▶ ${currentLine + 1}/${lines.length}` : `${lines.length} lines`}
           </span>
 
-          {/* ── Download SRT ── */}
-          <div className="yl-download-wrap">
-            {project.tracks.length === 1 ? (
-              <button
-                className="yl-btn-ghost"
-                title="Download SRT"
-                onClick={() => downloadSrt(project.tracks[0])}
-              >
-                ⬇ SRT
-              </button>
-            ) : (
-              <>
-                <button
-                  className={`yl-btn-ghost ${showDownload ? 'yl-active' : ''}`}
-                  title="Download SRT"
-                  onClick={() => setShowDownload(s => !s)}
-                >
-                  ⬇ SRT
-                </button>
-                {showDownload && (
-                  <div className="yl-download-menu">
-                    {project.tracks.map(t => (
-                      <button
-                        key={t.lang}
-                        className="yl-download-item"
-                        onClick={() => downloadSrt(t)}
-                      >
-                        {t.label || t.lang}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </>
-            )}
+          {/* ── Target language (always editable) ── */}
+          <div className="yl-menu-lang-wrap">
+            <label className="yl-menu-lang-label">Translate to</label>
+            <input
+              className="yl-menu-lang-input"
+              type="text"
+              list="yl-header-lang-suggestions"
+              value={config.targetLang}
+              onChange={e => { updateConfig({ targetLang: e.target.value }); retranslate(); }}
+              placeholder="en, he, ar…"
+              title="Target language code for translation (e.g. en, he, ar, ru)"
+            />
+            <datalist id="yl-header-lang-suggestions">
+              {langOptions.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
+            </datalist>
           </div>
 
-          {project.videoId && (
-            <button
-              className={`yl-btn-ghost ${showVideo ? 'yl-active' : ''}`}
-              onClick={toggleVideo}
-              title={showVideo ? 'Hide video' : 'Show video'}
-            >
-              {showVideo ? '📺 Hide' : '📺 Video'}
-            </button>
+          {lines.length > 0 && (
+            <>
+              {/* ── Download SRT ── */}
+              <div className="yl-download-wrap">
+                {project.tracks.length === 1 ? (
+                  <button
+                    className="yl-btn-ghost"
+                    title="Download SRT"
+                    onClick={() => downloadSrt(project.tracks[0])}
+                  >
+                    ⬇ SRT
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      className={`yl-btn-ghost ${showDownload ? 'yl-active' : ''}`}
+                      title="Download SRT"
+                      onClick={() => setShowDownload(s => !s)}
+                    >
+                      ⬇ SRT
+                    </button>
+                    {showDownload && (
+                      <div className="yl-download-menu">
+                        {project.tracks.map(t => (
+                          <button
+                            key={t.lang}
+                            className="yl-download-item"
+                            onClick={() => downloadSrt(t)}
+                          >
+                            {t.label || t.lang}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {project.videoId && (
+                <button
+                  className={`yl-btn-ghost ${showVideo ? 'yl-active' : ''}`}
+                  onClick={toggleVideo}
+                  title={showVideo ? 'Hide video' : 'Show video'}
+                >
+                  {showVideo ? '📺 Hide' : '📺 Video'}
+                </button>
+              )}
+              {showVideo && (
+                <button
+                  className={`yl-btn-ghost ${seamlessMode ? 'yl-active yl-btn-seamless-on' : ''}`}
+                  onClick={handleSeamlessToggle}
+                  title="Seamless mode: plays the full video and pauses at each subtitle for TTS"
+                >
+                  🎬 Seamless
+                </button>
+              )}
+              <button
+                className={`yl-btn-play ${isPlaying ? 'yl-btn-stop' : ''}`}
+                onClick={() => isPlaying ? stop() : playFrom(Math.max(0, currentLine >= 0 ? currentLine : project.lastLine))}
+              >
+                {isPlaying ? '⏹ Stop' : '▶ Play'}
+              </button>
+              <button
+                className={`yl-btn-ghost ${shareCopied ? 'yl-btn-share-copied' : ''}`}
+                title="Share this position and settings"
+                onClick={async () => {
+                  const p = new URLSearchParams();
+                  if (project.videoId) p.set('v', project.videoId);
+                  else p.set('p', project.id);
+                  p.set('tl', config.targetLang);
+                  p.set('l', String(currentLine >= 0 ? currentLine : project.lastLine));
+                  p.set('sm', seamlessMode ? '1' : '0');
+                  for (const [colId, s] of Object.entries(config.colSettings)) {
+                    if (colId === 'video') continue;
+                    const sid = shortCol(colId);
+                    if (s.ttsRate !== DEFAULT_TTS_RATE) p.set(`r_${sid}`, s.ttsRate.toFixed(1));
+                    if (s.voiceName) p.set(`vn_${sid}`, s.voiceName);
+                  }
+                  const shareUrl = `${window.location.origin}${window.location.pathname}?${p.toString()}`;
+                  try {
+                    await navigator.clipboard.writeText(shareUrl);
+                    setShareCopied(true);
+                    setTimeout(() => setShareCopied(false), 1500);
+                  } catch {
+                    // Fallback: show URL in prompt
+                    window.prompt('Copy this URL:', shareUrl);
+                  }
+                }}
+              >
+                {shareCopied ? 'Copied!' : 'Share'}
+              </button>
+              <button className={`yl-btn-ghost ${showSettings ? 'yl-active' : ''}`} onClick={() => setShowSettings(s => !s)}>
+                ⚙ Settings
+              </button>
+            </>
           )}
-          {showVideo && (
-            <button
-              className={`yl-btn-ghost ${seamlessMode ? 'yl-active yl-btn-seamless-on' : ''}`}
-              onClick={handleSeamlessToggle}
-              title="Seamless mode: plays the full video and pauses at each subtitle for TTS"
-            >
-              🎬 Seamless
-            </button>
-          )}
-          <button
-            className={`yl-btn-play ${isPlaying ? 'yl-btn-stop' : ''}`}
-            onClick={() => isPlaying ? stop() : playFrom(Math.max(0, currentLine >= 0 ? currentLine : project.lastLine))}
-          >
-            {isPlaying ? '⏹ Stop' : '▶ Play'}
-          </button>
-          <button
-            className={`yl-btn-ghost ${shareCopied ? 'yl-btn-share-copied' : ''}`}
-            title="Share this position and settings"
-            onClick={async () => {
-              const p = new URLSearchParams();
-              if (project.videoId) p.set('v', project.videoId);
-              else p.set('p', project.id);
-              p.set('tl', config.targetLang);
-              p.set('l', String(currentLine >= 0 ? currentLine : project.lastLine));
-              p.set('sm', seamlessMode ? '1' : '0');
-              for (const [colId, s] of Object.entries(config.colSettings)) {
-                if (colId === 'video') continue;
-                const sid = shortCol(colId);
-                if (s.ttsRate !== DEFAULT_TTS_RATE) p.set(`r_${sid}`, s.ttsRate.toFixed(1));
-                if (s.voiceName) p.set(`vn_${sid}`, s.voiceName);
-              }
-              const shareUrl = `${window.location.origin}${window.location.pathname}?${p.toString()}`;
-              try {
-                await navigator.clipboard.writeText(shareUrl);
-                setShareCopied(true);
-                setTimeout(() => setShareCopied(false), 1500);
-              } catch {
-                // Fallback: show URL in prompt
-                window.prompt('Copy this URL:', shareUrl);
-              }
-            }}
-          >
-            {shareCopied ? 'Copied!' : 'Share'}
-          </button>
-          <button className={`yl-btn-ghost ${showSettings ? 'yl-active' : ''}`} onClick={() => setShowSettings(s => !s)}>
-            ⚙ Settings
-          </button>
         </div>
       </div>
 
@@ -620,7 +641,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
       )}
 
       {/* ── Audio player bar (shown when video is hidden but videoId exists) ── */}
-      {audioOnlyMode && (
+      {audioOnlyMode && lines.length > 0 && (
         <div className="yl-audio-bar">
           <button
             className={`yl-audio-playbtn ${isPlaying ? 'yl-btn-stop' : ''}`}
@@ -646,16 +667,9 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
       )}
 
       {/* ── Settings Panel ─────────────────────────────────────────────────── */}
-      {showSettings && (
+      {showSettings && lines.length > 0 && (
         <div className="yl-settings">
           <div className="yl-settings-global">
-            <label className="yl-setting-field">
-              <span>Translate to</span>
-              <select className="yl-select-sm" value={config.targetLang}
-                onChange={e => { updateConfig({ targetLang: e.target.value }); retranslate(); }}>
-                {langOptions.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
-              </select>
-            </label>
             <label className="yl-setting-field">
               <span>Source column</span>
               <select className="yl-select-sm" value={config.translationSource}
