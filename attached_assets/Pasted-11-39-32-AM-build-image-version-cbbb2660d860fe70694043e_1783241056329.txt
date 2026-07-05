@@ -1,0 +1,128 @@
+11:39:32 AM: build-image version: cbbb2660d860fe70694043ec05851a3910a2bf39 (noble-new-builds)
+11:39:32 AM: buildbot version: eeb33d556424340cf286e2cbf718636fb66a2bbc
+11:39:32 AM: Fetching cached dependencies
+11:39:32 AM: Starting to download cache of 55.2MB (Last modified: 2026-07-05 03:53:35 +0000 UTC)
+11:39:32 AM: Downloaded cache in 326ms
+11:39:34 AM: Extracted cache in 1.818s
+11:39:34 AM: Fetched cache in 2.187s
+11:39:34 AM: Starting to prepare the repo for build
+11:39:34 AM: Preparing Git Reference refs/heads/main
+11:39:35 AM: Custom build path detected. Proceeding with the specified path: ''
+11:39:35 AM: Custom functions path detected. Proceeding with the specified path: 'netlify/functions'
+11:39:36 AM: Installing dependencies
+11:39:36 AM: mise ~/.config/mise/config.toml tools: python@3.14.3
+11:39:36 AM: mise ~/.config/mise/config.toml tools: ruby@3.4.8
+11:39:36 AM: mise ~/.config/mise/config.toml tools: go@1.26.2
+11:39:36 AM: v20.20.2 is already installed.
+11:39:37 AM: Now using node v20.20.2 (npm v10.8.2)
+11:39:37 AM: Enabling Node.js Corepack
+11:39:37 AM: No npm workspaces detected
+11:39:37 AM: Installing npm packages using npm version 10.8.2
+11:40:49 AM: npm error Exit handler never called!
+11:40:49 AM: npm error This is an error with npm itself. Please report this error at:
+11:40:49 AM: npm error   <https://github.com/npm/cli/issues>
+11:40:49 AM: npm error A complete log of this run can be found in: /opt/buildhome/.npm/_logs/2026-07-05T08_39_37_427Z-debug-0.log
+11:40:49 AM: npm packages installed
+11:40:49 AM: Successfully installed dependencies
+11:40:49 AM: Detected 1 framework(s)
+11:40:49 AM: "create-react-app" at version "5.0.1"
+11:40:50 AM: Starting build script
+11:40:50 AM: Section completed: initializing
+11:40:52 AM: Failed during stage 'building site': Build script returned non-zero exit code: 2 (https://ntl.fyi/exit-code-2)
+11:40:52 AM: ​
+11:40:52 AM: Netlify Build                                                 
+11:40:52 AM: ────────────────────────────────────────────────────────────────
+11:40:52 AM: ​
+11:40:52 AM: ❯ Version
+11:40:52 AM:   @netlify/build 36.1.0
+11:40:52 AM: ​
+11:40:52 AM: ❯ Flags
+11:40:52 AM:   accountId: 6418043b22b59b72e40811e0
+11:40:52 AM:   baseRelDir: true
+11:40:52 AM:   buildId: 6a4a184360d76f00086d3488
+11:40:52 AM:   deployId: 6a4a184360d76f00086d348a
+11:40:52 AM: ​
+11:40:52 AM: ❯ Current directory
+11:40:52 AM:   /opt/build/repo
+11:40:52 AM: ​
+11:40:52 AM: ❯ Config file
+11:40:52 AM:   /opt/build/repo/netlify.toml
+11:40:52 AM: ​
+11:40:52 AM: ❯ Context
+11:40:52 AM:   production
+11:40:52 AM: ​
+11:40:52 AM: build.command from netlify.toml                               
+11:40:52 AM: ────────────────────────────────────────────────────────────────
+11:40:52 AM: ​
+11:40:52 AM: $ npm run build
+11:40:52 AM: > my-app@0.1.0 build
+11:40:52 AM: > react-scripts build
+11:40:52 AM: node:internal/modules/cjs/loader:1210
+11:40:52 AM:   throw err;
+11:40:52 AM:   ^
+11:40:52 AM: Error: Cannot find module 'jsonfile'
+11:40:52 AM: Require stack:
+11:40:52 AM: - /opt/build/repo/node_modules/react-scripts/node_modules/fs-extra/lib/json/jsonfile.js
+11:40:52 AM: - /opt/build/repo/node_modules/react-scripts/node_modules/fs-extra/lib/json/index.js
+11:40:52 AM: - /opt/build/repo/node_modules/react-scripts/node_modules/fs-extra/lib/index.js
+11:40:52 AM: - /opt/build/repo/node_modules/react-scripts/scripts/build.js
+11:40:52 AM:     at Module._resolveFilename (node:internal/modules/cjs/loader:1207:15)
+11:40:52 AM:     at Module._load (node:internal/modules/cjs/loader:1038:27)
+11:40:52 AM:     at Module.require (node:internal/modules/cjs/loader:1289:19)
+11:40:52 AM:     at require (node:internal/modules/helpers:182:18)
+11:40:52 AM:     at Object.<anonymous> (/opt/build/repo/node_modules/react-scripts/node_modules/fs-extra/lib/json/jsonfile.js:3:18)
+11:40:52 AM:     at Module._compile (node:internal/modules/cjs/loader:1521:14)
+11:40:52 AM:     at Module._extensions..js (node:internal/modules/cjs/loader:1623:10)
+11:40:52 AM:     at Module.load (node:internal/modules/cjs/loader:1266:32)
+11:40:52 AM:     at Module._load (node:internal/modules/cjs/loader:1091:12)
+11:40:52 AM:     at Module.require (node:internal/modules/cjs/loader:1289:19) {
+11:40:52 AM:   code: 'MODULE_NOT_FOUND',
+11:40:52 AM:   requireStack: [
+11:40:52 AM:     '/opt/build/repo/node_modules/react-scripts/node_modules/fs-extra/lib/json/jsonfile.js',
+11:40:52 AM:     '/opt/build/repo/node_modules/react-scripts/node_modules/fs-extra/lib/json/index.js',
+11:40:52 AM:     '/opt/build/repo/node_modules/react-scripts/node_modules/fs-extra/lib/index.js',
+11:40:52 AM:     '/opt/build/repo/node_modules/react-scripts/scripts/build.js'
+11:40:52 AM:   ]
+11:40:52 AM: }
+11:40:52 AM: Node.js v20.20.2
+11:40:52 AM: ​
+11:40:52 AM: "build.command" failed                                        
+11:40:52 AM: ────────────────────────────────────────────────────────────────
+11:40:52 AM: ​
+11:40:52 AM:   Error message
+11:40:52 AM:   Command failed with exit code 1: npm run build (https://ntl.fyi/exit-code-1)
+11:40:52 AM: ​
+11:40:52 AM:   Error location
+11:40:52 AM:   In build.command from netlify.toml:
+11:40:52 AM:   npm run build
+11:40:52 AM: ​
+11:40:52 AM:   Resolved config
+11:40:52 AM:   build:
+11:40:52 AM:     base: /opt/build/repo
+11:40:52 AM:     command: npm run build
+11:40:52 AM:     commandOrigin: config
+11:40:52 AM:     environment:
+11:40:52 AM:       - OPENROUTER_API_KEY
+11:40:52 AM:       - NODE_VERSION
+11:40:52 AM:     publish: /opt/build/repo/build
+11:40:52 AM:     publishOrigin: config
+11:40:52 AM:   functions:
+11:40:52 AM:     "*":
+11:40:52 AM:       node_bundler: nft
+11:40:52 AM:   functionsDirectory: /opt/build/repo/netlify/functions
+11:40:52 AM:   redirects:
+11:40:52 AM:     - force: true
+11:40:52 AM:       from: /api/*
+      status: 200
+      to: /.netlify/functions/api
+    - force: true
+      from: /api-docs*
+      status: 200
+      to: /.netlify/functions/api
+    - from: /*
+      status: 200
+      to: /index.html
+  redirectsOrigin: config
+11:40:52 AM: Build failed due to a user error: Build script returned non-zero exit code: 2
+11:40:52 AM: Failing build: Failed to build site
+11:40:53 AM: Finished processing build request in 1m20.736s

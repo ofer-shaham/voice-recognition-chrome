@@ -1,0 +1,142 @@
+11:22:13 AM: build-image version: cbbb2660d860fe70694043ec05851a3910a2bf39 (noble-new-builds)
+11:22:13 AM: buildbot version: eeb33d556424340cf286e2cbf718636fb66a2bbc
+11:22:13 AM: Fetching cached dependencies
+11:22:14 AM: Starting to download cache of 55.2MB (Last modified: 2026-07-05 03:53:35 +0000 UTC)
+11:22:14 AM: Downloaded cache in 343ms
+11:22:16 AM: Extracted cache in 1.735s
+11:22:16 AM: Fetched cache in 2.141s
+11:22:16 AM: Starting to prepare the repo for build
+11:22:16 AM: Preparing Git Reference refs/heads/main
+11:22:17 AM: Custom build path detected. Proceeding with the specified path: ''
+11:22:17 AM: Custom functions path detected. Proceeding with the specified path: 'netlify/functions'
+11:22:17 AM: Installing dependencies
+11:22:17 AM: mise ~/.config/mise/config.toml tools: python@3.14.3
+11:22:17 AM: mise ~/.config/mise/config.toml tools: ruby@3.4.8
+11:22:18 AM: mise ~/.config/mise/config.toml tools: go@1.26.2
+11:22:18 AM: v18.20.8 is already installed.
+11:22:18 AM: Now using node v18.20.8 (npm v10.8.2)
+11:22:18 AM: Enabling Node.js Corepack
+11:22:19 AM: No npm workspaces detected
+11:22:19 AM: Installing npm packages using npm version 10.8.2
+11:22:20 AM: npm warn EBADENGINE Unsupported engine {
+11:22:20 AM: npm warn EBADENGINE   package: 'youtube-transcript-api-js@3.0.3',
+11:22:20 AM: npm warn EBADENGINE   required: { node: '>=20.0.0' },
+11:22:20 AM: npm warn EBADENGINE   current: { node: 'v18.20.8', npm: '10.8.2' }
+11:22:20 AM: npm warn EBADENGINE }
+11:22:20 AM: npm warn EBADENGINE Unsupported engine {
+11:22:20 AM: npm warn EBADENGINE   package: 'commander@14.0.3',
+11:22:20 AM: npm warn EBADENGINE   required: { node: '>=20' },
+11:22:20 AM: npm warn EBADENGINE   current: { node: 'v18.20.8', npm: '10.8.2' }
+11:22:20 AM: npm warn EBADENGINE }
+11:22:20 AM: npm warn EBADENGINE Unsupported engine {
+11:22:20 AM: npm warn EBADENGINE   package: 'youtube-transcript-plus@2.0.0',
+11:22:20 AM: npm warn EBADENGINE   required: { node: '>=20.0.0' },
+11:22:20 AM: npm warn EBADENGINE   current: { node: 'v18.20.8', npm: '10.8.2' }
+11:22:20 AM: npm warn EBADENGINE }
+11:23:31 AM: npm error Exit handler never called!
+11:23:31 AM: npm error This is an error with npm itself. Please report this error at:
+11:23:31 AM: npm error   <https://github.com/npm/cli/issues>
+11:23:31 AM: npm error A complete log of this run can be found in: /opt/buildhome/.npm/_logs/2026-07-05T08_22_19_199Z-debug-0.log
+11:23:31 AM: npm packages installed
+11:23:32 AM: Successfully installed dependencies
+11:23:32 AM: Detected 1 framework(s)
+11:23:32 AM: "create-react-app" at version "5.0.1"
+11:23:32 AM: Starting build script
+11:23:32 AM: Section completed: initializing
+11:23:34 AM: ​
+11:23:34 AM: Netlify Build                                                 
+11:23:34 AM: ────────────────────────────────────────────────────────────────
+11:23:34 AM: ​
+11:23:34 AM: ❯ Version
+11:23:34 AM:   @netlify/build 36.1.0
+11:23:34 AM: ​
+11:23:34 AM: ❯ Flags
+11:23:34 AM:   accountId: 6418043b22b59b72e40811e0
+11:23:34 AM:   baseRelDir: true
+11:23:34 AM:   buildId: 6a4a1435fb20e80007c8a7e2
+11:23:34 AM:   deployId: 6a4a1435fb20e80007c8a7e4
+11:23:34 AM: ​
+11:23:34 AM: ❯ Current directory
+11:23:34 AM:   /opt/build/repo
+11:23:34 AM: ​
+11:23:34 AM: ❯ Config file
+11:23:34 AM:   /opt/build/repo/netlify.toml
+11:23:34 AM: ​
+11:23:34 AM: ❯ Context
+11:23:34 AM:   production
+11:23:34 AM: ​
+11:23:34 AM: build.command from netlify.toml                               
+11:23:34 AM: ────────────────────────────────────────────────────────────────
+11:23:34 AM: ​
+11:23:34 AM: $ npm run build
+11:23:35 AM: Failed during stage 'building site': Build script returned non-zero exit code: 2 (https://ntl.fyi/exit-code-2)
+11:23:35 AM: > my-app@0.1.0 build
+11:23:35 AM: > react-scripts build
+11:23:35 AM: node:internal/modules/cjs/loader:1143
+11:23:35 AM:   throw err;
+11:23:35 AM:   ^
+11:23:35 AM: Error: Cannot find module 'jsonfile'
+11:23:35 AM: Require stack:
+11:23:35 AM: - /opt/build/repo/node_modules/react-scripts/node_modules/fs-extra/lib/json/jsonfile.js
+11:23:35 AM: - /opt/build/repo/node_modules/react-scripts/node_modules/fs-extra/lib/json/index.js
+11:23:35 AM: - /opt/build/repo/node_modules/react-scripts/node_modules/fs-extra/lib/index.js
+11:23:35 AM: - /opt/build/repo/node_modules/react-scripts/scripts/build.js
+11:23:35 AM:     at Module._resolveFilename (node:internal/modules/cjs/loader:1140:15)
+11:23:35 AM:     at Module._load (node:internal/modules/cjs/loader:981:27)
+11:23:35 AM:     at Module.require (node:internal/modules/cjs/loader:1231:19)
+11:23:35 AM:     at require (node:internal/modules/helpers:177:18)
+11:23:35 AM:     at Object.<anonymous> (/opt/build/repo/node_modules/react-scripts/node_modules/fs-extra/lib/json/jsonfile.js:3:18)
+11:23:35 AM:     at Module._compile (node:internal/modules/cjs/loader:1364:14)
+11:23:35 AM:     at Module._extensions..js (node:internal/modules/cjs/loader:1422:10)
+11:23:35 AM:     at Module.load (node:internal/modules/cjs/loader:1203:32)
+11:23:35 AM:     at Module._load (node:internal/modules/cjs/loader:1019:12)
+11:23:35 AM:     at Module.require (node:internal/modules/cjs/loader:1231:19) {
+11:23:35 AM:   code: 'MODULE_NOT_FOUND',
+11:23:35 AM:   requireStack: [
+11:23:35 AM:     '/opt/build/repo/node_modules/react-scripts/node_modules/fs-extra/lib/json/jsonfile.js',
+11:23:35 AM:     '/opt/build/repo/node_modules/react-scripts/node_modules/fs-extra/lib/json/index.js',
+11:23:35 AM:     '/opt/build/repo/node_modules/react-scripts/node_modules/fs-extra/lib/index.js',
+11:23:35 AM:     '/opt/build/repo/node_modules/react-scripts/scripts/build.js'
+11:23:35 AM:   ]
+11:23:35 AM: }
+11:23:35 AM: Node.js v18.20.8
+11:23:35 AM: ​
+11:23:35 AM: "build.command" failed                                        
+11:23:35 AM: ────────────────────────────────────────────────────────────────
+11:23:35 AM: ​
+11:23:35 AM:   Error message
+11:23:35 AM:   Command failed with exit code 1: npm run build (https://ntl.fyi/exit-code-1)
+11:23:35 AM: ​
+11:23:35 AM:   Error location
+11:23:35 AM:   In build.command from netlify.toml:
+11:23:35 AM:   npm run build
+11:23:35 AM: ​
+11:23:35 AM:   Resolved config
+11:23:35 AM:   build:
+11:23:35 AM:     base: /opt/build/repo
+11:23:35 AM:     command: npm run build
+11:23:35 AM:     commandOrigin: config
+11:23:35 AM:     environment:
+11:23:35 AM:       - OPENROUTER_API_KEY
+11:23:35 AM:     publish: /opt/build/repo/build
+11:23:35 AM:     publishOrigin: config
+11:23:35 AM:   functions:
+11:23:35 AM:     "*":
+11:23:35 AM:       node_bundler: nft
+11:23:35 AM:   functionsDirectory: /opt/build/repo/netlify/functions
+11:23:35 AM:   redirects:
+11:23:35 AM:     - force: true
+11:23:35 AM:       from: /api/*
+      status: 200
+      to: /.netlify/functions/api
+    - force: true
+      from: /api-docs*
+      status: 200
+      to: /.netlify/functions/api
+    - from: /*
+      status: 200
+      to: /index.html
+  redirectsOrigin: config
+11:23:35 AM: Build failed due to a user error: Build script returned non-zero exit code: 2
+11:23:35 AM: Failing build: Failed to build site
+11:23:35 AM: Finished processing build request in 1m21.937s
