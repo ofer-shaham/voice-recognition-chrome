@@ -128,6 +128,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     p.set('l', String(project.lastLine));
     p.set('sm', seamlessMode ? '1' : '0');
     p.set('vl', String(config.visibleLines));
+    p.set('fast', transcriptMethod === 'fast' ? '1' : '0');
     for (const [colId, s] of Object.entries(config.colSettings)) {
       if (colId === 'video') continue;
       const sid = shortCol(colId);
@@ -135,7 +136,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
       if (s.voiceName) p.set(`vn_${sid}`, s.voiceName);
     }
     window.history.replaceState(null, '', `${window.location.pathname}?${p.toString()}`);
-  }, [project.id, project.videoId, project.lastLine, config, seamlessMode]);
+  }, [project.id, project.videoId, project.lastLine, config, seamlessMode, transcriptMethod]);
 
   // ── Parse SRT on project change ─────────────────────────────────────────────
   useEffect(() => {
