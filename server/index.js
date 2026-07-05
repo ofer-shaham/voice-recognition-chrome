@@ -2,6 +2,30 @@ const express = require("express");
 const cors = require("cors");
 const swaggerUi = require("swagger-ui-express");
 const { ytPlayerData, fetchSrt, fetchVideoInfoDownsub } = require("./services/youtube-transcript");
+
+async function fetchTranslatedSrt(videoId, langCode, targetLang) {
+  const downstream = "https://youtube-dl-jrte.onrender.com";
+  const url = new URL(`${downstream}/api/translate-transcript`);
+  url.searchParams.set("videoID", videoId);
+  url.searchParams.set("language", langCode);
+  url.searchParams.set("targetLanguage", targetLang);
+  url.searchParams.set("type", "srt");
+
+  const res = await fetch(url, {
+    headers: { "User-Agent": "Mozilla/5.0" },
+  });
+
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Translate API HTTP ${res.status}${body ? `: ${body.slice(0, 200)}` : ""}`);
+  }
+
+  const text = await res.text();
+  if (!text.includes("-->")) {
+    throw new Error("Translated transcript did not contain valid SRT content");
+  }
+  return text;
+}
 const { fetchTtsAudio } = require("./services/tts-proxy");
 
 const app = express();
@@ -270,10 +294,18 @@ app.get("/api/transcript/languages", async (req, res) => {
 
 // ── SRT fetch ─────────────────────────────────────────────────────────────────
 app.get("/api/srt", async (req, res) => {
-  const { videoId, lang, method } = req.query;
+  const { videoId, lang, method, targetLang } = req.query;
   if (!videoId) return res.status(400).json({ error: "videoId is required" });
   const langCode = String(lang || "en").split("-")[0];
   try {
+    const translateTarget = String(targetLang || "").trim();
+    if (translateTarget) {
+      const translated = await fetchTranslatedSrt(String(videoId), langCode, translateTarget);
+      log("info", "SRT translated OK", { videoId, lang: langCode, targetLang: translateTarget, method: method || "auto" });
+      res.type("text/plain; charset=utf-8").send(translated);
+      return;
+    }
+
     const srt = await fetchSrt(String(videoId), langCode, method);
     log("info", "SRT OK", { videoId, lang: langCode, method: method || "auto" });
     res.type("text/plain; charset=utf-8").send(srt);
