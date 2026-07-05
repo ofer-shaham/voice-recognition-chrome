@@ -436,6 +436,11 @@
   color: #94a3b8;
 }
 
+.yl-setting-info {
+  color: #cbd5e1;
+  font-weight: 600;
+}
+
 .yl-settings-cols {
   display: flex;
   flex-wrap: wrap;

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { YtProject, YtTrack, ParsedLine, ProjectConfig, ColSetting, AvailableLang } from './types';
 import { buildLines, parseSrt, secondsToHms, colLabel, sleep, dedupeAvailLangs } from './utils';
 import { DEFAULT_TTS_RATE } from './constants';
-import { translate } from '../../utils/translate';
+import { translate, getTranslationCacheCount } from '../../utils/translate';
 import { freeSpeak } from '../../utils/freeSpeak';
 import isRtl from '../../utils/isRtl';
 import { useVoices } from './useVoices';
@@ -83,6 +83,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
   const [langsLoading, setLangsLoading]       = useState(false);
   const [langsError, setLangsError]           = useState('');
   const [addingLang, setAddingLang]           = useState<string | null>(null);
+  const [cachedCount, setCachedCount]         = useState(() => getTranslationCacheCount());
 
   const { langOptions, voicesForLang } = useVoices();
 
@@ -177,6 +178,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
           const result = await translate({ finalTranscriptProxy: srcText, fromLang, toLang: cfg.targetLang });
           pendingSet.current.delete(i);
           setLines(prev => prev.map((l, idx) => idx === i ? { ...l, translation: result, translated: true } : l));
+          setCachedCount(getTranslationCacheCount());
         } catch { /* ignore individual failures */ }
         if (i % 10 === 9) await sleep(80);
       }
@@ -752,6 +754,10 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
                 onChange={e => updateConfig({ visibleLines: Math.max(3, parseInt(e.target.value) || 30) })}
               />
             </label>
+            <div className="yl-setting-field">
+              <span>Cached translations</span>
+              <span className="yl-setting-info">{cachedCount} line{cachedCount === 1 ? '' : 's'}</span>
+            </div>
           </div>
 
           <div className="yl-settings-cols">
