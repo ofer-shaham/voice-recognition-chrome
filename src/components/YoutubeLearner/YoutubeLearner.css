@@ -1115,6 +1115,20 @@ input[type="range"] {
   gap: 0.4rem;
 }
 
+.yl-extra-langs {
+  margin: -0.25rem 0 0.25rem;
+}
+.yl-extra-langs > summary {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.yl-extra-langs > summary::-webkit-details-marker { display: none; }
+.yl-extra-langs > summary:hover { color: #cbd5e1; }
+.yl-extra-langs .yl-lang-chips {
+  margin-top: 0.5rem;
+}
+
 .yl-lang-chip {
   display: inline-flex;
   align-items: center;
