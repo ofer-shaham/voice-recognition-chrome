@@ -1,0 +1,1 @@
+- [npm security-firewall blocked package](npm-firewall-blocked-package.md) — a package can be blocked at ALL versions by the security firewall; vendor a local file: override instead of retrying versions.
