@@ -29,6 +29,21 @@ const normalizeText = (value: string): string => {
     return trimmed;
 };
 
+const looksLikeSrtContent = (value: string): boolean => {
+    const trimmed = (value || '').trim();
+    if (!trimmed) return false;
+
+    const srtTimestampPattern = /\d{1,2}:\d{2}:\d{2}[.,]\d{3}\s*-->\s*\d{1,2}:\d{2}:\d{2}[.,]\d{3}/;
+    if (srtTimestampPattern.test(trimmed)) return true;
+
+    const lines = trimmed.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (lines.length < 2) return false;
+
+    const hasCueNumber = lines.some(line => /^\d+$/.test(line));
+    const hasCueArrow = lines.some(line => line.includes('-->'));
+    return hasCueNumber && hasCueArrow;
+};
+
 const getConfiguredTranslationMethod = (): TranslationMethod => {
     if (typeof window !== 'undefined') {
         try {
@@ -110,12 +125,10 @@ const translateWithOpenApi = async ({ text, fromLang, toLang, videoId }: { text:
         throw new Error('OpenAPI translation requires a videoId');
     }
 
-    const baseUrl = 'https://youtube-dl-jrte.onrender.com';
-    const url = new URL(`${baseUrl}/api/translate-transcript`);
-    url.searchParams.set('videoID', videoId);
-    url.searchParams.set('language', normalizeLanguage(fromLang));
-    url.searchParams.set('targetLanguage', normalizeLanguage(toLang));
-    url.searchParams.set('type', 'txt');
+    const url = new URL('/api/srt', window.location.origin);
+    url.searchParams.set('videoId', videoId);
+    url.searchParams.set('lang', normalizeLanguage(fromLang));
+    url.searchParams.set('targetLang', normalizeLanguage(toLang));
 
     const response = await fetch(url.toString(), {
         headers: { 'User-Agent': 'Mozilla/5.0' },
@@ -126,8 +139,7 @@ const translateWithOpenApi = async ({ text, fromLang, toLang, videoId }: { text:
         throw new Error(body || `OpenAPI translation failed with ${response.status}`);
     }
 
-    const payload = await response.json().catch(() => ({}));
-    const translated = payload?.content || '';
+    const translated = await response.text();
     if (typeof translated === 'string' && translated.trim()) {
         return translated;
     }
@@ -162,8 +174,9 @@ export const translate = ({ finalTranscriptProxy, fromLang, toLang, videoId, met
     }
 
     const selectedMethod = method || getConfiguredTranslationMethod();
+    const shouldUseTranscriptApi = selectedMethod === 'openapi' && !!videoId && looksLikeSrtContent(text);
 
-    const runTranslation = selectedMethod === 'openapi'
+    const runTranslation = shouldUseTranscriptApi
         ? translateWithOpenApi({ text, fromLang: normalizedFromLang, toLang: normalizedToLang, videoId })
         : translateWithGoogle({ text, fromLang: normalizedFromLang, toLang: normalizedToLang });
 

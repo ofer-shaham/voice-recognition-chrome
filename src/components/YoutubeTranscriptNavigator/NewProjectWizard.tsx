@@ -127,7 +127,7 @@ export default function NewProjectWizard({
         prev.map((s, idx) => idx === i ? { ...s, state: "fetching" as const } : s)
       );
       try {
-        const r = await fetch(`/api/srt?videoId=${encodeURIComponent(vid)}&lang=${langCode}${transcriptMethodQueryParam()}`);
+        const r = await fetch(`/api/transcript/translate?videoId=${encodeURIComponent(vid)}&lang=${langCode}${transcriptMethodQueryParam()}`);
         if (!r.ok) {
           const j = await r.json().catch(() => ({ error: r.statusText }));
           throw new Error(j.error || `HTTP ${r.status}`);

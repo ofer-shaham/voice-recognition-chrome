@@ -28,7 +28,7 @@
     "start": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "vitest run src/utils/translate.test.ts",
+    "test": "vitest run",
     "e2e": "npx cypress run --browser chrome --config chromeWebSecurity=false --env useVirtualMicrophone=true"
   },
   "overrides": {

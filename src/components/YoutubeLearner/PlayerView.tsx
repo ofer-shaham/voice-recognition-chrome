@@ -53,6 +53,31 @@ interface Props {
 const shortCol = (id: string) => id === 'translation' ? 't' : id.replace('track:', '');
 const TRANSLATION_LOOKAHEAD_LINES = 4;
 
+const normalizeProjectConfig = (cfg: Partial<ProjectConfig> | undefined, videoId?: string): ProjectConfig => {
+  const colOrder = Array.isArray(cfg?.colOrder) ? [...cfg.colOrder] : [];
+  const colSettings = { ...(cfg?.colSettings || {}) } as ProjectConfig['colSettings'];
+
+  if (videoId && !colOrder.includes('video')) {
+    colOrder.push('video');
+  }
+
+  if (videoId && !colSettings['video']) {
+    colSettings['video'] = {
+      visible: true,
+      playOrder: colOrder.includes('video') ? colOrder.indexOf('video') : colOrder.length,
+      ttsRate: DEFAULT_TTS_RATE,
+    };
+  }
+
+  return {
+    targetLang: cfg?.targetLang || 'en',
+    translationSource: cfg?.translationSource || '',
+    colOrder,
+    colSettings,
+    visibleLines: cfg?.visibleLines || 30,
+  };
+};
+
 export default function PlayerView({ project, onSave, onNewVideo, onDelete, projects, onSelectProject }: Props) {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   const defaultVisibleLines = () => {
@@ -63,10 +88,10 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
   };
 
   const [lines, setLines] = useState<ParsedLine[]>([]);
-  const [config, setConfig] = useState<ProjectConfig>(() => ({
+  const [config, setConfig] = useState<ProjectConfig>(() => normalizeProjectConfig({
     ...project.config,
     visibleLines: defaultVisibleLines(),
-  }));
+  }, project.videoId));
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentLine, setCurrentLine] = useState(-1);
   const [windowStart, setWindowStart] = useState(0);
@@ -74,6 +99,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
   const [iframeKey, setIframeKey] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [translationVer, setTranslationVer] = useState(0);
+  const [iframeError, setIframeError] = useState(false);
   const [currentWord, setCurrentWord] = useState<{ lineIdx: number; charIndex: number; charLength: number } | null>(null);
   const [seamlessMode, setSeamlessMode] = useState(() => {
     const params = new URLSearchParams(window.location.search);
@@ -94,6 +120,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
   const linesRef = useRef<ParsedLine[]>([]);
   const configRef = useRef<ProjectConfig>(project.config);
   const projectRef = useRef<YtProject>(project);
+  const pendingSet = useRef<Set<number>>(new Set());
   const rowRefs = useRef<Record<number, HTMLTableRowElement | null>>({});
   const iframeRef = useRef<HTMLIFrameElement>(null);  // seamless visible iframe
   const audioRef = useRef<HTMLIFrameElement>(null);  // always-present background audio iframe
@@ -111,7 +138,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
   useEffect(() => { currentLineRef.current = currentLine; }, [currentLine]);
 
   // ── Derived: video visible? audio-only mode? ─────────────────────────────────
-  const showVideo = config.colSettings['video']?.visible && !!project.videoId;
+  const showVideo = Boolean(project.videoId) && (config.colSettings['video']?.visible ?? true);
   const audioOnlyMode = !showVideo && !!project.videoId;
   const totalDuration = lines.length > 0 ? lines[lines.length - 1].endSec : 0;
   const currentTimeSec = currentLine >= 0 ? (lines[currentLine]?.startSec ?? 0) : 0;
@@ -154,7 +181,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     const params = new URLSearchParams(window.location.search);
     const urlVl = parseInt(params.get('vl') || '', 10);
     const visibleLines = !isNaN(urlVl) && urlVl >= 3 ? urlVl : configRef.current.visibleLines;
-    setConfig({ ...project.config, visibleLines });
+    setConfig(normalizeProjectConfig({ ...project.config, visibleLines }, project.videoId));
     // Read line number from URL if present
     const urlLine = parseInt(params.get('l') || '', 10);
     const startLine = !isNaN(urlLine) && urlLine >= 0 && urlLine < parsed.length ? urlLine : project.lastLine;
@@ -282,7 +309,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     setAddingLang(lang.languageCode);
     setLangsError('');
     try {
-      const res = await fetch(`/api/srt?videoId=${encodeURIComponent(projectRef.current.videoId)}&lang=${langCode}${transcriptMethodQueryParam()}`);
+      const res = await fetch(`/api/transcript/translate?videoId=${encodeURIComponent(projectRef.current.videoId)}&lang=${langCode}${transcriptMethodQueryParam()}`);
       if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || `HTTP ${res.status}`); }
       const srtContent = await res.text();
       const newTrack: YtTrack = { lang: lang.languageCode, label: lang.name, isAuto: lang.isAutoGenerated, srtContent };
@@ -492,14 +519,40 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     );
   };
 
+  const buildYouTubeEmbedUrl = (options: { autoplay?: boolean; startSec?: number; endSec?: number } = {}) => {
+    const params = new URLSearchParams({
+      rel: '0',
+      modestbranding: '1',
+      controls: '1',
+      playsinline: '1',
+      enablejsapi: '1',
+      iv_load_policy: '3',
+      autoplay: options.autoplay ? '1' : '0',
+    });
+
+    if (typeof window !== 'undefined' && window.location.origin) {
+      params.set('origin', window.location.origin);
+    }
+
+    if (typeof options.startSec === 'number') {
+      params.set('start', Math.floor(options.startSec).toString());
+    }
+    if (typeof options.endSec === 'number') {
+      params.set('end', Math.ceil(options.endSec).toString());
+    }
+
+    return `https://www.youtube.com/embed/${project.videoId}?${params.toString()}`;
+  };
+
   // Classic mode iframe URL (segment-specific, re-keyed)
-  const classicIframeUrl = `https://www.youtube-nocookie.com/embed/${project.videoId}` +
-    `?start=${Math.floor(iframeSeg.startSec)}&end=${Math.ceil(iframeSeg.endSec)}` +
-    `&autoplay=1&rel=0&modestbranding=1&enablejsapi=1`;
+  const classicIframeUrl = buildYouTubeEmbedUrl({
+    autoplay: true,
+    startSec: iframeSeg.startSec,
+    endSec: iframeSeg.endSec,
+  });
 
   // Seamless mode iframe URL (full video, persistent, JS API enabled)
-  const seamlessIframeUrl = `https://www.youtube-nocookie.com/embed/${project.videoId}` +
-    `?enablejsapi=1&rel=0&modestbranding=1&autoplay=0&playsinline=1`;
+  const seamlessIframeUrl = buildYouTubeEmbedUrl();
 
   const handleRowClick = (lineIdx: number) => {
     if (isPlaying) { stop(); setTimeout(() => playFrom(lineIdx), 150); }
@@ -767,16 +820,10 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
               <span>Cached translations</span>
               <span className="yl-setting-info">{cachedCount} line{cachedCount === 1 ? '' : 's'}</span>
             </div>
-            <label className="yl-setting-field" title="Validated: checks the caption list first (slower, safer). Fast: grabs the track directly without validation (quicker, less strict). Applies to newly-fetched languages.">
+            <label className="yl-setting-field" title="Only the DownSub service is supported for subtitle fetching.">
               <span>Subtitle fetch</span>
-              <select className="yl-select-sm" value={transcriptMethod}
-                onChange={e => {
-                  const next = e.target.value as TranscriptMethod;
-                  setTranscriptMethod(next);
-                  persistTranscriptMethod(next);
-                }}>
-                <option value="validated">🔎 Validated</option>
-                <option value="fast">⚡ Fast</option>
+              <select className="yl-select-sm" value="downsub" disabled>
+                <option value="downsub">🔗 DownSub</option>
               </select>
             </label>
           </div>
@@ -997,7 +1044,20 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
         {/* YouTube Iframe */}
         {showVideo && (
           <div className="yl-video-wrap">
-            {seamlessMode ? (
+            {iframeError ? (
+              <div style={{ width: '100%', maxWidth: 640, display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'center', justifyContent: 'center', minHeight: 220, textAlign: 'center', color: '#cbd5e1' }}>
+                <div>הסרטון לא נפתח בהטמעה זו של YouTube.</div>
+                <a
+                  href={`https://www.youtube.com/watch?v=${project.videoId}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="yl-btn-primary"
+                  style={{ display: 'inline-flex', justifyContent: 'center', textDecoration: 'none' }}
+                >
+                  Open in YouTube
+                </a>
+              </div>
+            ) : seamlessMode ? (
               // Seamless mode: single persistent iframe, controlled via postMessage
               <iframe
                 key={`seamless-${project.videoId}`}
@@ -1005,9 +1065,11 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
                 className="yl-iframe"
                 src={seamlessIframeUrl}
                 title={project.title}
-                allow="autoplay; encrypted-media; fullscreen"
+                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
                 allowFullScreen
-                onLoad={() => startListening(iframeRef)}
+                referrerPolicy="strict-origin-when-cross-origin"
+                onLoad={() => { setIframeError(false); startListening(iframeRef); }}
+                onError={() => setIframeError(true)}
               />
             ) : (
               // Classic mode: re-keyed per segment
@@ -1015,12 +1077,14 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
                 key={iframeKey}
                 className="yl-iframe"
                 src={iframeKey === 0
-                  ? `https://www.youtube-nocookie.com/embed/${project.videoId}?rel=0&modestbranding=1&enablejsapi=1`
+                  ? `https://www.youtube.com/embed/${project.videoId}?rel=0&modestbranding=1&controls=1&playsinline=1&enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`
                   : classicIframeUrl}
                 title={project.title}
-                allow="autoplay; encrypted-media; fullscreen"
+                allow="autoplay; encrypted-media; picture-in-picture; fullscreen"
                 allowFullScreen
-                onLoad={() => startListening(iframeRef)}
+                referrerPolicy="strict-origin-when-cross-origin"
+                onLoad={() => { setIframeError(false); startListening(iframeRef); }}
+                onError={() => setIframeError(true)}
               />
             )}
           </div>

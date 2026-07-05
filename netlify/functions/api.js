@@ -38,7 +38,7 @@ const textResp = (statusCode, body) => ({
 const formatAge = (ms) => {
   const s = Math.floor(ms / 1000);
   const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600),
-        m = Math.floor((s % 3600) / 60), sec = s % 60;
+    m = Math.floor((s % 3600) / 60), sec = s % 60;
   if (d > 0) return `${d}d ${h}h ${m}m ${sec}s`;
   if (h > 0) return `${h}h ${m}m ${sec}s`;
   if (m > 0) return `${m}m ${sec}s`;
@@ -138,9 +138,9 @@ const SWAGGER_SPEC = {
   servers: [{ url: "/", description: "Netlify Functions" }],
   tags: [
     { name: "Transcripts", description: "YouTube caption / SRT endpoints" },
-    { name: "TTS",         description: "Text-to-speech proxy" },
-    { name: "AI",          description: "OpenRouter chat proxy" },
-    { name: "Health",      description: "Server status & logs" },
+    { name: "TTS", description: "Text-to-speech proxy" },
+    { name: "AI", description: "OpenRouter chat proxy" },
+    { name: "Health", description: "Server status & logs" },
   ],
   paths: {
     "/api/transcript/languages": {
@@ -154,9 +154,9 @@ const SWAGGER_SPEC = {
       get: {
         summary: "Fetch transcript as SRT", tags: ["Transcripts"],
         parameters: [
-          { name: "videoId", in: "query", required: true,  schema: { type: "string" } },
-          { name: "lang",    in: "query", required: false, schema: { type: "string", default: "en" } },
-          { name: "method",  in: "query", required: false, schema: { type: "string", enum: ["1", "2", "3"] }, description: "1=youtube-transcript-plus (deprecated, requires Node>=20), 2=youtube-transcript-api-js, 3=ytInitialPlayerResponse+json3 (downsub-style)" },
+          { name: "videoId", in: "query", required: true, schema: { type: "string" } },
+          { name: "lang", in: "query", required: false, schema: { type: "string", default: "en" } },
+          { name: "method", in: "query", required: false, schema: { type: "string", enum: ["1", "2", "3"] }, description: "1=youtube-transcript-plus (deprecated, requires Node>=20), 2=youtube-transcript-api-js, 3=ytInitialPlayerResponse+json3 (downsub-style)" },
         ],
         responses: { 200: { description: "SRT text" }, 400: { description: "Missing videoId" }, 500: { description: "Error" } },
       },
@@ -165,8 +165,8 @@ const SWAGGER_SPEC = {
       get: {
         summary: "TTS audio proxy", tags: ["TTS"],
         parameters: [
-          { name: "text", in: "query", required: true,  schema: { type: "string" } },
-          { name: "lang", in: "query", required: true,  schema: { type: "string" } },
+          { name: "text", in: "query", required: true, schema: { type: "string" } },
+          { name: "lang", in: "query", required: true, schema: { type: "string" } },
         ],
         responses: { 200: { description: "MP3 audio" }, 400: { description: "Missing params" }, 500: { description: "Error" } },
       },
@@ -193,23 +193,32 @@ const SWAGGER_SPEC = {
         responses: {
           200: {
             description: "Log entries",
-            content: { "application/json": { schema: { type: "object", properties: {
-              entries: { type: "array", items: { type: "object", properties: {
-                id:    { type: "integer" },
-                ts:    { type: "string", format: "date-time" },
-                level: { type: "string", enum: ["INFO", "WARN", "ERROR"] },
-                msg:   { type: "string" },
-                meta:  { type: "object" },
-              }}},
-              maxId: { type: "integer" },
-              note:  { type: "string" },
-            }}},
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object", properties: {
+                    entries: {
+                      type: "array", items: {
+                        type: "object", properties: {
+                          id: { type: "integer" },
+                          ts: { type: "string", format: "date-time" },
+                          level: { type: "string", enum: ["INFO", "WARN", "ERROR"] },
+                          msg: { type: "string" },
+                          meta: { type: "object" },
+                        }
+                      }
+                    },
+                    maxId: { type: "integer" },
+                    note: { type: "string" },
+                  }
+                }
+              },
+            },
           },
         },
       },
     },
   },
-},
 };
 
 exports.handler = async (event) => {
@@ -268,20 +277,8 @@ exports.handler = async (event) => {
     if (!videoId) return json(400, { error: "videoId is required" });
     const t0 = Date.now();
     try {
-      const data   = await ytPlayerData(String(videoId));
-      let tracks   = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
-      if (!tracks.length) {
-        try {
-          const { YouTubeTranscriptApi } = await import("youtube-transcript-api-js");
-          const api  = new YouTubeTranscriptApi();
-          const list = await api.list(String(videoId));
-          tracks = (list?.transcripts || []).map(t => ({
-            languageCode: t.languageCode || "",
-            name: { simpleText: t.language || t.languageCode || "" },
-            kind: t.isGenerated ? "asr" : undefined,
-          }));
-        } catch (fb) { log("warn", "transcript/languages fallback failed", { videoId, error: fb.message }); }
-      }
+      const data = await ytPlayerData(String(videoId));
+      const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
       const vd = data?.videoDetails || {};
       const result = {
         videoDetails: { title: vd.title || null, author: vd.author || null, lengthSeconds: vd.lengthSeconds || null, videoId: vd.videoId || videoId },
@@ -290,8 +287,13 @@ exports.handler = async (event) => {
       log("info", "transcript/languages OK", { videoId, tracks: result.availableLanguages.length, elapsed: Date.now() - t0 });
       return json(200, result);
     } catch (e) {
-      log("error", "transcript/languages failed", { videoId, error: e.message, elapsed: Date.now() - t0 });
-      return json(500, { error: e.message });
+      log("warn", "transcript/languages unavailable from all providers", { videoId, error: e.message, elapsed: Date.now() - t0 });
+      return json(200, {
+        videoDetails: { title: null, videoId: String(videoId) },
+        availableLanguages: [],
+        defaultLanguageCode: null,
+        warning: "No transcript languages could be retrieved for this video right now.",
+      });
     }
   }
 
@@ -343,9 +345,9 @@ exports.handler = async (event) => {
         log("warn", "free-models upstream error", { status: orRes.status });
         return json(orRes.status, { error: "OpenRouter returned " + orRes.status });
       }
-      const data    = await orRes.json();
+      const data = await orRes.json();
       const rawList = data?.data?.models ?? data?.data ?? data?.models ?? data ?? [];
-      const models  = rawList.map((m) => ({ id: m.slug || m.id || "", label: m.name || m.short_name || m.slug || "" })).filter((m) => m.id);
+      const models = rawList.map((m) => ({ id: m.slug || m.id || "", label: m.name || m.short_name || m.slug || "" })).filter((m) => m.id);
       log("info", "free-models OK", { count: models.length, elapsed: Date.now() - t0 });
       return json(200, { models });
     } catch (err) {
@@ -357,7 +359,7 @@ exports.handler = async (event) => {
   // ── AI health ─────────────────────────────────────────────────────────────────
   if (method === "POST" && apiPath === "/api/health_ai") {
     let body = {};
-    try { body = JSON.parse(event.body || "{}"); } catch {}
+    try { body = JSON.parse(event.body || "{}"); } catch { }
     const key = body.apiKey || ENV_KEY;
     if (!key) return json(401, { ok: false, error: "No API key available." });
     const t0 = Date.now();
@@ -385,7 +387,7 @@ exports.handler = async (event) => {
   // ── Chat proxy ────────────────────────────────────────────────────────────────
   if (method === "POST" && apiPath === "/api/chat") {
     let body = {};
-    try { body = JSON.parse(event.body || "{}"); } catch {}
+    try { body = JSON.parse(event.body || "{}"); } catch { }
     const { messages, model, apiKey, maxTokens } = body;
     if (!Array.isArray(messages) || !model) return json(400, { error: "messages (array) and model (string) are required" });
     const key = apiKey || ENV_KEY;
@@ -404,7 +406,7 @@ exports.handler = async (event) => {
         log("error", "OpenRouter chat error", { status: orRes.status, model, elapsed: Date.now() - t0 });
         return json(orRes.status, { error: `OpenRouter ${orRes.status}: ${errBody || orRes.statusText}` });
       }
-      const data    = await orRes.json();
+      const data = await orRes.json();
       const content = data?.choices?.[0]?.message?.content;
       if (!content) return json(500, { error: "No content in OpenRouter response" });
       log("info", "OpenRouter chat OK", { model, elapsed: Date.now() - t0, promptTokens: data.usage?.prompt_tokens, completionTokens: data.usage?.completion_tokens });

@@ -112,7 +112,7 @@ export default function SetupView({ onProjectReady, recentProject, hasHistory, o
       const tracks: YtTrack[] = [];
       for (const lang of chosen) {
         const langCode = lang.languageCode.split('-')[0];
-        const res = await fetch(`/api/srt?videoId=${encodeURIComponent(videoId)}&lang=${langCode}${transcriptMethodQueryParam()}`);
+        const res = await fetch(`/api/transcript/translate?videoId=${encodeURIComponent(videoId)}&lang=${langCode}${transcriptMethodQueryParam()}`);
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));
           throw new Error(j.error || `HTTP ${res.status}`);
