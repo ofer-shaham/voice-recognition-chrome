@@ -98,11 +98,15 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
   const seamlessRef    = useRef(false);
   const showVideoRef   = useRef(true);
   const audioOnlyRef   = useRef(false);
+  const isPlayingRef   = useRef(false);
+  const currentLineRef = useRef(-1);
 
   useEffect(() => { linesRef.current = lines; }, [lines]);
   useEffect(() => { configRef.current = config; }, [config]);
   useEffect(() => { projectRef.current = project; }, [project]);
   useEffect(() => { seamlessRef.current = seamlessMode; }, [seamlessMode]);
+  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
+  useEffect(() => { currentLineRef.current = currentLine; }, [currentLine]);
 
   // ── Derived: video visible? audio-only mode? ─────────────────────────────────
   const showVideo      = config.colSettings['video']?.visible && !!project.videoId;
@@ -319,6 +323,46 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
         '*'
       );
     } catch { /* ignore cross-origin errors */ }
+  }, []);
+
+  // Ask an embedded YouTube iframe to start streaming playback state (infoDelivery events)
+  const startListening = useCallback((ref: React.RefObject<HTMLIFrameElement>) => {
+    try {
+      ref.current?.contentWindow?.postMessage(
+        JSON.stringify({ event: 'listening', id: 'yl-sync' }),
+        '*'
+      );
+    } catch { /* ignore cross-origin errors */ }
+  }, []);
+
+  // ── Sync row to native iframe interaction only ───────────────────────────────
+  // Row selection is the source of truth for playback (row → seekTo). This only
+  // reacts when the user directly presses play or drags the seek bar on the
+  // embedded YouTube player itself — i.e. while our own row-driven playback loop
+  // (isPlaying) is NOT running, so it never fights with row → video sync.
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (isPlayingRef.current) return; // our own loop is driving playback — ignore
+      if (typeof event.data !== 'string') return;
+      let data: any;
+      try { data = JSON.parse(event.data); } catch { return; }
+      if (data?.event !== 'infoDelivery' || !data.info) return;
+      const t = data.info.currentTime;
+      if (typeof t !== 'number') return;
+      const ls = linesRef.current;
+      if (!ls.length) return;
+      let idx = -1;
+      for (let i = 0; i < ls.length; i++) {
+        if (t >= ls[i].startSec && (i === ls.length - 1 || t < ls[i + 1].startSec)) { idx = i; break; }
+      }
+      if (idx === -1) idx = t <= ls[0].startSec ? 0 : ls.length - 1;
+      if (idx !== currentLineRef.current) {
+        currentLineRef.current = idx;
+        setCurrentLine(idx);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
   }, []);
 
   // ── Playback ─────────────────────────────────────────────────────────────────
@@ -943,6 +987,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
                 title={project.title}
                 allow="autoplay; encrypted-media; fullscreen"
                 allowFullScreen
+                onLoad={() => startListening(iframeRef)}
               />
             ) : (
               // Classic mode: re-keyed per segment
@@ -955,6 +1000,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
                 title={project.title}
                 allow="autoplay; encrypted-media; fullscreen"
                 allowFullScreen
+                onLoad={() => startListening(iframeRef)}
               />
             )}
           </div>
@@ -970,6 +1016,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
           title="audio-bg"
           allow="autoplay; encrypted-media"
           className="yl-iframe-bg"
+          onLoad={() => startListening(audioRef)}
         />
       )}
     </div>
