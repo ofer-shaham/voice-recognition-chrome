@@ -44,9 +44,9 @@ export function getTranscriptMethod(): TranscriptMethod {
   }
   try {
     const v = localStorage.getItem(STORAGE_KEY);
-    return v === "fast" ? "fast" : "validated";
+    return v === "validated" ? "validated" : "fast";
   } catch {
-    return "validated";
+    return "fast";
   }
 }
 
