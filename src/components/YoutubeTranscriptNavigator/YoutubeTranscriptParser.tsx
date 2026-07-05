@@ -200,12 +200,15 @@ function YoutubeTranscriptParser() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isVideoPhase, setIsVideoPhase] = useState(false); // true only during the video step
   const [activeWord, setActiveWord] = useState<ActiveWord | null>(null);
+  const activeWordRef = useRef<ActiveWord | null>(null);
   const playingRef = useRef(false);
   const stopRef = useRef(false);
 
   // Google TTS usage counters
   const [gttsCount, setGttsCount] = useState(0);
   const [gttsChars, setGttsChars] = useState(0);
+
+  useEffect(() => { activeWordRef.current = activeWord; }, [activeWord]);
 
   // Projects system
   const { projects, saveProject, deleteProject, setLastProjectId } = useYtProjects();
@@ -540,6 +543,7 @@ function YoutubeTranscriptParser() {
       new Promise((resolve) => {
         window.speechSynthesis.cancel();
         setActiveWord(null);
+        activeWordRef.current = null;
 
         const voices = availableVoicesRef.current;
         const baseLang = lang.split(/[-_]/)[0].toLowerCase();
@@ -577,7 +581,9 @@ function YoutubeTranscriptParser() {
         if (gi !== undefined && colId !== undefined) {
           utt.onboundary = (e: SpeechSynthesisEvent) => {
             if (e.name === "word") {
-              setActiveWord({ gi, col: colId, charIndex: e.charIndex, charLength: (e as any).charLength ?? 0 });
+              const nextActiveWord = { gi, col: colId, charIndex: e.charIndex, charLength: (e as any).charLength ?? 0 };
+              activeWordRef.current = nextActiveWord;
+              setActiveWord(nextActiveWord);
             }
           };
         }
@@ -587,7 +593,7 @@ function YoutubeTranscriptParser() {
           if (window.speechSynthesis.paused) window.speechSynthesis.resume();
         }, 5000);
 
-        const cleanup = () => { clearInterval(resumeTimer); setActiveWord(null); resolve(); };
+        const cleanup = () => { clearInterval(resumeTimer); setActiveWord(null); activeWordRef.current = null; resolve(); };
         utt.onend = cleanup;
         utt.onerror = (e) => { logEvent(`TTS error [${lang}]: ${e.error}`, "warn"); cleanup(); };
         setTimeout(() => window.speechSynthesis.speak(utt), 60);
@@ -613,14 +619,14 @@ function YoutubeTranscriptParser() {
     }
     stopRef.current = false;
     playingRef.current = true;
-    setIsPlaying(true); setIsVideoPhase(false); setActiveWord(null);
+    setIsPlaying(true); setIsVideoPhase(false); setActiveWord(null); activeWordRef.current = null;
     logEvent(`▶ Playback start from line ${startIdx + 1}`);
 
     const ls = linesRef.current;
 
     for (let i = startIdx; i < ls.length; i++) {
       if (stopRef.current) break;
-      setPlayingIndex(i); setIsVideoPhase(false); setActiveWord(null);
+      setPlayingIndex(i); setIsVideoPhase(false); setActiveWord(null); activeWordRef.current = null;
       setCurrentPage(Math.floor(i / linesPerPageRef.current) + 1);
       logEvent(`── Line ${i + 1} [${ls[i].timestamp}]: "${ls[i].text.slice(0, 40)}"`);
 
@@ -666,7 +672,7 @@ function YoutubeTranscriptParser() {
 
     playingRef.current = false;
     setIsPlaying(false); setIsVideoPhase(false);
-    setPlayingIndex(null); setActiveWord(null);
+    setPlayingIndex(null); setActiveWord(null); activeWordRef.current = null;
     logEvent(stopRef.current ? "■ Playback stopped" : "✓ Playback complete");
   }, [logEvent, getStopTime]);
 
@@ -681,9 +687,12 @@ function YoutubeTranscriptParser() {
   // ── inline speak with per-word highlight ──────────────────────────────────
   const speakInline = useCallback((text: string, lang: string, gi: number, colId: string) => {
     setActiveWord(null);
+    activeWordRef.current = null;
     freeSpeak(text, lang, 1.0, undefined, (ci, cl) => {
-      setActiveWord({ gi, col: colId, charIndex: ci, charLength: cl });
-    }).then(() => setActiveWord(null)).catch(() => setActiveWord(null));
+      const nextActiveWord = { gi, col: colId, charIndex: ci, charLength: cl };
+      activeWordRef.current = nextActiveWord;
+      setActiveWord(nextActiveWord);
+    }).then(() => { setActiveWord(null); activeWordRef.current = null; }).catch(() => { setActiveWord(null); activeWordRef.current = null; });
   }, []);
 
   // ── playback order helpers ────────────────────────────────────────────────

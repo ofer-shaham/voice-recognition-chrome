@@ -51,7 +51,7 @@ function loadYTApi(): Promise<void> {
     const existing = document.getElementById("yt-iframe-api");
     if (!existing) {
       const tag = document.createElement("script");
-      tag.id  = "yt-iframe-api";
+      tag.id = "yt-iframe-api";
       tag.src = "https://www.youtube.com/iframe_api";
       document.head.appendChild(tag);
     }
@@ -80,34 +80,34 @@ export default function FullscreenPlayer({
   ttsRateSource, ttsRateTrans, fromLang, toLang,
   availableVoices, startLineIndex, onClose, logEvent,
 }: Props) {
-  const playerDivRef  = useRef<HTMLDivElement>(null);
-  const playerRef     = useRef<any>(null);
-  const stopRef       = useRef(false);
-  const playingRef    = useRef(false);
+  const playerDivRef = useRef<HTMLDivElement>(null);
+  const playerRef = useRef<any>(null);
+  const stopRef = useRef(false);
+  const playingRef = useRef(false);
 
-  const [currentIdx,   setCurrentIdx]   = useState(startLineIndex);
-  const [phase,        setPhase]        = useState<"idle" | "video" | "tts" | "done">("idle");
-  const [isPlaying,    setIsPlaying]    = useState(false);
-  const [playerReady,  setPlayerReady]  = useState(false);
-  const [activeWord,   setActiveWord]   = useState<{ charIndex: number; charLength: number; col: string } | null>(null);
-  const [statusMsg,    setStatusMsg]    = useState("Initialising player…");
+  const [currentIdx, setCurrentIdx] = useState(startLineIndex);
+  const [phase, setPhase] = useState<"idle" | "video" | "tts" | "done">("idle");
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playerReady, setPlayerReady] = useState(false);
+  const [activeWord, setActiveWord] = useState<{ gi: number; charIndex: number; charLength: number; col: string } | null>(null);
+  const [statusMsg, setStatusMsg] = useState("Initialising player…");
 
   // Stable refs for playback loop
-  const linesRef       = useRef(lines);
-  const extraColsRef   = useRef(extraCols);
-  const playOrderRef   = useRef(playOrder);
-  const configRef      = useRef(playbackConfig);
-  const rateSourceRef  = useRef(ttsRateSource);
-  const rateTransRef   = useRef(ttsRateTrans);
-  const voicesRef      = useRef(availableVoices);
+  const linesRef = useRef(lines);
+  const extraColsRef = useRef(extraCols);
+  const playOrderRef = useRef(playOrder);
+  const configRef = useRef(playbackConfig);
+  const rateSourceRef = useRef(ttsRateSource);
+  const rateTransRef = useRef(ttsRateTrans);
+  const voicesRef = useRef(availableVoices);
 
-  useEffect(() => { linesRef.current      = lines;          }, [lines]);
-  useEffect(() => { extraColsRef.current  = extraCols;      }, [extraCols]);
-  useEffect(() => { playOrderRef.current  = playOrder;      }, [playOrder]);
-  useEffect(() => { configRef.current     = playbackConfig; }, [playbackConfig]);
-  useEffect(() => { rateSourceRef.current = ttsRateSource;  }, [ttsRateSource]);
-  useEffect(() => { rateTransRef.current  = ttsRateTrans;   }, [ttsRateTrans]);
-  useEffect(() => { voicesRef.current     = availableVoices;}, [availableVoices]);
+  useEffect(() => { linesRef.current = lines; }, [lines]);
+  useEffect(() => { extraColsRef.current = extraCols; }, [extraCols]);
+  useEffect(() => { playOrderRef.current = playOrder; }, [playOrder]);
+  useEffect(() => { configRef.current = playbackConfig; }, [playbackConfig]);
+  useEffect(() => { rateSourceRef.current = ttsRateSource; }, [ttsRateSource]);
+  useEffect(() => { rateTransRef.current = ttsRateTrans; }, [ttsRateTrans]);
+  useEffect(() => { voicesRef.current = availableVoices; }, [availableVoices]);
 
   // ── Initialise YouTube IFrame Player ─────────────────────────────────────
   useEffect(() => {
@@ -131,23 +131,23 @@ export default function FullscreenPlayer({
       });
     });
     return () => {
-      try { player?.destroy(); } catch {}
+      try { player?.destroy(); } catch { }
       playerRef.current = null;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoId]);
 
   // ── speakText (mirrors parser's speakText) ────────────────────────────────
   const speakText = useCallback(
-    (text: string, lang: string, rate: number, colId: string): Promise<void> =>
+    (text: string, lang: string, rate: number, colId: string, gi: number): Promise<void> =>
       new Promise((resolve) => {
         if (stopRef.current) { resolve(); return; }
         window.speechSynthesis.cancel();
         setActiveWord(null);
 
-        const voices   = voicesRef.current;
+        const voices = voicesRef.current;
         const baseLang = lang.split(/[-_]/)[0].toLowerCase();
-        const voice    =
+        const voice =
           voices.find(v => v.lang === lang || v.lang.replace("_", "-") === lang) ||
           voices.find(v => v.lang.split(/[-_]/)[0].toLowerCase() === baseLang) ||
           null;
@@ -163,21 +163,21 @@ export default function FullscreenPlayer({
           return;
         }
 
-        const utt  = new SpeechSynthesisUtterance(text);
-        utt.lang   = lang;
-        utt.rate   = rate;
+        const utt = new SpeechSynthesisUtterance(text);
+        utt.lang = lang;
+        utt.rate = rate;
         if (voice) utt.voice = voice;
 
         utt.onboundary = (e: SpeechSynthesisEvent) => {
           if (e.name === "word") {
-            setActiveWord({ col: colId, charIndex: e.charIndex, charLength: (e as any).charLength ?? 0 });
+            setActiveWord({ gi, col: colId, charIndex: e.charIndex, charLength: (e as any).charLength ?? 0 });
           }
         };
         const timer = setInterval(() => {
           if (window.speechSynthesis.paused) window.speechSynthesis.resume();
         }, 5000);
         const cleanup = () => { clearInterval(timer); setActiveWord(null); resolve(); };
-        utt.onend   = cleanup;
+        utt.onend = cleanup;
         utt.onerror = cleanup;
         setTimeout(() => window.speechSynthesis.speak(utt), 60);
       }),
@@ -202,10 +202,10 @@ export default function FullscreenPlayer({
   const runLoop = useCallback(async (fromIdx: number) => {
     if (playingRef.current) return;
     playingRef.current = true;
-    stopRef.current    = false;
+    stopRef.current = false;
     setIsPlaying(true);
 
-    const ls  = linesRef.current;
+    const ls = linesRef.current;
     const player = playerRef.current;
     if (!player) { playingRef.current = false; setIsPlaying(false); return; }
 
@@ -214,7 +214,7 @@ export default function FullscreenPlayer({
       setCurrentIdx(i);
 
       const startSec = convertTimeToSeconds(ls[i].timestamp);
-      const stopSec  = i + 1 < ls.length
+      const stopSec = i + 1 < ls.length
         ? convertTimeToSeconds(ls[i + 1].timestamp)
         : startSec + 5;
 
@@ -235,12 +235,12 @@ export default function FullscreenPlayer({
         } else if (step === "source" && cfg.source) {
           setPhase("tts");
           setStatusMsg(`🔊 Source  line ${i + 1}`);
-          await speakText(ls[i].text, ls[i].fromLang, rateSourceRef.current, "source");
+          await speakText(ls[i].text, ls[i].fromLang, rateSourceRef.current, "source", i);
 
         } else if (step === "translation" && cfg.translation && ls[i].translation) {
           setPhase("tts");
           setStatusMsg(`🔊 Translation  line ${i + 1}`);
-          await speakText(ls[i].translation, ls[i].toLang, rateTransRef.current, "translation");
+          await speakText(ls[i].translation, ls[i].toLang, rateTransRef.current, "translation", i);
 
         } else {
           const col = extraColsRef.current.find(c => c.id === step);
@@ -249,7 +249,7 @@ export default function FullscreenPlayer({
             if (txt) {
               setPhase("tts");
               setStatusMsg(`🔊 ${col.label}  line ${i + 1}`);
-              await speakText(txt, col.lang, rateSourceRef.current, col.id);
+              await speakText(txt, col.lang, rateSourceRef.current, col.id, i);
             }
           }
         }
@@ -286,11 +286,11 @@ export default function FullscreenPlayer({
     const handler = (e: KeyboardEvent) => { if (e.key === "Escape") { handleStop(); onClose(); } };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onClose]);
 
   const line = lines[currentIdx];
-  const pct  = lines.length > 0 ? ((currentIdx + 1) / lines.length) * 100 : 0;
+  const pct = lines.length > 0 ? ((currentIdx + 1) / lines.length) * 100 : 0;
 
   return (
     <div className="yt-fs-overlay">
@@ -312,14 +312,14 @@ export default function FullscreenPlayer({
           <div className="yt-fs-lines">
             {playbackConfig.source && (
               <div className="yt-fs-line yt-fs-line-source" dir={line.fromLang.startsWith("he") || line.fromLang.startsWith("ar") ? "rtl" : "ltr"}>
-                {activeWord?.col === "source"
+                {activeWord?.gi === currentIdx && activeWord?.col === "source"
                   ? <WordHighlight text={line.text} charIndex={activeWord.charIndex} charLength={activeWord.charLength} />
                   : line.text}
               </div>
             )}
             {playbackConfig.translation && line.translated && (
               <div className="yt-fs-line yt-fs-line-trans" dir={toLang.startsWith("he") || toLang.startsWith("ar") ? "rtl" : "ltr"}>
-                {activeWord?.col === "translation"
+                {activeWord?.gi === currentIdx && activeWord?.col === "translation"
                   ? <WordHighlight text={line.translation} charIndex={activeWord.charIndex} charLength={activeWord.charLength} />
                   : line.translation}
               </div>
@@ -329,7 +329,7 @@ export default function FullscreenPlayer({
               if (!txt) return null;
               return (
                 <div key={col.id} className="yt-fs-line yt-fs-line-extra">
-                  {activeWord?.col === col.id
+                  {activeWord?.gi === currentIdx && activeWord?.col === col.id
                     ? <WordHighlight text={txt} charIndex={activeWord.charIndex} charLength={activeWord.charLength} />
                     : txt}
                 </div>
