@@ -319,6 +319,49 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     } catch { /* ignore cross-origin errors */ }
   }, []);
 
+  // Ask an embedded YouTube iframe to start streaming playback state (infoDelivery events)
+  const startListening = useCallback((ref: React.RefObject<HTMLIFrameElement>) => {
+    try {
+      ref.current?.contentWindow?.postMessage(
+        JSON.stringify({ event: 'listening', id: 'yl-sync' }),
+        '*'
+      );
+    } catch { /* ignore cross-origin errors */ }
+  }, []);
+
+  // ── Sync row position to actual iframe playback location ─────────────────────
+  // Listens for YouTube IFrame API "infoDelivery" messages (sent after a
+  // "listening" handshake) and, whenever the reported currentTime lands in a
+  // different subtitle line than the one we're currently showing, moves the
+  // active row to follow the video — covers native seeks/scrubbing/play done
+  // directly on the embedded player rather than through our own controls.
+  const currentLineRef = useRef(-1);
+  useEffect(() => { currentLineRef.current = currentLine; }, [currentLine]);
+
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (typeof event.data !== 'string') return;
+      let data: any;
+      try { data = JSON.parse(event.data); } catch { return; }
+      if (data?.event !== 'infoDelivery' || !data.info) return;
+      const t = data.info.currentTime;
+      if (typeof t !== 'number') return;
+      const ls = linesRef.current;
+      if (!ls.length) return;
+      let idx = -1;
+      for (let i = 0; i < ls.length; i++) {
+        if (t >= ls[i].startSec && (i === ls.length - 1 || t < ls[i + 1].startSec)) { idx = i; break; }
+      }
+      if (idx === -1) idx = t <= ls[0].startSec ? 0 : ls.length - 1;
+      if (idx !== currentLineRef.current) {
+        currentLineRef.current = idx;
+        setCurrentLine(idx);
+      }
+    };
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, []);
+
   // ── Playback ─────────────────────────────────────────────────────────────────
   const playLine = useCallback(async (lineIdx: number) => {
     const line = linesRef.current[lineIdx];
@@ -403,6 +446,15 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
       setCurrentLine(-1);
     }
   }, [playLine, onSave, ytCmd]);
+
+  // Reset the active row back to the very first line
+  const resetToStart = useCallback(() => {
+    if (isPlaying) stop();
+    ytCmd('seekTo', [0, true]);
+    setCurrentLine(-1);
+    setWindowStart(0);
+    onSave({ ...projectRef.current, lastLine: 0, updatedAt: Date.now() });
+  }, [isPlaying, stop, ytCmd, onSave]);
 
   // ── Derived ──────────────────────────────────────────────────────────────────
   const visibleCols = useMemo(
@@ -591,6 +643,13 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
                 </button>
               )}
               <button
+                className="yl-btn-ghost"
+                title="Reset to the first line"
+                onClick={resetToStart}
+              >
+                ⟲ Reset
+              </button>
+              <button
                 className={`yl-btn-play ${isPlaying ? 'yl-btn-stop' : ''}`}
                 onClick={() => isPlaying ? stop() : playFrom(Math.max(0, currentLine >= 0 ? currentLine : project.lastLine))}
               >
@@ -648,6 +707,13 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
             onClick={() => isPlaying ? stop() : playFrom(Math.max(0, currentLine >= 0 ? currentLine : project.lastLine))}
           >
             {isPlaying ? '⏹' : '▶'}
+          </button>
+          <button
+            className="yl-btn-ghost"
+            title="Reset to the first line"
+            onClick={resetToStart}
+          >
+            ⟲
           </button>
           <span className="yl-audio-time">{secondsToHms(currentTimeSec)}</span>
           <input
@@ -914,6 +980,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
                 title={project.title}
                 allow="autoplay; encrypted-media; fullscreen"
                 allowFullScreen
+                onLoad={() => startListening(iframeRef)}
               />
             ) : (
               // Classic mode: re-keyed per segment
@@ -926,6 +993,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
                 title={project.title}
                 allow="autoplay; encrypted-media; fullscreen"
                 allowFullScreen
+                onLoad={() => startListening(iframeRef)}
               />
             )}
           </div>
@@ -941,6 +1009,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
           title="audio-bg"
           allow="autoplay; encrypted-media"
           className="yl-iframe-bg"
+          onLoad={() => startListening(audioRef)}
         />
       )}
     </div>
