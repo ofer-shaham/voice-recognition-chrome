@@ -31,6 +31,14 @@ if (typeof document !== 'undefined' && 'wakeLock' in navigator) {
   });
 }
 
+// Media Session API for background playback
+if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
+  navigator.mediaSession.setActionHandler('play', () => {});
+  navigator.mediaSession.setActionHandler('pause', () => {});
+  navigator.mediaSession.setActionHandler('nexttrack', () => {});
+  navigator.mediaSession.setActionHandler('previoustrack', () => {});
+}
+
 interface Props {
   project: YtProject;
   onSave: (p: YtProject) => void;
@@ -44,8 +52,19 @@ interface Props {
 const shortCol = (id: string) => id === 'translation' ? 't' : id.replace('track:', '');
 
 export default function PlayerView({ project, onSave, onNewVideo, onDelete, projects, onSelectProject }: Props) {
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const defaultVisibleLines = () => {
+    const params = new URLSearchParams(window.location.search);
+    const urlVl = parseInt(params.get('vl') || '', 10);
+    if (!isNaN(urlVl) && urlVl >= 3) return urlVl;
+    return isMobile ? 3 : 30; // Mobile: 1 before + current + 1 after
+  };
+
   const [lines, setLines]               = useState<ParsedLine[]>([]);
-  const [config, setConfig]             = useState<ProjectConfig>(project.config);
+  const [config, setConfig]             = useState<ProjectConfig>(() => ({
+    ...project.config,
+    visibleLines: defaultVisibleLines(),
+  }));
   const [isPlaying, setIsPlaying]       = useState(false);
   const [currentLine, setCurrentLine]   = useState(-1);
   const [windowStart, setWindowStart]   = useState(0);
@@ -53,6 +72,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
   const [iframeKey, setIframeKey]       = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [translationVer, setTranslationVer] = useState(0);
+  const [currentWord, setCurrentWord]       = useState<{ lineIdx: number; charIndex: number; charLength: number } | null>(null);
   const [seamlessMode, setSeamlessMode]       = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('sm') !== '0'; // Default true, only false if sm=0
@@ -100,6 +120,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     p.set('tl', config.targetLang);
     p.set('l', String(project.lastLine));
     p.set('sm', seamlessMode ? '1' : '0');
+    p.set('vl', String(config.visibleLines));
     for (const [colId, s] of Object.entries(config.colSettings)) {
       if (colId === 'video') continue;
       const sid = shortCol(colId);
@@ -121,9 +142,12 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     );
     pendingSet.current = new Set(parsed.map((_, i) => i));
     setLines(parsed);
-    setConfig(project.config);
-    // Read line number from URL if present
+    // Preserve visibleLines from URL/initial state
     const params = new URLSearchParams(window.location.search);
+    const urlVl = parseInt(params.get('vl') || '', 10);
+    const visibleLines = !isNaN(urlVl) && urlVl >= 3 ? urlVl : configRef.current.visibleLines;
+    setConfig({ ...project.config, visibleLines });
+    // Read line number from URL if present
     const urlLine = parseInt(params.get('l') || '', 10);
     const startLine = !isNaN(urlLine) && urlLine >= 0 && urlLine < parsed.length ? urlLine : project.lastLine;
     setWindowStart(Math.max(0, startLine - 3));
@@ -215,7 +239,8 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     );
     pendingSet.current = new Set(parsed.map((_, i) => i));
     setLines(parsed);
-    setConfig(cfg);
+    // Preserve visibleLines from current config
+    setConfig(prev => ({ ...cfg, visibleLines: prev.visibleLines }));
     setTranslationVer(v => v + 1);
   }, []);
 
@@ -333,7 +358,17 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
           ? cfg.targetLang
           : colId.replace('track:', '');
         if (text.trim()) {
-          try { await freeSpeak(text, lang, s?.ttsRate ?? DEFAULT_TTS_RATE, s?.voiceName || undefined); } catch { /* ignore */ }
+          setCurrentWord(null); // Reset before new speech
+          try {
+            await freeSpeak(
+              text,
+              lang,
+              s?.ttsRate ?? DEFAULT_TTS_RATE,
+              s?.voiceName || undefined,
+              (charIndex, charLength) => setCurrentWord({ lineIdx, charIndex, charLength })
+            );
+          } catch { /* ignore */ }
+          setCurrentWord(null);
         }
       }
       if (cancelRef.current) return;
@@ -375,6 +410,24 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     [config.colOrder, config.colSettings]
   );
   const visibleRows = lines.slice(windowStart, windowStart + config.visibleLines);
+
+  // Helper to render text with word highlighting
+  const renderHighlightedText = (text: string, lineIdx: number) => {
+    if (!currentWord || currentWord.lineIdx !== lineIdx) {
+      return text;
+    }
+    const { charIndex, charLength } = currentWord;
+    const before = text.slice(0, charIndex);
+    const word = text.slice(charIndex, charIndex + (charLength || text.length - charIndex));
+    const after = text.slice(charIndex + (charLength || text.length - charIndex));
+    return (
+      <>
+        {before}
+        <span className="yl-word-highlight">{word}</span>
+        {after}
+      </>
+    );
+  };
 
   // Classic mode iframe URL (segment-specific, re-keyed)
   const classicIframeUrl = `https://www.youtube-nocookie.com/embed/${project.videoId}` +
@@ -614,9 +667,9 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
             </label>
             <label className="yl-setting-field">
               <span>Visible lines</span>
-              <input type="number" className="yl-input-sm" min={5} max={500}
+              <input type="number" className="yl-input-sm" min={3} max={500}
                 value={config.visibleLines}
-                onChange={e => updateConfig({ visibleLines: Math.max(5, parseInt(e.target.value) || 30) })}
+                onChange={e => updateConfig({ visibleLines: Math.max(3, parseInt(e.target.value) || 30) })}
               />
             </label>
           </div>
@@ -810,15 +863,21 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
                 >
                   <td className="yl-td-time">{secondsToHms(line.startSec)}</td>
                   {visibleCols.map(colId => {
-                    const text = colId === 'translation'
-                      ? (line.translated ? line.translation : '…')
+                    const isTrans = colId === 'translation';
+                    const text = isTrans
+                      ? (line.translated ? line.translation : '')
                       : (line.texts[colId] || '');
-                    const rtl = colId === 'translation'
+                    const rtl = isTrans
                       ? isRtl(config.targetLang)
                       : isRtl(colId.replace('track:', ''));
+                    const isLoading = isTrans && !line.translated;
                     return (
                       <td key={colId} className="yl-td-text" dir={rtl ? 'rtl' : 'ltr'}>
-                        {text}
+                        {isLoading ? (
+                          <span className="yl-translation-loading">Translating…</span>
+                        ) : (
+                          renderHighlightedText(text, line.index)
+                        )}
                       </td>
                     );
                   })}
