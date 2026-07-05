@@ -33,3 +33,4 @@ logs/server.log
 .server.pid
 
 attached_assets
+.replit

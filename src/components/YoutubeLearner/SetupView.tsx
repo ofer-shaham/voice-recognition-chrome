@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { YtProject, YtTrack, ProjectConfig, AvailableLang } from './types';
 import { LANG_OPTIONS, DEFAULT_TTS_RATE, DEFAULT_VISIBLE_LINES } from './constants';
+import appConfig from '../../config/appConfig.json';
 import { extractVideoId, dedupeAvailLangs } from './utils';
 import { transcriptMethodQueryParam, getTranscriptMethod, setTranscriptMethod, TranscriptMethod } from '../../services/transcriptMethodConfig';
 
@@ -43,7 +44,7 @@ export default function SetupView({ onProjectReady, recentProject, onLoadRecent 
   const [transcriptMethod, setTranscriptMethodState] = useState<TranscriptMethod>(() => getTranscriptMethod());
 
   // ── URL step ──────────────────────────────────────────────────────────────
-  const [url, setUrl] = useState('https://www.youtube.com/watch?v=prSfxdmjNzE');
+  const [url, setUrl] = useState(appConfig.youtube.defaultUrl);
   const [findLoading, setFindLoading] = useState(false);
   const [findError, setFindError] = useState('');
 
