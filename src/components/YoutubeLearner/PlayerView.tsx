@@ -7,6 +7,30 @@ import { freeSpeak } from '../../utils/freeSpeak';
 import isRtl from '../../utils/isRtl';
 import { useVoices } from './useVoices';
 
+// Wake Lock for background playback on mobile
+let wakeLock: any = null;
+const requestWakeLock = async () => {
+  if ('wakeLock' in navigator) {
+    try {
+      wakeLock = await (navigator as any).wakeLock.request('screen');
+    } catch { /* ignore */ }
+  }
+};
+const releaseWakeLock = async () => {
+  if (wakeLock) {
+    try { await wakeLock.release(); } catch { /* ignore */ }
+    wakeLock = null;
+  }
+};
+// Re-acquire wake lock on visibility change
+if (typeof document !== 'undefined' && 'wakeLock' in navigator) {
+  document.addEventListener('visibilitychange', async () => {
+    if (document.visibilityState === 'visible' && wakeLock === null) {
+      await requestWakeLock();
+    }
+  });
+}
+
 interface Props {
   project: YtProject;
   onSave: (p: YtProject) => void;
@@ -29,7 +53,10 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
   const [iframeKey, setIframeKey]       = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [translationVer, setTranslationVer] = useState(0);
-  const [seamlessMode, setSeamlessMode]       = useState(false);
+  const [seamlessMode, setSeamlessMode]       = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return params.get('sm') !== '0'; // Default true, only false if sm=0
+  });
   const [confirmDelete, setConfirmDelete]     = useState(false);
   const [showManageLangs, setShowManageLangs] = useState(false);
   const [availLangs, setAvailLangs]           = useState<AvailableLang[]>([]);
@@ -71,6 +98,8 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     if (project.videoId) p.set('v', project.videoId);
     else p.set('p', project.id);
     p.set('tl', config.targetLang);
+    p.set('l', String(project.lastLine));
+    p.set('sm', seamlessMode ? '1' : '0');
     for (const [colId, s] of Object.entries(config.colSettings)) {
       if (colId === 'video') continue;
       const sid = shortCol(colId);
@@ -78,7 +107,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
       if (s.voiceName) p.set(`vn_${sid}`, s.voiceName);
     }
     window.history.replaceState(null, '', `${window.location.pathname}?${p.toString()}`);
-  }, [project.id, project.videoId, config]);
+  }, [project.id, project.videoId, config, seamlessMode]);
 
   // ── Parse SRT on project change ─────────────────────────────────────────────
   useEffect(() => {
@@ -93,7 +122,11 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     pendingSet.current = new Set(parsed.map((_, i) => i));
     setLines(parsed);
     setConfig(project.config);
-    setWindowStart(Math.max(0, project.lastLine - 3));
+    // Read line number from URL if present
+    const params = new URLSearchParams(window.location.search);
+    const urlLine = parseInt(params.get('l') || '', 10);
+    const startLine = !isNaN(urlLine) && urlLine >= 0 && urlLine < parsed.length ? urlLine : project.lastLine;
+    setWindowStart(Math.max(0, startLine - 3));
     setTranslationVer(v => v + 1);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.id]);
@@ -311,13 +344,17 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     cancelRef.current = true;
     speechSynthesis.cancel();
     ytCmd('pauseVideo');
+    releaseWakeLock();
     setIsPlaying(false);
     setCurrentLine(-1);
   }, [ytCmd]);
 
   const playFrom = useCallback(async (startIdx: number) => {
+    // Ensure video is paused before starting new playback
+    ytCmd('pauseVideo');
     cancelRef.current = false;
     setIsPlaying(true);
+    await requestWakeLock();
     for (let i = startIdx; i < linesRef.current.length; i++) {
       if (cancelRef.current) break;
       setCurrentLine(i);
@@ -326,6 +363,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     }
     if (!cancelRef.current) {
       ytCmd('pauseVideo');
+      releaseWakeLock();
       setIsPlaying(false);
       setCurrentLine(-1);
     }
@@ -345,7 +383,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
 
   // Seamless mode iframe URL (full video, persistent, JS API enabled)
   const seamlessIframeUrl = `https://www.youtube-nocookie.com/embed/${project.videoId}` +
-    `?enablejsapi=1&rel=0&modestbranding=1&autoplay=0`;
+    `?enablejsapi=1&rel=0&modestbranding=1&autoplay=0&playsinline=1`;
 
   const handleRowClick = (lineIdx: number) => {
     if (isPlaying) { stop(); setTimeout(() => playFrom(lineIdx), 150); }
@@ -373,6 +411,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
 
   // ── SRT download ─────────────────────────────────────────────────────────────
   const [showDownload, setShowDownload] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
 
   const downloadSrt = useCallback((track: { label: string; srtContent: string }) => {
     const safe = (project.title + '-' + track.label).replace(/[^a-z0-9_-]/gi, '_').slice(0, 80);
@@ -484,6 +523,35 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
             onClick={() => isPlaying ? stop() : playFrom(Math.max(0, currentLine >= 0 ? currentLine : project.lastLine))}
           >
             {isPlaying ? '⏹ Stop' : '▶ Play'}
+          </button>
+          <button
+            className={`yl-btn-ghost ${shareCopied ? 'yl-btn-share-copied' : ''}`}
+            title="Share this position and settings"
+            onClick={async () => {
+              const p = new URLSearchParams();
+              if (project.videoId) p.set('v', project.videoId);
+              else p.set('p', project.id);
+              p.set('tl', config.targetLang);
+              p.set('l', String(currentLine >= 0 ? currentLine : project.lastLine));
+              p.set('sm', seamlessMode ? '1' : '0');
+              for (const [colId, s] of Object.entries(config.colSettings)) {
+                if (colId === 'video') continue;
+                const sid = shortCol(colId);
+                if (s.ttsRate !== DEFAULT_TTS_RATE) p.set(`r_${sid}`, s.ttsRate.toFixed(1));
+                if (s.voiceName) p.set(`vn_${sid}`, s.voiceName);
+              }
+              const shareUrl = `${window.location.origin}${window.location.pathname}?${p.toString()}`;
+              try {
+                await navigator.clipboard.writeText(shareUrl);
+                setShareCopied(true);
+                setTimeout(() => setShareCopied(false), 1500);
+              } catch {
+                // Fallback: show URL in prompt
+                window.prompt('Copy this URL:', shareUrl);
+              }
+            }}
+          >
+            {shareCopied ? 'Copied!' : 'Share'}
           </button>
           <button className={`yl-btn-ghost ${showSettings ? 'yl-active' : ''}`} onClick={() => setShowSettings(s => !s)}>
             ⚙ Settings
