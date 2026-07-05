@@ -329,19 +329,40 @@ async function fetchVideoInfoDownsub(videoId) {
 }
 
 async function fetchSrtMethod4(videoId, langCode) {
-  const data = await fetchDownsubJson("/api/subtitles", {
-    url: videoId, language: langCode, type: "srt", autoTranslate: "1", download: "0",
+  // Use download=1 to get raw SRT text directly, avoiding JSON field name guessing.
+  const qs  = new URLSearchParams({ url: videoId, language: langCode, type: "srt", autoTranslate: "1", download: "1" }).toString();
+  const url = `${DOWNSUB_BASE}/api/subtitles?${qs}`;
+  const res = await fetch(url, {
+    headers: { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" },
   });
-  if (!data?.content) throw new Error("DownSub API returned no subtitle content");
-  return data.content;
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`DownSub API /api/subtitles HTTP ${res.status}${body ? `: ${body.slice(0, 200)}` : ""}`);
+  }
+  const text = await res.text();
+  // Sanity check: a valid SRT must contain at least one --> timestamp marker
+  if (!text.includes("-->")) throw new Error("DownSub API returned no valid SRT content");
+  return text;
 }
 
 async function fetchSrt(videoId, langCode, method) {
   if (method === "1") return fetchSrtMethod1(videoId, langCode);
   if (method === "2") return fetchSrtMethod2(videoId, langCode);
   if (method === "3") return fetchSrtMethod3(videoId, langCode);
-  // method=4 or default: use DownSub API only (youtube-dl-jrte.onrender.com)
-  return fetchSrtMethod4(videoId, langCode);
+
+  // method=4 or default: try DownSub API first, fall back to methods 1→2 if unavailable.
+  let m4Error = null;
+  try { return await fetchSrtMethod4(videoId, langCode); }
+  catch (e4) { m4Error = e4.message; }
+
+  let m1Error = null;
+  try { return await fetchSrtMethod1(videoId, langCode); }
+  catch (e1) { m1Error = e1.message; }
+
+  try { return await fetchSrtMethod2(videoId, langCode); }
+  catch (e2) {
+    throw new Error(`All fetch methods failed. downsub: ${m4Error}. m1: ${m1Error}. m2: ${e2.message}`);
+  }
 }
 
 module.exports = {
