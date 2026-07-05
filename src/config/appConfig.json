@@ -3,5 +3,8 @@
     "defaultUrl": "https://www.youtube.com/watch?v=prSfxdmjNzE",
     "transcriptMethod": "downsub",
     "defaultTargetLanguage": "he"
+  },
+  "translation": {
+    "method": "openapi"
   }
 }

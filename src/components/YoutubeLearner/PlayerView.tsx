@@ -34,10 +34,10 @@ if (typeof document !== 'undefined' && 'wakeLock' in navigator) {
 
 // Media Session API for background playback
 if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
-  navigator.mediaSession.setActionHandler('play', () => {});
-  navigator.mediaSession.setActionHandler('pause', () => {});
-  navigator.mediaSession.setActionHandler('nexttrack', () => {});
-  navigator.mediaSession.setActionHandler('previoustrack', () => {});
+  navigator.mediaSession.setActionHandler('play', () => { });
+  navigator.mediaSession.setActionHandler('pause', () => { });
+  navigator.mediaSession.setActionHandler('nexttrack', () => { });
+  navigator.mediaSession.setActionHandler('previoustrack', () => { });
 }
 
 interface Props {
@@ -51,6 +51,7 @@ interface Props {
 
 // Encode colId for URL: track:en → en, translation → t
 const shortCol = (id: string) => id === 'translation' ? 't' : id.replace('track:', '');
+const TRANSLATION_LOOKAHEAD_LINES = 4;
 
 export default function PlayerView({ project, onSave, onNewVideo, onDelete, projects, onSelectProject }: Props) {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
@@ -61,46 +62,45 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     return isMobile ? 3 : 30; // Mobile: 1 before + current + 1 after
   };
 
-  const [lines, setLines]               = useState<ParsedLine[]>([]);
-  const [config, setConfig]             = useState<ProjectConfig>(() => ({
+  const [lines, setLines] = useState<ParsedLine[]>([]);
+  const [config, setConfig] = useState<ProjectConfig>(() => ({
     ...project.config,
     visibleLines: defaultVisibleLines(),
   }));
-  const [isPlaying, setIsPlaying]       = useState(false);
-  const [currentLine, setCurrentLine]   = useState(-1);
-  const [windowStart, setWindowStart]   = useState(0);
-  const [iframeSeg, setIframeSeg]       = useState({ startSec: 0, endSec: 0 });
-  const [iframeKey, setIframeKey]       = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentLine, setCurrentLine] = useState(-1);
+  const [windowStart, setWindowStart] = useState(0);
+  const [iframeSeg, setIframeSeg] = useState({ startSec: 0, endSec: 0 });
+  const [iframeKey, setIframeKey] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
   const [translationVer, setTranslationVer] = useState(0);
-  const [currentWord, setCurrentWord]       = useState<{ lineIdx: number; charIndex: number; charLength: number } | null>(null);
-  const [seamlessMode, setSeamlessMode]       = useState(() => {
+  const [currentWord, setCurrentWord] = useState<{ lineIdx: number; charIndex: number; charLength: number } | null>(null);
+  const [seamlessMode, setSeamlessMode] = useState(() => {
     const params = new URLSearchParams(window.location.search);
     return params.get('sm') !== '0'; // Default true, only false if sm=0
   });
-  const [confirmDelete, setConfirmDelete]     = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [showManageLangs, setShowManageLangs] = useState(false);
-  const [availLangs, setAvailLangs]           = useState<AvailableLang[]>([]);
-  const [langsLoading, setLangsLoading]       = useState(false);
-  const [langsError, setLangsError]           = useState('');
-  const [addingLang, setAddingLang]           = useState<string | null>(null);
-  const [cachedCount, setCachedCount]         = useState(() => getTranslationCacheCount());
+  const [availLangs, setAvailLangs] = useState<AvailableLang[]>([]);
+  const [langsLoading, setLangsLoading] = useState(false);
+  const [langsError, setLangsError] = useState('');
+  const [addingLang, setAddingLang] = useState<string | null>(null);
+  const [cachedCount, setCachedCount] = useState(() => getTranslationCacheCount());
   const [transcriptMethod, setTranscriptMethod] = useState<TranscriptMethod>(() => getTranscriptMethod());
 
   const { langOptions, voicesForLang } = useVoices();
 
-  const cancelRef      = useRef(false);
-  const linesRef       = useRef<ParsedLine[]>([]);
-  const configRef      = useRef<ProjectConfig>(project.config);
-  const projectRef     = useRef<YtProject>(project);
-  const pendingSet     = useRef<Set<number>>(new Set());
-  const rowRefs        = useRef<Record<number, HTMLTableRowElement | null>>({});
-  const iframeRef      = useRef<HTMLIFrameElement>(null);  // seamless visible iframe
-  const audioRef       = useRef<HTMLIFrameElement>(null);  // always-present background audio iframe
-  const seamlessRef    = useRef(false);
-  const showVideoRef   = useRef(true);
-  const audioOnlyRef   = useRef(false);
-  const isPlayingRef   = useRef(false);
+  const cancelRef = useRef(false);
+  const linesRef = useRef<ParsedLine[]>([]);
+  const configRef = useRef<ProjectConfig>(project.config);
+  const projectRef = useRef<YtProject>(project);
+  const rowRefs = useRef<Record<number, HTMLTableRowElement | null>>({});
+  const iframeRef = useRef<HTMLIFrameElement>(null);  // seamless visible iframe
+  const audioRef = useRef<HTMLIFrameElement>(null);  // always-present background audio iframe
+  const seamlessRef = useRef(false);
+  const showVideoRef = useRef(true);
+  const audioOnlyRef = useRef(false);
+  const isPlayingRef = useRef(false);
   const currentLineRef = useRef(-1);
 
   useEffect(() => { linesRef.current = lines; }, [lines]);
@@ -111,13 +111,13 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
   useEffect(() => { currentLineRef.current = currentLine; }, [currentLine]);
 
   // ── Derived: video visible? audio-only mode? ─────────────────────────────────
-  const showVideo      = config.colSettings['video']?.visible && !!project.videoId;
-  const audioOnlyMode  = !showVideo && !!project.videoId;
-  const totalDuration  = lines.length > 0 ? lines[lines.length - 1].endSec : 0;
+  const showVideo = config.colSettings['video']?.visible && !!project.videoId;
+  const audioOnlyMode = !showVideo && !!project.videoId;
+  const totalDuration = lines.length > 0 ? lines[lines.length - 1].endSec : 0;
   const currentTimeSec = currentLine >= 0 ? (lines[currentLine]?.startSec ?? 0) : 0;
 
-  useEffect(() => { showVideoRef.current  = showVideo;     }, [showVideo]);
-  useEffect(() => { audioOnlyRef.current  = audioOnlyMode; }, [audioOnlyMode]);
+  useEffect(() => { showVideoRef.current = showVideo; }, [showVideo]);
+  useEffect(() => { audioOnlyRef.current = audioOnlyMode; }, [audioOnlyMode]);
 
   // ── URL sync: reflect project + config in address bar ───────────────────────
   useEffect(() => {
@@ -160,7 +160,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     const startLine = !isNaN(urlLine) && urlLine >= 0 && urlLine < parsed.length ? urlLine : project.lastLine;
     setWindowStart(Math.max(0, startLine - 3));
     setTranslationVer(v => v + 1);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.id]);
 
   // ── Background translation ───────────────────────────────────────────────────
@@ -168,32 +168,40 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     let cancelled = false;
     const run = async () => {
       if (lines.length === 0) return; // Wait for lines to be populated
-      const indices = Array.from(pendingSet.current).sort((a, b) => a - b);
-      for (const i of indices) {
+      const cfg = configRef.current;
+      const visibleStart = Math.max(0, windowStart);
+      const visibleEnd = Math.min(lines.length, windowStart + Math.max(1, cfg.visibleLines) + TRANSLATION_LOOKAHEAD_LINES);
+
+      for (let i = visibleStart; i < visibleEnd; i += 1) {
         if (cancelled) break;
         const line = linesRef.current[i];
-        if (!line || line.translated) { pendingSet.current.delete(i); continue; }
-        const cfg = configRef.current;
+        if (!line || line.translated) continue;
+
         const srcText = line.texts[cfg.translationSource] || '';
         if (!srcText.trim()) {
-          pendingSet.current.delete(i);
           setLines(prev => prev.map((l, idx) => idx === i ? { ...l, translation: '', translated: true } : l));
           continue;
         }
+
         try {
           const fromLang = cfg.translationSource.replace('track:', '').split('-')[0];
-          const result = await translate({ finalTranscriptProxy: srcText, fromLang, toLang: cfg.targetLang });
-          pendingSet.current.delete(i);
+          const result = await translate({
+            finalTranscriptProxy: srcText,
+            fromLang,
+            toLang: cfg.targetLang,
+            videoId: project.videoId,
+          });
           setLines(prev => prev.map((l, idx) => idx === i ? { ...l, translation: result, translated: true } : l));
           setCachedCount(getTranslationCacheCount());
         } catch { /* ignore individual failures */ }
+
         if (i % 10 === 9) await sleep(80);
       }
     };
     run();
     return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [translationVer, lines.length]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [translationVer, lines.length, windowStart, config.visibleLines, config.targetLang, config.translationSource]);
 
   // ── Slide window to follow current line ─────────────────────────────────────
   useEffect(() => {
@@ -230,10 +238,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
   }, [onSave]);
 
   const retranslate = useCallback(() => {
-    setLines(prev => {
-      pendingSet.current = new Set(prev.map((_, i) => i));
-      return prev.map(l => ({ ...l, translation: '', translated: false }));
-    });
+    setLines(prev => prev.map(l => ({ ...l, translation: '', translated: false })));
     setTranslationVer(v => v + 1);
   }, []);
 
@@ -371,7 +376,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
   // ── Playback ─────────────────────────────────────────────────────────────────
   const playLine = useCallback(async (lineIdx: number) => {
     const line = linesRef.current[lineIdx];
-    const cfg  = configRef.current;
+    const cfg = configRef.current;
     if (!line) return;
 
     const isSeamless = seamlessRef.current;
@@ -527,9 +532,9 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
   const downloadSrt = useCallback((track: { label: string; srtContent: string }) => {
     const safe = (project.title + '-' + track.label).replace(/[^a-z0-9_-]/gi, '_').slice(0, 80);
     const blob = new Blob([track.srtContent], { type: 'text/plain;charset=utf-8' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
     a.download = `${safe}.srt`;
     a.click();
     URL.revokeObjectURL(url);

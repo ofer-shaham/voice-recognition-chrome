@@ -63,9 +63,9 @@ const swaggerSpec = {
   servers: [{ url: "/", description: "This server (port 3001 proxied)" }],
   tags: [
     { name: "Transcripts", description: "YouTube caption / SRT endpoints" },
-    { name: "TTS",         description: "Text-to-speech proxy" },
-    { name: "AI",          description: "OpenRouter chat proxy" },
-    { name: "Health",      description: "Server status" },
+    { name: "TTS", description: "Text-to-speech proxy" },
+    { name: "AI", description: "OpenRouter chat proxy" },
+    { name: "Health", description: "Server status" },
   ],
   paths: {
     "/api/transcript/languages": {
@@ -99,9 +99,9 @@ const swaggerSpec = {
         responses: { 200: { description: "MP3 audio data" }, 400: { description: "Missing text or lang" }, 500: { description: "TTS upstream error" } },
       },
     },
-    "/api/health":     { get: { tags: ["Health"], summary: "Server liveness check", responses: { 200: { description: "Server is up" } } } },
-    "/api/config":     { get: { tags: ["Health"], summary: "Check whether the server has an API key configured", responses: { 200: { description: "Key presence flag" } } } },
-    "/api/chat":       { post: { tags: ["AI"], summary: "OpenRouter chat completions proxy", responses: { 200: { description: "OpenRouter response" }, 401: { description: "No API key" }, 500: { description: "OpenRouter error" } } } },
+    "/api/health": { get: { tags: ["Health"], summary: "Server liveness check", responses: { 200: { description: "Server is up" } } } },
+    "/api/config": { get: { tags: ["Health"], summary: "Check whether the server has an API key configured", responses: { 200: { description: "Key presence flag" } } } },
+    "/api/chat": { post: { tags: ["AI"], summary: "OpenRouter chat completions proxy", responses: { 200: { description: "OpenRouter response" }, 401: { description: "No API key" }, 500: { description: "OpenRouter error" } } } },
     "/api/logs": {
       get: {
         tags: ["Health"],
@@ -110,22 +110,31 @@ const swaggerSpec = {
         responses: {
           200: {
             description: "Log entries",
-            content: { "application/json": { schema: { type: "object", properties: {
-              entries: { type: "array", items: { type: "object", properties: {
-                id:    { type: "integer" },
-                ts:    { type: "string", format: "date-time" },
-                level: { type: "string", enum: ["INFO", "WARN", "ERROR"] },
-                msg:   { type: "string" },
-                meta:  { type: "object" },
-              }}},
-              maxId: { type: "integer" },
-            }}},
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object", properties: {
+                    entries: {
+                      type: "array", items: {
+                        type: "object", properties: {
+                          id: { type: "integer" },
+                          ts: { type: "string", format: "date-time" },
+                          level: { type: "string", enum: ["INFO", "WARN", "ERROR"] },
+                          msg: { type: "string" },
+                          meta: { type: "object" },
+                        }
+                      }
+                    },
+                    maxId: { type: "integer" },
+                  }
+                }
+              },
+            },
           },
         },
       },
     },
   },
-},
 };
 
 // ── Middleware ─────────────────────────────────────────────────────────────────
@@ -269,9 +278,9 @@ app.get("/api/transcript/languages", async (req, res) => {
 
   // Fallback: parse ytInitialPlayerResponse / Innertube directly.
   try {
-    const data   = await ytPlayerData(String(videoId));
+    const data = await ytPlayerData(String(videoId));
     const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
-    const vd     = data?.videoDetails || {};
+    const vd = data?.videoDetails || {};
     log("info", "transcript/languages OK (fallback)", { videoId, n: tracks.length });
     res.json({
       videoDetails: {
@@ -339,9 +348,9 @@ app.get("/api/free-models", async (_req, res) => {
       { headers: { Accept: "application/json" } },
     );
     if (!orRes.ok) return res.status(orRes.status).json({ error: "OpenRouter returned " + orRes.status });
-    const data    = await orRes.json();
+    const data = await orRes.json();
     const rawList = data?.data?.models ?? data?.data ?? data?.models ?? data ?? [];
-    const models  = rawList.map((m) => ({ id: m.slug || m.id || "", label: m.name || m.short_name || m.slug || "" })).filter((m) => m.id);
+    const models = rawList.map((m) => ({ id: m.slug || m.id || "", label: m.name || m.short_name || m.slug || "" })).filter((m) => m.id);
     res.json({ models });
   } catch (err) {
     log("error", "free-models fetch failed", { error: err.message });
@@ -365,7 +374,7 @@ app.post("/api/health_ai", async (req, res) => {
       const body = await orRes.text().catch(() => "");
       return res.json({ ok: false, status: orRes.status, error: body.slice(0, 200), elapsed, timestamp: Date.now() });
     }
-    const data  = await orRes.json();
+    const data = await orRes.json();
     const reply = data?.choices?.[0]?.message?.content || "";
     return res.json({ ok: true, elapsed, reply, timestamp: Date.now() });
   } catch (err) {
@@ -402,7 +411,7 @@ app.post("/api/chat", async (req, res) => {
       log("error", "OpenRouter error", { status: orRes.status, elapsed });
       return res.status(orRes.status).json({ error: `OpenRouter ${orRes.status}: ${body || orRes.statusText}` });
     }
-    const data    = await orRes.json();
+    const data = await orRes.json();
     const content = data?.choices?.[0]?.message?.content;
     if (!content) return res.status(500).json({ error: "No content in OpenRouter response" });
     const keySuffix = key.length > 4 ? `...${key.slice(-4)}` : "***";
