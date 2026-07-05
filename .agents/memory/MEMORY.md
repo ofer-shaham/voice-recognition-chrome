@@ -1,2 +1,3 @@
 - [npm security-firewall blocked package](npm-firewall-blocked-package.md) — a package can be blocked at ALL versions by the security firewall; vendor a local file: override instead of retrying versions.
 - [YouTube Learner routing](youtube-learner-routing.md) — SetupView/PlayerView are the live routed UI at /youtube; YoutubeTranscriptParser.tsx is an orphaned component not mounted anywhere.
+- [Netlify build command](netlify-build-command.md) — do NOT use rm -rf node_modules or --omit=dev; react-scripts babel plugins are needed at build time, stripping dev deps causes "not found" crash.
