@@ -1,7 +1,11 @@
 const isRtl = (language: string): boolean => {
-    const rtlLanguages = ['ar-', 'he-', 'fa-IR', 'ur-', 'ps-']; // RTL language codes
+  // Strip deduplication suffixes (-auto, -2, etc.) and get base language code
+  const baseLang = language.replace(/-auto$|-\d+$/, '').split('-')[0];
 
-     return rtlLanguages.some(code => language.startsWith(code));
+  // RTL language base codes
+  const rtlLanguages = ['ar', 'he', 'fa', 'ur', 'ps'];
+
+  return rtlLanguages.includes(baseLang);
 }
 
 export default isRtl

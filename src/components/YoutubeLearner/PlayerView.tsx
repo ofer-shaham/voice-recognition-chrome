@@ -435,9 +435,11 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
         const text = colId === 'translation'
           ? (linesRef.current[lineIdx]?.translation || '')
           : (line.texts[colId] || '');
-        const lang = colId === 'translation'
+        const rawLang = colId === 'translation'
           ? cfg.targetLang
           : colId.replace('track:', '');
+        // Strip deduplication suffixes (-auto, -2, -3, etc.) for TTS
+        const lang = rawLang.replace(/-auto$|-\d+$/, '');
         if (text.trim()) {
           setCurrentWord(null); // Reset before new speech
           try {
@@ -851,9 +853,11 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
                       />
                     </label>
                     {colId !== 'video' && (() => {
-                      const colLang = colId === 'translation'
+                      const rawColLang = colId === 'translation'
                         ? config.targetLang
                         : colId.replace('track:', '');
+                      // Strip deduplication suffixes for TTS voice matching
+                      const colLang = rawColLang.replace(/-auto$|-\d+$/, '');
                       const colVoices = voicesForLang(colLang);
                       return (
                         <>
