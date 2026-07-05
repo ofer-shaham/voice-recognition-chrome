@@ -1,4 +1,9 @@
-const { fetchTranscript } = require("youtube-transcript-plus");
+let fetchTranscript = null;
+try {
+  fetchTranscript = require("youtube-transcript-plus").fetchTranscript;
+} catch {
+  // youtube-transcript-plus requires Node >=20, not available in this environment
+}
 
 function padN(n, len) { return String(n).padStart(len, "0"); }
 
@@ -106,11 +111,13 @@ async function ytCaptionBaseUrl(videoId) {
 }
 
 async function fetchSrtMethod1(videoId, langCode) {
-  try {
-    const segments = await fetchTranscript(String(videoId), { lang: langCode });
-    return segmentsToSrt(segments);
-  } catch {
-    // exact lang not available — fall through to tlang approach
+  if (fetchTranscript) {
+    try {
+      const segments = await fetchTranscript(String(videoId), { lang: langCode });
+      return segmentsToSrt(segments);
+    } catch {
+      // exact lang not available — fall through to tlang approach
+    }
   }
   const baseUrl      = await ytCaptionBaseUrl(String(videoId));
   const timedtextUrl = baseUrl.replace(/&fmt=[^&]*/g, "") + `&tlang=${langCode}`;

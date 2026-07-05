@@ -2,7 +2,9 @@
   "name": "netlify-functions",
   "version": "1.0.0",
   "dependencies": {
-    "youtube-transcript-plus": "^2.0.0",
     "youtube-transcript-api-js": "^3.0.3"
+  },
+  "optionalDependencies": {
+    "youtube-transcript-plus": "^2.0.0"
   }
 }
