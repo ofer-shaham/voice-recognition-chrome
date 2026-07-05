@@ -1,1 +1,2 @@
 - [npm security-firewall blocked package](npm-firewall-blocked-package.md) — a package can be blocked at ALL versions by the security firewall; vendor a local file: override instead of retrying versions.
+- [YouTube Learner routing](youtube-learner-routing.md) — SetupView/PlayerView are the live routed UI at /youtube; YoutubeTranscriptParser.tsx is an orphaned component not mounted anywhere.

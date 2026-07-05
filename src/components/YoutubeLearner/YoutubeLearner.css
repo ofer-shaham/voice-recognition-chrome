@@ -431,6 +431,11 @@
   color: #94a3b8;
 }
 
+.yl-setup-method-field {
+  justify-content: center;
+  margin-top: 1rem;
+}
+
 .yl-setting-field span {
   white-space: nowrap;
   color: #94a3b8;

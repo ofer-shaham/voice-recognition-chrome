@@ -1662,6 +1662,14 @@
 .yt-debug-btn        { opacity: 0.6; }
 .yt-debug-btn.active { opacity: 1; color: #90e070; border-color: #50a030 !important; }
 
+/* ── subtitle-fetch method selector ── */
+.yt-method-select {
+  padding: 4px 6px;
+  font-family: inherit;
+  appearance: auto;
+}
+.yt-method-select:focus { outline: none; border-color: #3a8fd0; }
+
 /* ── + SRT column: YouTube tab info panel ── */
 .yt-yt-fetch-info {
   padding: 8px 10px;

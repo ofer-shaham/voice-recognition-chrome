@@ -11,6 +11,7 @@ import { useYtProjects, YtProject } from "../../hooks/useYtProjects";
 import ProjectsMenu from "./ProjectsMenu";
 import NewProjectWizard from "./NewProjectWizard";
 import FullscreenPlayer from "./FullscreenPlayer";
+import { transcriptMethodQueryParam, getTranscriptMethod, setTranscriptMethod, TranscriptMethod } from "../../services/transcriptMethodConfig";
 
 const MAX_LINES = 50;
 
@@ -229,6 +230,9 @@ function YoutubeTranscriptParser() {
     try { return localStorage.getItem("yt_debug_mode") !== "false"; } catch { return true; }
   });
 
+  // ── subtitle-fetch method (persisted) ─────────────────────────────────────
+  const [transcriptMethod, setTranscriptMethodState] = useState<TranscriptMethod>(() => getTranscriptMethod());
+
   // ── global error banner ───────────────────────────────────────────────────
   interface GlobalError { msg: string; detail: string; context: string; time: string; }
   const [globalError, setGlobalError] = useState<GlobalError | null>(null);
@@ -429,7 +433,7 @@ function YoutubeTranscriptParser() {
     setNewSrtLoading(true);
     const langCode = newSrtLang.split("-")[0];
     try {
-      const r = await fetch(`/api/srt?videoId=${encodeURIComponent(videoId)}&lang=${langCode}`);
+      const r = await fetch(`/api/srt?videoId=${encodeURIComponent(videoId)}&lang=${langCode}${transcriptMethodQueryParam()}`);
       if (!r.ok) {
         const j = await r.json().catch(() => ({ error: r.statusText }));
         throw new Error(j.error || `HTTP ${r.status}`);
@@ -847,6 +851,18 @@ function YoutubeTranscriptParser() {
             }}>
             🐛 Debug{debugMode ? " ●" : ""}
           </button>
+          <select
+            className="yt-icon-btn yt-method-select"
+            title="Choose how YouTube subtitles are fetched: 'Validated' checks the caption list first (slower, safer); 'Fast' grabs the track directly without validation (quicker, less strict)."
+            value={transcriptMethod}
+            onChange={(e) => {
+              const next = e.target.value as TranscriptMethod;
+              setTranscriptMethodState(next);
+              setTranscriptMethod(next);
+            }}>
+            <option value="validated">🔎 Fetch: Validated</option>
+            <option value="fast">⚡ Fetch: Fast</option>
+          </select>
           {isPlaying && <button className="yt-stop-btn" onClick={stopPlayback}>■ Stop</button>}
         </div>
       </div>

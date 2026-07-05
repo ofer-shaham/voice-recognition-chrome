@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { YtProject, YtTrack, ProjectConfig, AvailableLang } from './types';
 import { LANG_OPTIONS, DEFAULT_TTS_RATE, DEFAULT_VISIBLE_LINES } from './constants';
 import { extractVideoId, dedupeAvailLangs } from './utils';
+import { transcriptMethodQueryParam, getTranscriptMethod, setTranscriptMethod, TranscriptMethod } from '../../services/transcriptMethodConfig';
 
 interface Props {
   onProjectReady: (project: YtProject) => void;
@@ -39,6 +40,7 @@ function buildProject(
 
 export default function SetupView({ onProjectReady, recentProject, onLoadRecent }: Props) {
   const [step, setStep] = useState<Step>('url');
+  const [transcriptMethod, setTranscriptMethodState] = useState<TranscriptMethod>(() => getTranscriptMethod());
 
   // ── URL step ──────────────────────────────────────────────────────────────
   const [url, setUrl] = useState('');
@@ -101,7 +103,7 @@ export default function SetupView({ onProjectReady, recentProject, onLoadRecent 
       const tracks: YtTrack[] = [];
       for (const lang of chosen) {
         const langCode = lang.languageCode.split('-')[0];
-        const res = await fetch(`/api/srt?videoId=${encodeURIComponent(videoId)}&lang=${langCode}`);
+        const res = await fetch(`/api/srt?videoId=${encodeURIComponent(videoId)}&lang=${langCode}${transcriptMethodQueryParam()}`);
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));
           throw new Error(j.error || `HTTP ${res.status}`);
@@ -212,6 +214,25 @@ export default function SetupView({ onProjectReady, recentProject, onLoadRecent 
         <button className="yl-btn-primary yl-btn-full" onClick={handleFindLanguages} disabled={findLoading || !url.trim()}>
           {findLoading ? 'Finding subtitle tracks…' : 'Find subtitle tracks →'}
         </button>
+
+        <label
+          className="yl-setting-field yl-setup-method-field"
+          title="Validated: checks the caption list first (slower, safer). Fast: grabs the track directly without validation (quicker, less strict)."
+        >
+          <span>Subtitle fetch method</span>
+          <select
+            className="yl-select-sm"
+            value={transcriptMethod}
+            onChange={e => {
+              const next = e.target.value as TranscriptMethod;
+              setTranscriptMethodState(next);
+              setTranscriptMethod(next);
+            }}
+          >
+            <option value="validated">🔎 Validated</option>
+            <option value="fast">⚡ Fast</option>
+          </select>
+        </label>
       </div>
     </div>
   );

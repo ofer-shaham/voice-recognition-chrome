@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { YtProject, YtProjectTrack } from "../../hooks/useYtProjects";
+import { transcriptMethodQueryParam } from "../../services/transcriptMethodConfig";
 
 export interface AvailableLang {
   languageCode: string;
@@ -125,7 +126,7 @@ export default function NewProjectWizard({
         prev.map((s, idx) => idx === i ? { ...s, state: "fetching" as const } : s)
       );
       try {
-        const r = await fetch(`/api/srt?videoId=${encodeURIComponent(vid)}&lang=${langCode}`);
+        const r = await fetch(`/api/srt?videoId=${encodeURIComponent(vid)}&lang=${langCode}${transcriptMethodQueryParam()}`);
         if (!r.ok) {
           const j = await r.json().catch(() => ({ error: r.statusText }));
           throw new Error(j.error || `HTTP ${r.status}`);
