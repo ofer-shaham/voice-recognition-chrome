@@ -3,7 +3,7 @@ import { YtProject, YtTrack, ProjectConfig, AvailableLang } from './types';
 import { LANG_OPTIONS, DEFAULT_TTS_RATE, DEFAULT_VISIBLE_LINES } from './constants';
 import appConfig from '../../config/appConfig.json';
 import { extractVideoId, dedupeAvailLangs } from './utils';
-import { transcriptMethodQueryParam, getTranscriptMethod, setTranscriptMethod, TranscriptMethod } from '../../services/transcriptMethodConfig';
+import { transcriptMethodQueryParam } from '../../services/transcriptMethodConfig';
 
 interface Props {
   onProjectReady: (project: YtProject) => void;
@@ -41,7 +41,6 @@ function buildProject(
 
 export default function SetupView({ onProjectReady, recentProject, onLoadRecent }: Props) {
   const [step, setStep] = useState<Step>('url');
-  const [transcriptMethod, setTranscriptMethodState] = useState<TranscriptMethod>(() => getTranscriptMethod());
 
   // ── URL step ──────────────────────────────────────────────────────────────
   const [url, setUrl] = useState(appConfig.youtube.defaultUrl);
@@ -240,25 +239,6 @@ export default function SetupView({ onProjectReady, recentProject, onLoadRecent 
           {findLoading ? 'Finding subtitle tracks…' : 'Find subtitle tracks →'}
         </button>
 
-        <label
-          className="yl-setting-field yl-setup-method-field"
-          title="Validated: checks the caption list first (slower, safer). Fast: grabs the track directly without validation (quicker, less strict)."
-        >
-          <span>Subtitle fetch method</span>
-          <select
-            className="yl-select-sm"
-            value={transcriptMethod}
-            onChange={e => {
-              const next = e.target.value as TranscriptMethod;
-              setTranscriptMethodState(next);
-              setTranscriptMethod(next);
-            }}
-          >
-            <option value="downsub">🌐 DownSub API</option>
-            <option value="fast">⚡ Fast</option>
-            <option value="validated">🔎 Validated</option>
-          </select>
-        </label>
       </div>
     </div>
   );
