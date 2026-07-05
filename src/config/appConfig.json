@@ -1,6 +1,7 @@
 {
   "youtube": {
     "defaultUrl": "https://www.youtube.com/watch?v=prSfxdmjNzE",
-    "transcriptMethod": "downsub"
+    "transcriptMethod": "downsub",
+    "defaultTargetLanguage": "he"
   }
 }

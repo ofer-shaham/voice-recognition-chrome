@@ -55,7 +55,7 @@ export default function SetupView({ onProjectReady, recentProject, hasHistory, o
   const [availLangs, setAvailLangs] = useState<AvailableLang[]>([]);
   const [primaryLang, setPrimaryLang] = useState('');
   const [extraLangs, setExtraLangs] = useState<Set<string>>(new Set());
-  const [targetLang, setTargetLang] = useState('');
+  const [targetLang, setTargetLang] = useState(appConfig.youtube.defaultTargetLanguage);
   const [fetchLoading, setFetchLoading] = useState(false);
   const [fetchError, setFetchError] = useState('');
 
