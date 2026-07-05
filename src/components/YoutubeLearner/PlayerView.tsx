@@ -102,6 +102,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
+      if (lines.length === 0) return; // Wait for lines to be populated
       const indices = Array.from(pendingSet.current).sort((a, b) => a - b);
       for (const i of indices) {
         if (cancelled) break;
@@ -126,7 +127,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     run();
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [translationVer]);
+  }, [translationVer, lines.length]);
 
   // ── Slide window to follow current line ─────────────────────────────────────
   useEffect(() => {
