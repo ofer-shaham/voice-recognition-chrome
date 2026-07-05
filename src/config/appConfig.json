@@ -1,5 +1,6 @@
 {
   "youtube": {
-    "defaultUrl": "https://www.youtube.com/watch?v=prSfxdmjNzE"
+    "defaultUrl": "https://www.youtube.com/watch?v=prSfxdmjNzE",
+    "transcriptMethod": "downsub"
   }
 }

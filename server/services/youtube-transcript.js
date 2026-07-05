@@ -340,20 +340,8 @@ async function fetchSrt(videoId, langCode, method) {
   if (method === "1") return fetchSrtMethod1(videoId, langCode);
   if (method === "2") return fetchSrtMethod2(videoId, langCode);
   if (method === "3") return fetchSrtMethod3(videoId, langCode);
-  if (method === "4") return fetchSrtMethod4(videoId, langCode);
-
-  // Default: try the DownSub API first, then fall back to the older
-  // list-validated chain (method1 -> method2) if it's unavailable.
-  let m4Error = null;
-  try { return await fetchSrtMethod4(videoId, langCode); }
-  catch (e4) { m4Error = e4.message; }
-  let m1Error = null;
-  try { return await fetchSrtMethod1(videoId, langCode); }
-  catch (e1) { m1Error = e1.message; }
-  try { return await fetchSrtMethod2(videoId, langCode); }
-  catch (e2) {
-    throw new Error(`Could not fetch transcript. downsub: ${m4Error}. m1: ${m1Error}. m2: ${e2.message}`);
-  }
+  // method=4 or default: use DownSub API only (youtube-dl-jrte.onrender.com)
+  return fetchSrtMethod4(videoId, langCode);
 }
 
 module.exports = {

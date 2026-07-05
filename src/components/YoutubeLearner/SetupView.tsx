@@ -254,8 +254,9 @@ export default function SetupView({ onProjectReady, recentProject, onLoadRecent 
               setTranscriptMethod(next);
             }}
           >
-            <option value="validated">🔎 Validated</option>
+            <option value="downsub">🌐 DownSub API</option>
             <option value="fast">⚡ Fast</option>
+            <option value="validated">🔎 Validated</option>
           </select>
         </label>
       </div>
