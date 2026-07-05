@@ -52,5 +52,11 @@ export function useProject() {
 
   const getLastId = useCallback(() => localStorage.getItem(LAST_KEY), []);
 
-  return { projects, upsert, remove, updateConfig, updateLastLine, getLastId };
+  const clearAll = useCallback(() => {
+    localStorage.removeItem(KEY);
+    localStorage.removeItem(LAST_KEY);
+    setProjects([]);
+  }, []);
+
+  return { projects, upsert, remove, updateConfig, updateLastLine, getLastId, clearAll };
 }

@@ -8,7 +8,9 @@ import { transcriptMethodQueryParam } from '../../services/transcriptMethodConfi
 interface Props {
   onProjectReady: (project: YtProject) => void;
   recentProject: YtProject | null;
+  hasHistory: boolean;
   onLoadRecent: () => void;
+  onClearHistory: () => void;
 }
 
 type Step = 'url' | 'langs';
@@ -39,7 +41,7 @@ function buildProject(
   return { id, videoId, title, createdAt: Date.now(), updatedAt: Date.now(), tracks, config, lastLine: 0 };
 }
 
-export default function SetupView({ onProjectReady, recentProject, onLoadRecent }: Props) {
+export default function SetupView({ onProjectReady, recentProject, hasHistory, onLoadRecent, onClearHistory }: Props) {
   const [step, setStep] = useState<Step>('url');
 
   // ── URL step ──────────────────────────────────────────────────────────────
@@ -218,6 +220,16 @@ export default function SetupView({ onProjectReady, recentProject, onLoadRecent 
             <div className="yl-recent-title">{recentProject.title}</div>
           </div>
           <button className="yl-btn-primary" onClick={onLoadRecent}>Resume →</button>
+        </div>
+      )}
+
+      {hasHistory && (
+        <div className="yl-clear-history">
+          <button className="yl-btn-ghost-danger" onClick={() => {
+            if (window.confirm('Clear all YouTube history? This cannot be undone.')) onClearHistory();
+          }}>
+            🗑 Clear history
+          </button>
         </div>
       )}
 

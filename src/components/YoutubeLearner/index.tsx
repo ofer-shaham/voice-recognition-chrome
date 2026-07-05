@@ -6,7 +6,7 @@ import PlayerView from './PlayerView';
 import './YoutubeLearner.css';
 
 export default function YoutubeLearner() {
-  const { projects, upsert, remove, getLastId } = useProject();
+  const { projects, upsert, remove, clearAll, getLastId } = useProject();
   const [activeProject, setActiveProject] = useState<YtProject | null>(null);
   const [showSetup, setShowSetup] = useState(false);
 
@@ -59,8 +59,13 @@ export default function YoutubeLearner() {
       <SetupView
         onProjectReady={handleProjectReady}
         recentProject={recent}
+        hasHistory={projects.length > 0}
         onLoadRecent={() => {
           if (recent) { setActiveProject(recent); setShowSetup(false); }
+        }}
+        onClearHistory={() => {
+          clearAll();
+          setActiveProject(null);
         }}
       />
     );
