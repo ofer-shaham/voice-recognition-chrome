@@ -1,26 +1,17 @@
 describe('Translation request routing', () => {
-  it('uses the local proxy URL for translation-backed transcript requests', () => {
-    cy.intercept('GET', '**/api/srt*', (req) => {
-      expect(req.url).to.include('/api/srt');
-      expect(req.url).to.not.include('youtube-dl-jrte.onrender.com');
-      req.reply({
-        statusCode: 200,
-        body: '1\n00:00:00,000 --> 00:00:01,000\nHello',
-        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-      });
-    }).as('srtProxyRequest');
+  it('uses the local proxy URL for transcript-backed requests from the /youtube page', () => {
+    cy.visit('/youtube');
+    cy.contains('YouTube Language Learner').should('be.visible');
 
-    cy.visit('/');
-
-    cy.window().then((win) => {
-      const url = new URL('/api/srt', win.location.origin);
+    cy.window().then(async (win) => {
+      const url = new URL('/api/transcript/languages', win.location.origin);
       url.searchParams.set('videoId', 'prSfxdmjNzE');
-      url.searchParams.set('lang', 'auto');
-      url.searchParams.set('targetLang', 'he');
-      win.fetch(url.toString());
+      const response = await win.fetch(url.toString());
+      expect(response.ok).to.equal(true);
+      const body = await response.json();
+      expect(body).to.have.property('availableLanguages');
+      expect(body.availableLanguages).to.be.an('array').that.is.not.empty;
+      expect(body.videoDetails?.videoId).to.equal('prSfxdmjNzE');
     });
-
-    cy.wait('@srtProxyRequest').its('request.url').should('include', '/api/srt');
-    cy.wait('@srtProxyRequest').its('request.url').should('not.include', 'youtube-dl-jrte.onrender.com');
   });
 });

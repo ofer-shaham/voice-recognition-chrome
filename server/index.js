@@ -1,31 +1,6 @@
 const express = require("express");
 const cors = require("cors");
 const swaggerUi = require("swagger-ui-express");
-const { ytPlayerData, fetchSrt, fetchVideoInfoDownsub } = require("./services/youtube-transcript");
-
-async function fetchTranslatedSrt(videoId, langCode, targetLang) {
-  const downstream = "https://youtube-dl-jrte.onrender.com";
-  const url = new URL(`${downstream}/api/translate-transcript`);
-  url.searchParams.set("videoID", videoId);
-  url.searchParams.set("language", langCode);
-  url.searchParams.set("targetLanguage", targetLang);
-  url.searchParams.set("type", "srt");
-
-  const res = await fetch(url, {
-    headers: { "User-Agent": "Mozilla/5.0" },
-  });
-
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`Translate API HTTP ${res.status}${body ? `: ${body.slice(0, 200)}` : ""}`);
-  }
-
-  const text = await res.text();
-  if (!text.includes("-->")) {
-    throw new Error("Translated transcript did not contain valid SRT content");
-  }
-  return text;
-}
 const { fetchTtsAudio } = require("./services/tts-proxy");
 
 const app = express();
@@ -50,44 +25,48 @@ const formatAge = (ms) => {
   return `${s}s`;
 };
 
+const YOUTUBE_API_BASE = "https://youtube-dl-jrte.onrender.com";
+
+const normalizeYoutubeUrl = (input) => {
+  const value = String(input || "").trim();
+  if (!value) return null;
+  return /^https?:\/\//i.test(value) ? value : `https://www.youtube.com/watch?v=${value}`;
+};
+
+const proxyYoutubeApi = async (path, params = {}) => {
+  const url = new URL(`${YOUTUBE_API_BASE}${path}`);
+  Object.entries(params).forEach(([key, value]) => {
+    if (value != null && value !== "") url.searchParams.set(key, String(value));
+  });
+  log("info", "youtube upstream request", { url: url.toString() });
+  return fetch(url.toString(), { headers: { "User-Agent": "Mozilla/5.0" } });
+};
+
+const parseJson = async (res) => {
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+};
+
 // ── Swagger / OpenAPI spec ─────────────────────────────────────────────────────
 const swaggerSpec = {
   openapi: "3.0.0",
   info: {
-    title: "YouTube Transcript & TTS API",
+    title: "Voice Translation API",
     version: "1.0.0",
     description:
-      "Server-side proxy for YouTube transcript fetching, language discovery, " +
-      "Google TTS, and OpenRouter AI chat.",
+      "Server-side proxy for Text-to-Speech and OpenRouter AI chat.",
   },
   servers: [{ url: "/", description: "This server (port 3001 proxied)" }],
   tags: [
-    { name: "Transcripts", description: "YouTube caption / SRT endpoints" },
     { name: "TTS", description: "Text-to-speech proxy" },
     { name: "AI", description: "OpenRouter chat proxy" },
     { name: "Health", description: "Server status" },
   ],
   paths: {
-    "/api/transcript/languages": {
-      get: {
-        tags: ["Transcripts"],
-        summary: "List available caption languages for a video (DownSub API, falls back to YouTube player data)",
-        parameters: [{ name: "videoId", in: "query", required: true, schema: { type: "string" } }],
-        responses: { 200: { description: "Language list, video metadata, and a server-designated defaultLanguageCode" }, 400: { description: "Missing videoId" }, 500: { description: "YouTube fetch error" } },
-      },
-    },
-    "/api/srt": {
-      get: {
-        tags: ["Transcripts"],
-        summary: "Fetch a transcript as SRT text",
-        parameters: [
-          { name: "videoId", in: "query", required: true, schema: { type: "string" } },
-          { name: "lang", in: "query", required: false, schema: { type: "string", example: "en" } },
-          { name: "method", in: "query", required: false, schema: { type: "string", enum: ["1", "2", "3", "4"] }, description: "1=youtube-transcript-plus (deprecated, requires Node>=20), 2=youtube-transcript-api-js, 3=ytInitialPlayerResponse+json3 (downsub-style), 4=DownSub-hosted API (default)" },
-        ],
-        responses: { 200: { description: "SRT-formatted transcript" }, 400: { description: "Missing videoId" }, 500: { description: "All fetch methods failed" } },
-      },
-    },
     "/api/tts": {
       get: {
         tags: ["TTS"],
@@ -101,6 +80,37 @@ const swaggerSpec = {
     },
     "/api/health": { get: { tags: ["Health"], summary: "Server liveness check", responses: { 200: { description: "Server is up" } } } },
     "/api/config": { get: { tags: ["Health"], summary: "Check whether the server has an API key configured", responses: { 200: { description: "Key presence flag" } } } },
+    "/api/transcript/languages": {
+      get: {
+        tags: ["Transcripts"],
+        summary: "List available transcript languages for a YouTube video via external service",
+        parameters: [{ name: "videoId", in: "query", required: true, schema: { type: "string" } }],
+        responses: { 200: { description: "Language list and video metadata" }, 400: { description: "Missing videoId" }, 502: { description: "Upstream service error" } },
+      },
+    },
+    "/api/srt": {
+      get: {
+        tags: ["Transcripts"],
+        summary: "Fetch transcript as SRT from the external service",
+        parameters: [
+          { name: "videoId", in: "query", required: true, schema: { type: "string" } },
+          { name: "lang", in: "query", required: false, schema: { type: "string", default: "en" } },
+          { name: "targetLang", in: "query", required: false, schema: { type: "string" } },
+        ],
+        responses: { 200: { description: "SRT text" }, 400: { description: "Missing params" }, 502: { description: "Upstream service error" } },
+      },
+    },
+    "/api/transcript/translate": {
+      get: {
+        tags: ["Transcripts"],
+        summary: "Fetch translated transcript as SRT from the external service",
+        parameters: [
+          { name: "videoId", in: "query", required: true, schema: { type: "string" } },
+          { name: "lang", in: "query", required: false, schema: { type: "string", default: "en" } },
+        ],
+        responses: { 200: { description: "Translated SRT text" }, 400: { description: "Missing params" }, 502: { description: "Upstream service error" } },
+      },
+    },
     "/api/chat": { post: { tags: ["AI"], summary: "OpenRouter chat completions proxy", responses: { 200: { description: "OpenRouter response" }, 401: { description: "No API key" }, 500: { description: "OpenRouter error" } } } },
     "/api/logs": {
       get: {
@@ -225,7 +235,7 @@ const SWAGGER_DARK_CSS = `
 `;
 
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-  customSiteTitle: "Transcript API Docs",
+  customSiteTitle: "API Docs",
   customCss: SWAGGER_DARK_CSS,
   swaggerOptions: { defaultModelsExpandDepth: -1 },
 }));
@@ -239,7 +249,7 @@ const log = (level, msg, meta = {}) => {
   if (logBuffer.length > LOG_BUFFER_MAX) logBuffer.length = LOG_BUFFER_MAX;
 };
 
-globalThis.__transcriptProxyLogger = log;
+globalThis.__appProxyLogger = log;
 
 app.use((req, _res, next) => { log("info", `${req.method} ${req.path}`); next(); });
 app.use("/api", (_req, res, next) => {
@@ -264,79 +274,59 @@ app.get("/api/health", (_req, res) => {
 
 app.get("/api/config", (_req, res) => res.json({ serverHasKey: !!ENV_KEY }));
 
-// ── Transcript languages ───────────────────────────────────────────────────────
+const buildVideoUrl = (videoId) => normalizeYoutubeUrl(videoId);
+
 app.get("/api/transcript/languages", async (req, res) => {
   const { videoId } = req.query;
   if (!videoId) return res.status(400).json({ error: "videoId is required" });
 
-  log("info", "route /api/transcript/languages requested", { videoId: String(videoId), path: req.originalUrl });
-
-  // Default: DownSub-hosted API — also returns a server-designated default language.
+  const videoUrl = buildVideoUrl(videoId);
   try {
-    log("info", "route /api/transcript/languages -> DownSub upstream", { videoId: String(videoId), endpoint: "/api/video-info" });
-    const data = await fetchVideoInfoDownsub(String(videoId));
-    log("info", "transcript/languages OK (downsub)", { videoId, n: data.availableLanguages.length, default: data.defaultLanguageCode });
-    return res.json(data);
-  } catch (e) {
-    log("warn", "transcript/languages downsub failed, falling back", { videoId, error: e.message });
-  }
+    const infoRes = await proxyYoutubeApi("/api/video-info", { url: videoUrl });
+    if (!infoRes.ok) throw new Error(`Video info HTTP ${infoRes.status}`);
+    const info = (await parseJson(infoRes)) || {};
 
-  // Fallback: parse ytInitialPlayerResponse / Innertube directly.
-  try {
-    log("info", "route /api/transcript/languages -> local ytPlayerData fallback", { videoId: String(videoId) });
-    const data = await ytPlayerData(String(videoId));
-    const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
-    const vd = data?.videoDetails || {};
-    log("info", "transcript/languages OK (fallback)", { videoId, n: tracks.length });
+    const langsRes = await proxyYoutubeApi("/api/transcript-supported-languages", { videoID: videoId });
+    if (!langsRes.ok) throw new Error(`Supported languages HTTP ${langsRes.status}`);
+    const langs = (await parseJson(langsRes)) || [];
+    const availableLanguages = Array.isArray(langs)
+      ? langs.map((t) => ({ languageCode: t.code, name: t.name || t.code, isAutoGenerated: t.source === "auto", isDefault: t.isDefault || false }))
+      : [];
+    const defaultCode = availableLanguages.find((item) => item.isDefault)?.languageCode || availableLanguages[0]?.languageCode || null;
+    log("info", "transcript/languages OK", { videoId, count: availableLanguages.length });
     return res.json({
-      videoDetails: {
-        title: vd.title || null, author: vd.author || null,
-        lengthSeconds: vd.lengthSeconds || null, videoId: vd.videoId || videoId,
-      },
-      availableLanguages: tracks.map((t, i) => ({
-        languageCode: t.languageCode,
-        name: t.name?.simpleText || t.languageCode,
-        isAutoGenerated: t.kind === "asr",
-        isDefault: i === 0,
-      })),
-      defaultLanguageCode: tracks[0]?.languageCode || null,
+      videoDetails: { title: info.title || null, author: info.author || null, lengthSeconds: null, videoId: String(videoId) },
+      availableLanguages,
+      defaultLanguageCode: defaultCode,
     });
-  } catch (e) {
-    log("warn", "transcript/languages unavailable from all providers", { videoId, error: e.message });
-    return res.status(200).json({
-      videoDetails: { title: null, videoId: String(videoId) },
-      availableLanguages: [],
-      defaultLanguageCode: null,
-      warning: "No transcript languages could be retrieved for this video right now.",
-    });
+  } catch (err) {
+    log("warn", "transcript/languages failed", { videoId, error: err.message });
+    return res.status(502).json({ error: err.message });
   }
 });
 
-// ── SRT fetch ─────────────────────────────────────────────────────────────────
 app.get("/api/srt", async (req, res) => {
-  const { videoId, lang, method, targetLang } = req.query;
+  const { videoId, lang, targetLang } = req.query;
   if (!videoId) return res.status(400).json({ error: "videoId is required" });
   const langCode = String(lang || "en").split("-")[0];
-  const translateTarget = String(targetLang || "").trim();
-
-  log("info", "route /api/srt requested", { videoId: String(videoId), lang: langCode, method: String(method || "auto"), targetLang: translateTarget || null, path: req.originalUrl });
+  const videoUrl = buildVideoUrl(videoId);
 
   try {
-    if (translateTarget) {
-      log("info", "route /api/srt -> translate-transcript upstream", { videoId: String(videoId), lang: langCode, targetLang: translateTarget });
-      const translated = await fetchTranslatedSrt(String(videoId), langCode, translateTarget);
-      log("info", "SRT translated OK", { videoId, lang: langCode, targetLang: translateTarget, method: method || "auto" });
-      res.type("text/plain; charset=utf-8").send(translated);
-      return;
+    let upstream;
+    if (String(targetLang || "").trim()) {
+      upstream = await proxyYoutubeApi("/api/translate-transcript", { videoID: videoId, language: langCode, targetLanguage: targetLang, type: "srt" });
+    } else {
+      upstream = await proxyYoutubeApi("/api/subtitles", { url: videoUrl, type: "srt", language: langCode, autoTranslate: "1", download: "1" });
     }
-
-    log("info", "route /api/srt -> transcript fetch", { videoId: String(videoId), lang: langCode, method: String(method || "auto") });
-    const srt = await fetchSrt(String(videoId), langCode, method);
-    log("info", "SRT OK", { videoId, lang: langCode, method: method || "auto" });
-    res.type("text/plain; charset=utf-8").send(srt);
-  } catch (e) {
-    log("error", "SRT failed", { videoId, lang: langCode, error: e.message });
-    res.status(500).json({ error: e.message });
+    if (!upstream.ok) {
+      const body = await upstream.text().catch(() => "");
+      throw new Error(`YouTube upstream HTTP ${upstream.status}: ${body.slice(0, 200)}`);
+    }
+    const text = await upstream.text();
+    res.type("text/plain; charset=utf-8").send(text);
+  } catch (err) {
+    log("error", "SRT failed", { videoId, lang: langCode, error: err.message });
+    res.status(502).json({ error: err.message });
   }
 });
 
@@ -345,15 +335,17 @@ app.get("/api/transcript/translate", async (req, res) => {
   if (!videoId) return res.status(400).json({ error: "videoId is required" });
   const langCode = String(lang || "en").split("-")[0];
 
-  log("info", "route /api/transcript/translate requested", { videoId: String(videoId), lang: langCode, path: req.originalUrl });
-
   try {
-    const translated = await fetchTranslatedSrt(String(videoId), langCode, langCode);
-    log("info", "transcript translate OK", { videoId, lang: langCode });
-    res.type("text/plain; charset=utf-8").send(translated);
-  } catch (e) {
-    log("error", "transcript translate failed", { videoId, lang: langCode, error: e.message });
-    res.status(500).json({ error: e.message });
+    const upstream = await proxyYoutubeApi("/api/translate-transcript", { videoID: videoId, language: langCode, targetLanguage: langCode, type: "srt" });
+    if (!upstream.ok) {
+      const body = await upstream.text().catch(() => "");
+      throw new Error(`YouTube upstream HTTP ${upstream.status}: ${body.slice(0, 200)}`);
+    }
+    const text = await upstream.text();
+    res.type("text/plain; charset=utf-8").send(text);
+  } catch (err) {
+    log("error", "transcript translate failed", { videoId, lang: langCode, error: err.message });
+    res.status(502).json({ error: err.message });
   }
 });
 

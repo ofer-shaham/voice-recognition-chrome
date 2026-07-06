@@ -1,6 +1,7 @@
 const { fetchTtsAudio } = require("../../server/services/tts-proxy");
 
 const ENV_KEY = process.env.OPENROUTER_API_KEY || process.env.REACT_APP_OPENAI_API_KEY || "";
+const YOUTUBE_API_BASE = "https://youtube-dl-jrte.onrender.com";
 const SERVER_START = Date.now();
 
 // ── In-memory log buffer (persists across warm Lambda invocations) ─────────────
@@ -33,6 +34,22 @@ const textResp = (statusCode, body) => ({
   headers: { ...corsHeaders, "Content-Type": "text/plain; charset=utf-8" },
   body,
 });
+
+const normalizeYoutubeUrl = (input) => {
+  const value = String(input || "").trim();
+  if (!value) return null;
+  return /^https?:\/\//i.test(value) ? value : `https://www.youtube.com/watch?v=${value}`;
+};
+
+const proxyFetch = async (url) => {
+  const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+  const body = await res.text();
+  return { ok: res.ok, status: res.status, headers: res.headers, body };
+};
+
+const parseJson = (body) => {
+  try { return JSON.parse(body); } catch { return null; }
+};
 
 const formatAge = (ms) => {
   const s = Math.floor(ms / 1000);
@@ -136,12 +153,59 @@ const SWAGGER_SPEC = {
   info: { title: "YouTube Transcript & TTS API", version: "1.0.0", description: "Netlify Functions API — logs endpoint returns in-memory entries accumulated since the current Lambda container started (warm invocations only; cold starts reset the buffer)." },
   servers: [{ url: "/", description: "Netlify Functions" }],
   tags: [
+    { name: "Transcripts", description: "YouTube caption / SRT endpoints" },
     { name: "TTS", description: "Text-to-speech proxy" },
     { name: "AI", description: "OpenRouter chat proxy" },
     { name: "Health", description: "Server status & logs" },
   ],
   paths: {
 
+    "/api/transcript/languages": {
+      get: {
+        summary: "List caption languages", tags: ["Transcripts"],
+        parameters: [{ name: "videoId", in: "query", required: true, schema: { type: "string" } }],
+        responses: { 200: { description: "Language list" }, 400: { description: "Missing videoId" }, 500: { description: "Error" } },
+      },
+    },
+    "/api/srt": {
+      get: {
+        summary: "Fetch transcript as SRT", tags: ["Transcripts"],
+        parameters: [
+          { name: "videoId", in: "query", required: true, schema: { type: "string" } },
+          { name: "lang", in: "query", required: false, schema: { type: "string", default: "en" } },
+          { name: "targetLang", in: "query", required: false, schema: { type: "string" } },
+        ],
+        responses: { 200: { description: "SRT text" }, 400: { description: "Missing params" }, 500: { description: "Error" } },
+      },
+    },
+    "/api/transcript/translate": {
+      get: {
+        summary: "Fetch translated transcript as SRT", tags: ["Transcripts"],
+        parameters: [
+          { name: "videoId", in: "query", required: true, schema: { type: "string" } },
+          { name: "lang", in: "query", required: false, schema: { type: "string", default: "en" } },
+        ],
+        responses: { 200: { description: "Translated SRT text" }, 400: { description: "Missing params" }, 500: { description: "Error" } },
+      },
+    },
+    "/api/youtube/{proxyAction}": {
+      get: {
+        summary: "Proxy YouTube service endpoint paths to the external API",
+        tags: ["Transcripts"],
+        parameters: [
+          { name: "proxyAction", in: "path", required: true, schema: { type: "string", enum: ["video-info", "transcript-supported-languages", "default-transcript-languages", "translate-transcript", "subtitles"] }, description: "Upstream YouTube API action name" },
+          { name: "videoId", in: "query", required: false, schema: { type: "string" }, description: "YouTube video ID or URL" },
+          { name: "videoID", in: "query", required: false, schema: { type: "string" }, description: "YouTube video ID" },
+          { name: "url", in: "query", required: false, schema: { type: "string" }, description: "YouTube video URL" },
+          { name: "language", in: "query", required: false, schema: { type: "string" } },
+          { name: "targetLanguage", in: "query", required: false, schema: { type: "string" } },
+          { name: "type", in: "query", required: false, schema: { type: "string", enum: ["srt", "vtt", "txt"] } },
+          { name: "autoTranslate", in: "query", required: false, schema: { type: "string", enum: ["0", "1"] } },
+          { name: "download", in: "query", required: false, schema: { type: "string", enum: ["0", "1"] } },
+        ],
+        responses: { 200: { description: "Proxied response from YouTube service" }, 400: { description: "Missing params or invalid action" }, 502: { description: "Upstream service error" } },
+      },
+    },
     "/api/tts": {
       get: {
         summary: "TTS audio proxy", tags: ["TTS"],
@@ -252,6 +316,75 @@ exports.handler = async (event) => {
     });
   }
 
+
+
+  const fetchYoutube = async (path, params = {}) => {
+    const url = new URL(`${YOUTUBE_API_BASE}${path}`);
+    Object.entries(params).forEach(([key, value]) => {
+      if (value != null && value !== "") url.searchParams.set(key, String(value));
+    });
+    log("info", "youtube upstream request", { url: url.toString() });
+    return proxyFetch(url.toString());
+  };
+
+  const buildVideoUrl = (videoId) => normalizeYoutubeUrl(videoId);
+
+  const normalizeYoutubeQuery = (proxyAction, qs = {}) => {
+    const params = {};
+    const videoId = String(qs.videoId || qs.videoID || "").trim();
+
+    if (proxyAction === "video-info" || proxyAction === "subtitles") {
+      const urlValue = qs.url || (videoId ? buildVideoUrl(videoId) : undefined);
+      if (urlValue) params.url = normalizeYoutubeUrl(urlValue);
+    } else if (videoId) {
+      params.videoID = videoId;
+    }
+
+    if (qs.language) params.language = qs.language;
+    if (qs.lang && !params.language) params.language = qs.lang;
+    if (qs.targetLanguage) params.targetLanguage = qs.targetLanguage;
+    if (qs.type) params.type = qs.type;
+    if (qs.autoTranslate) params.autoTranslate = qs.autoTranslate;
+    if (qs.download) params.download = qs.download;
+
+    return params;
+  };
+
+  if (method === "GET" && apiPath.startsWith("/api/youtube")) {
+    const rawSubpath = apiPath.slice("/api/youtube".length);
+    const proxyAction = rawSubpath.replace(/^\/+|\/+$/g, "");
+    if (!proxyAction) {
+      return json(400, { error: "Missing proxy path. Use /api/youtube/{video-info|transcript-supported-languages|default-transcript-languages|translate-transcript|subtitles}" });
+    }
+
+    const params = normalizeYoutubeQuery(proxyAction, qs);
+    const upstreamPath = `/api/${proxyAction}`;
+    const t0 = Date.now();
+
+    try {
+      const upstream = await fetchYoutube(upstreamPath, params);
+      if (!upstream.ok) {
+        throw new Error(`YouTube upstream HTTP ${upstream.status}: ${upstream.body.slice(0, 200)}`);
+      }
+
+      const contentType = upstream.headers.get("content-type") || "text/plain; charset=utf-8";
+      if (contentType.includes("application/json")) {
+        const parsed = parseJson(upstream.body);
+        log("info", "/api/youtube proxy OK", { path: upstreamPath, elapsed: Date.now() - t0 });
+        return json(200, parsed !== null ? parsed : { data: upstream.body });
+      }
+
+      log("info", "/api/youtube proxy OK", { path: upstreamPath, elapsed: Date.now() - t0 });
+      return {
+        statusCode: 200,
+        headers: { ...corsHeaders, "Content-Type": contentType },
+        body: upstream.body,
+      };
+    } catch (err) {
+      log("error", "/api/youtube proxy failed", { path: upstreamPath, error: err.message, elapsed: Date.now() - t0 });
+      return json(502, { error: err.message });
+    }
+  }
 
 
   // ── TTS proxy ─────────────────────────────────────────────────────────────────
