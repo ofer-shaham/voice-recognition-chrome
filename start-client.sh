@@ -10,7 +10,5 @@ NODE="${NODE:-$(command -v node 2>/dev/null || echo "node")}"
 NODE_BIN_DIR="$(dirname "$NODE")"
 export PATH="${NODE_BIN_DIR}:${PATH}"
 
-pkill -f "node.*server/index" 2>/dev/null || true
-fuser -k 3001/tcp 2>/dev/null || true
-sleep 1
-exec "$NODE" /home/runner/workspace/server/index.js
+exec env DANGEROUSLY_DISABLE_HOST_CHECK=true \
+  "$NODE_BIN_DIR/node" node_modules/.bin/vite --port 5000 --host 0.0.0.0
