@@ -274,7 +274,9 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     setAddingLang(lang.languageCode);
     setLangsError('');
     try {
-      const serviceMethod = projectRef.current.subtitleService === 'api-js' ? '2' : '1';
+      const serviceMethod = projectRef.current.subtitleService === 'api-js'
+        ? '2'
+        : projectRef.current.subtitleService === 'json3' ? '3' : '1';
       const res = await fetch(`/api/srt?videoId=${encodeURIComponent(projectRef.current.videoId)}&lang=${langCode}&method=${serviceMethod}`);
       if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || `HTTP ${res.status}`); }
       const srtContent = await res.text();

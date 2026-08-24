@@ -10,7 +10,7 @@ interface Props {
 }
 
 type Step = 'url' | 'langs';
-type SubtitleService = 'plus' | 'api-js';
+type SubtitleService = 'plus' | 'api-js' | 'json3';
 
 function buildProject(
   id: string,
@@ -56,6 +56,7 @@ export default function SetupView({ onProjectReady, recentProject, onLoadRecent 
   const [fetchLoading, setFetchLoading] = useState(false);
   const [fetchError, setFetchError] = useState('');
   const [subtitleService, setSubtitleService] = useState<SubtitleService>('plus');
+  const subtitleMethod = subtitleService === 'plus' ? '1' : subtitleService === 'api-js' ? '2' : '3';
 
   const serviceToggle = (
     <div className="yl-service-picker" role="group" aria-label="Subtitle service">
@@ -76,6 +77,14 @@ export default function SetupView({ onProjectReady, recentProject, onLoadRecent 
           aria-pressed={subtitleService === 'api-js'}
         >
           youtube-transcript-api-js
+        </button>
+        <button
+          type="button"
+          className={`yl-service-option ${subtitleService === 'json3' ? 'yl-service-option-active' : ''}`}
+          onClick={() => setSubtitleService('json3')}
+          aria-pressed={subtitleService === 'json3'}
+        >
+          ytInitialPlayerResponse / JSON3
         </button>
       </div>
       <span className="yl-service-help">Choose which subtitle provider fetches the selected tracks.</span>
@@ -129,8 +138,7 @@ export default function SetupView({ onProjectReady, recentProject, onLoadRecent 
       const tracks: YtTrack[] = [];
       for (const lang of chosen) {
         const langCode = lang.languageCode.split('-')[0];
-        const serviceMethod = subtitleService === 'api-js' ? '2' : '1';
-        const res = await fetch(`/api/srt?videoId=${encodeURIComponent(videoId)}&lang=${langCode}&method=${serviceMethod}`);
+        const res = await fetch(`/api/srt?videoId=${encodeURIComponent(videoId)}&lang=${langCode}&method=${subtitleMethod}`);
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));
           throw new Error(j.error || `HTTP ${res.status}`);
