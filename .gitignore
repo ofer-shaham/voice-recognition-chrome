@@ -31,3 +31,6 @@ logs/client.log
 logs/server.log
 .client.pid
 .server.pid
+
+attached_assets
+.replit

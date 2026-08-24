@@ -55,9 +55,11 @@ The endpoint supports an optional `?method=` query parameter to force a specific
 
 | `method` value | Library used | Best for |
 |---|---|---|
-| `1` | `youtube-transcript-plus` | Fast direct-fetch with server-side translation via `&tlang=`; preferred for most videos |
-| `2` | `youtube-transcript-api-js` | Fallback; uses YouTube's caption list API; useful when method 1 is blocked |
-| *(omitted)* | Auto-fallback | Tries method 1 first; automatically falls back to method 2 on any error |
+| `1` | `youtube-transcript-plus` | **DEPRECATED** (requires Node >=20). Use method 2, 3, or 4 instead. |
+| `2` | `youtube-transcript-api-js` | Uses YouTube's caption list API; reliable fallback |
+| `3` | ytInitialPlayerResponse+json3 | Parses YouTube watch page HTML directly (downsub-style) |
+| `4` | DownSub-hosted API | Default; third-party service at youtube-dl-jrte.onrender.com |
+| *(omitted)* | Auto-fallback | Defaults to method 4 (DownSub); falls back to 1→2 if unavailable |
 
 ### Example `curl` commands
 
@@ -89,7 +91,8 @@ Two standalone service implementations live in `server/services/`:
 
 | File | Library | Notes |
 |---|---|---|
-| `srt_fetch.js` | `youtube-transcript-plus` | Full express server on port 3000; supports SRT, VTT, JSON; filesystem cache via `FsCache` |
-| `srt_fetch1.js` | `youtube-transcript-api-js` | Full express server on port 3002; supports SRT, VTT, JSON; mirrors `srt_fetch.js` interface |
+| `transcript-plus-quickstart.js` | `youtube-transcript-plus` | **DEPRECATED** (requires Node >=20). Kept for reference only. |
+| `transcript-api-standalone.js` | `youtube-transcript-plus` | **DEPRECATED** (requires Node >=20). Kept for reference only. |
+| `youtube-transcript.js` | Multiple methods | Main implementation with fallback chain (methods 1-4) |
 
 These run independently and are not required by `index.js` (which inlines both strategies). They serve as standalone reference implementations and can be run on their own for testing or deployment.

@@ -1,7 +1,7 @@
-const { ytPlayerData, fetchSrt } = require("../../server/services/youtube-transcript");
 const { fetchTtsAudio } = require("../../server/services/tts-proxy");
 
 const ENV_KEY = process.env.OPENROUTER_API_KEY || process.env.REACT_APP_OPENAI_API_KEY || "";
+const YOUTUBE_API_BASE = "https://youtube-dl-jrte.onrender.com";
 const SERVER_START = Date.now();
 
 // ── In-memory log buffer (persists across warm Lambda invocations) ─────────────
@@ -35,10 +35,26 @@ const textResp = (statusCode, body) => ({
   body,
 });
 
+const normalizeYoutubeUrl = (input) => {
+  const value = String(input || "").trim();
+  if (!value) return null;
+  return /^https?:\/\//i.test(value) ? value : `https://www.youtube.com/watch?v=${value}`;
+};
+
+const proxyFetch = async (url) => {
+  const res = await fetch(url, { headers: { "User-Agent": "Mozilla/5.0" } });
+  const body = await res.text();
+  return { ok: res.ok, status: res.status, headers: res.headers, body };
+};
+
+const parseJson = (body) => {
+  try { return JSON.parse(body); } catch { return null; }
+};
+
 const formatAge = (ms) => {
   const s = Math.floor(ms / 1000);
   const d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600),
-        m = Math.floor((s % 3600) / 60), sec = s % 60;
+    m = Math.floor((s % 3600) / 60), sec = s % 60;
   if (d > 0) return `${d}d ${h}h ${m}m ${sec}s`;
   if (h > 0) return `${h}h ${m}m ${sec}s`;
   if (m > 0) return `${m}m ${sec}s`;
@@ -138,11 +154,12 @@ const SWAGGER_SPEC = {
   servers: [{ url: "/", description: "Netlify Functions" }],
   tags: [
     { name: "Transcripts", description: "YouTube caption / SRT endpoints" },
-    { name: "TTS",         description: "Text-to-speech proxy" },
-    { name: "AI",          description: "OpenRouter chat proxy" },
-    { name: "Health",      description: "Server status & logs" },
+    { name: "TTS", description: "Text-to-speech proxy" },
+    { name: "AI", description: "OpenRouter chat proxy" },
+    { name: "Health", description: "Server status & logs" },
   ],
   paths: {
+
     "/api/transcript/languages": {
       get: {
         summary: "List caption languages", tags: ["Transcripts"],
@@ -154,19 +171,47 @@ const SWAGGER_SPEC = {
       get: {
         summary: "Fetch transcript as SRT", tags: ["Transcripts"],
         parameters: [
-          { name: "videoId", in: "query", required: true,  schema: { type: "string" } },
-          { name: "lang",    in: "query", required: false, schema: { type: "string", default: "en" } },
-          { name: "method",  in: "query", required: false, schema: { type: "string", enum: ["1", "2", "3"] }, description: "1=youtube-transcript-plus, 2=youtube-transcript-api-js, 3=ytInitialPlayerResponse+json3 (downsub-style)" },
+          { name: "videoId", in: "query", required: true, schema: { type: "string" } },
+          { name: "lang", in: "query", required: false, schema: { type: "string", default: "en" } },
+          { name: "targetLang", in: "query", required: false, schema: { type: "string" } },
         ],
-        responses: { 200: { description: "SRT text" }, 400: { description: "Missing videoId" }, 500: { description: "Error" } },
+        responses: { 200: { description: "SRT text" }, 400: { description: "Missing params" }, 500: { description: "Error" } },
+      },
+    },
+    "/api/transcript/translate": {
+      get: {
+        summary: "Fetch translated transcript as SRT", tags: ["Transcripts"],
+        parameters: [
+          { name: "videoId", in: "query", required: true, schema: { type: "string" } },
+          { name: "lang", in: "query", required: false, schema: { type: "string", default: "en" } },
+        ],
+        responses: { 200: { description: "Translated SRT text" }, 400: { description: "Missing params" }, 500: { description: "Error" } },
+      },
+    },
+    "/api/youtube/{proxyAction}": {
+      get: {
+        summary: "Proxy YouTube service endpoint paths to the external API",
+        tags: ["Transcripts"],
+        parameters: [
+          { name: "proxyAction", in: "path", required: true, schema: { type: "string", enum: ["video-info", "transcript-supported-languages", "default-transcript-languages", "translate-transcript", "subtitles"] }, description: "Upstream YouTube API action name" },
+          { name: "videoId", in: "query", required: false, schema: { type: "string" }, description: "YouTube video ID or URL" },
+          { name: "videoID", in: "query", required: false, schema: { type: "string" }, description: "YouTube video ID" },
+          { name: "url", in: "query", required: false, schema: { type: "string" }, description: "YouTube video URL" },
+          { name: "language", in: "query", required: false, schema: { type: "string" } },
+          { name: "targetLanguage", in: "query", required: false, schema: { type: "string" } },
+          { name: "type", in: "query", required: false, schema: { type: "string", enum: ["srt", "vtt", "txt"] } },
+          { name: "autoTranslate", in: "query", required: false, schema: { type: "string", enum: ["0", "1"] } },
+          { name: "download", in: "query", required: false, schema: { type: "string", enum: ["0", "1"] } },
+        ],
+        responses: { 200: { description: "Proxied response from YouTube service" }, 400: { description: "Missing params or invalid action" }, 502: { description: "Upstream service error" } },
       },
     },
     "/api/tts": {
       get: {
         summary: "TTS audio proxy", tags: ["TTS"],
         parameters: [
-          { name: "text", in: "query", required: true,  schema: { type: "string" } },
-          { name: "lang", in: "query", required: true,  schema: { type: "string" } },
+          { name: "text", in: "query", required: true, schema: { type: "string" } },
+          { name: "lang", in: "query", required: true, schema: { type: "string" } },
         ],
         responses: { 200: { description: "MP3 audio" }, 400: { description: "Missing params" }, 500: { description: "Error" } },
       },
@@ -193,23 +238,32 @@ const SWAGGER_SPEC = {
         responses: {
           200: {
             description: "Log entries",
-            content: { "application/json": { schema: { type: "object", properties: {
-              entries: { type: "array", items: { type: "object", properties: {
-                id:    { type: "integer" },
-                ts:    { type: "string", format: "date-time" },
-                level: { type: "string", enum: ["INFO", "WARN", "ERROR"] },
-                msg:   { type: "string" },
-                meta:  { type: "object" },
-              }}},
-              maxId: { type: "integer" },
-              note:  { type: "string" },
-            }}},
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object", properties: {
+                    entries: {
+                      type: "array", items: {
+                        type: "object", properties: {
+                          id: { type: "integer" },
+                          ts: { type: "string", format: "date-time" },
+                          level: { type: "string", enum: ["INFO", "WARN", "ERROR"] },
+                          msg: { type: "string" },
+                          meta: { type: "object" },
+                        }
+                      }
+                    },
+                    maxId: { type: "integer" },
+                    note: { type: "string" },
+                  }
+                }
+              },
+            },
           },
         },
       },
     },
   },
-},
 };
 
 exports.handler = async (event) => {
@@ -262,54 +316,76 @@ exports.handler = async (event) => {
     });
   }
 
-  // ── Transcript languages ──────────────────────────────────────────────────────
-  if (method === "GET" && apiPath === "/api/transcript/languages") {
-    const { videoId } = qs;
-    if (!videoId) return json(400, { error: "videoId is required" });
+
+
+  const fetchYoutube = async (path, params = {}) => {
+    const url = new URL(`${YOUTUBE_API_BASE}${path}`);
+    Object.entries(params).forEach(([key, value]) => {
+      if (value != null && value !== "") url.searchParams.set(key, String(value));
+    });
+    log("info", "youtube upstream request", { url: url.toString() });
+    return proxyFetch(url.toString());
+  };
+
+  const buildVideoUrl = (videoId) => normalizeYoutubeUrl(videoId);
+
+  const normalizeYoutubeQuery = (proxyAction, qs = {}) => {
+    const params = {};
+    const videoId = String(qs.videoId || qs.videoID || "").trim();
+
+    if (proxyAction === "video-info" || proxyAction === "subtitles") {
+      const urlValue = qs.url || (videoId ? buildVideoUrl(videoId) : undefined);
+      if (urlValue) params.url = normalizeYoutubeUrl(urlValue);
+    } else if (videoId) {
+      params.videoID = videoId;
+    }
+
+    if (qs.language) params.language = qs.language;
+    if (qs.lang && !params.language) params.language = qs.lang;
+    if (qs.targetLanguage) params.targetLanguage = qs.targetLanguage;
+    if (qs.type) params.type = qs.type;
+    if (qs.autoTranslate) params.autoTranslate = qs.autoTranslate;
+    if (qs.download) params.download = qs.download;
+
+    return params;
+  };
+
+  if (method === "GET" && apiPath.startsWith("/api/youtube")) {
+    const rawSubpath = apiPath.slice("/api/youtube".length);
+    const proxyAction = rawSubpath.replace(/^\/+|\/+$/g, "");
+    if (!proxyAction) {
+      return json(400, { error: "Missing proxy path. Use /api/youtube/{video-info|transcript-supported-languages|default-transcript-languages|translate-transcript|subtitles}" });
+    }
+
+    const params = normalizeYoutubeQuery(proxyAction, qs);
+    const upstreamPath = `/api/${proxyAction}`;
     const t0 = Date.now();
+
     try {
-      const data   = await ytPlayerData(String(videoId));
-      let tracks   = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
-      if (!tracks.length) {
-        try {
-          const { YouTubeTranscriptApi } = await import("youtube-transcript-api-js");
-          const api  = new YouTubeTranscriptApi();
-          const list = await api.list(String(videoId));
-          tracks = (list?.transcripts || []).map(t => ({
-            languageCode: t.languageCode || "",
-            name: { simpleText: t.language || t.languageCode || "" },
-            kind: t.isGenerated ? "asr" : undefined,
-          }));
-        } catch (fb) { log("warn", "transcript/languages fallback failed", { videoId, error: fb.message }); }
+      const upstream = await fetchYoutube(upstreamPath, params);
+      if (!upstream.ok) {
+        throw new Error(`YouTube upstream HTTP ${upstream.status}: ${upstream.body.slice(0, 200)}`);
       }
-      const vd = data?.videoDetails || {};
-      const result = {
-        videoDetails: { title: vd.title || null, author: vd.author || null, lengthSeconds: vd.lengthSeconds || null, videoId: vd.videoId || videoId },
-        availableLanguages: tracks.map(t => ({ languageCode: t.languageCode, name: t.name?.simpleText || t.languageCode, isAutoGenerated: t.kind === "asr" })),
+
+      const contentType = upstream.headers.get("content-type") || "text/plain; charset=utf-8";
+      if (contentType.includes("application/json")) {
+        const parsed = parseJson(upstream.body);
+        log("info", "/api/youtube proxy OK", { path: upstreamPath, elapsed: Date.now() - t0 });
+        return json(200, parsed !== null ? parsed : { data: upstream.body });
+      }
+
+      log("info", "/api/youtube proxy OK", { path: upstreamPath, elapsed: Date.now() - t0 });
+      return {
+        statusCode: 200,
+        headers: { ...corsHeaders, "Content-Type": contentType },
+        body: upstream.body,
       };
-      log("info", "transcript/languages OK", { videoId, tracks: result.availableLanguages.length, elapsed: Date.now() - t0 });
-      return json(200, result);
-    } catch (e) {
-      log("error", "transcript/languages failed", { videoId, error: e.message, elapsed: Date.now() - t0 });
-      return json(500, { error: e.message });
+    } catch (err) {
+      log("error", "/api/youtube proxy failed", { path: upstreamPath, error: err.message, elapsed: Date.now() - t0 });
+      return json(502, { error: err.message });
     }
   }
 
-  // ── SRT fetch ─────────────────────────────────────────────────────────────────
-  if (method === "GET" && apiPath === "/api/srt") {
-    const { videoId, lang, method: srtMethod } = qs;
-    if (!videoId) return json(400, { error: "videoId is required" });
-    const langCode = String(lang || "en").split("-")[0];
-    const t0 = Date.now();
-    try {
-      const srt = await fetchSrt(String(videoId), langCode, srtMethod);
-      log("info", "SRT OK", { videoId, lang: langCode, method: srtMethod || "auto", elapsed: Date.now() - t0 });
-      return textResp(200, srt);
-    } catch (e) {
-      log("error", "SRT failed", { videoId, lang: langCode, error: e.message, elapsed: Date.now() - t0 });
-      return json(500, { error: e.message });
-    }
-  }
 
   // ── TTS proxy ─────────────────────────────────────────────────────────────────
   if (method === "GET" && apiPath === "/api/tts") {
@@ -343,9 +419,9 @@ exports.handler = async (event) => {
         log("warn", "free-models upstream error", { status: orRes.status });
         return json(orRes.status, { error: "OpenRouter returned " + orRes.status });
       }
-      const data    = await orRes.json();
+      const data = await orRes.json();
       const rawList = data?.data?.models ?? data?.data ?? data?.models ?? data ?? [];
-      const models  = rawList.map((m) => ({ id: m.slug || m.id || "", label: m.name || m.short_name || m.slug || "" })).filter((m) => m.id);
+      const models = rawList.map((m) => ({ id: m.slug || m.id || "", label: m.name || m.short_name || m.slug || "" })).filter((m) => m.id);
       log("info", "free-models OK", { count: models.length, elapsed: Date.now() - t0 });
       return json(200, { models });
     } catch (err) {
@@ -357,7 +433,7 @@ exports.handler = async (event) => {
   // ── AI health ─────────────────────────────────────────────────────────────────
   if (method === "POST" && apiPath === "/api/health_ai") {
     let body = {};
-    try { body = JSON.parse(event.body || "{}"); } catch {}
+    try { body = JSON.parse(event.body || "{}"); } catch { }
     const key = body.apiKey || ENV_KEY;
     if (!key) return json(401, { ok: false, error: "No API key available." });
     const t0 = Date.now();
@@ -385,7 +461,7 @@ exports.handler = async (event) => {
   // ── Chat proxy ────────────────────────────────────────────────────────────────
   if (method === "POST" && apiPath === "/api/chat") {
     let body = {};
-    try { body = JSON.parse(event.body || "{}"); } catch {}
+    try { body = JSON.parse(event.body || "{}"); } catch { }
     const { messages, model, apiKey, maxTokens } = body;
     if (!Array.isArray(messages) || !model) return json(400, { error: "messages (array) and model (string) are required" });
     const key = apiKey || ENV_KEY;
@@ -404,7 +480,7 @@ exports.handler = async (event) => {
         log("error", "OpenRouter chat error", { status: orRes.status, model, elapsed: Date.now() - t0 });
         return json(orRes.status, { error: `OpenRouter ${orRes.status}: ${errBody || orRes.statusText}` });
       }
-      const data    = await orRes.json();
+      const data = await orRes.json();
       const content = data?.choices?.[0]?.message?.content;
       if (!content) return json(500, { error: "No content in OpenRouter response" });
       log("info", "OpenRouter chat OK", { model, elapsed: Date.now() - t0, promptTokens: data.usage?.prompt_tokens, completionTokens: data.usage?.completion_tokens });

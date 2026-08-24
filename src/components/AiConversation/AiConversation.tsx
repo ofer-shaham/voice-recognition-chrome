@@ -114,7 +114,7 @@ const lsSetJSON = (key: string, value: unknown) => {
   localStorage.setItem(key, JSON.stringify(value));
 };
 
-const API_BASE = process.env.REACT_APP_API_URL || "";
+const API_BASE = import.meta.env.VITE_API_URL || "";
 
 interface HealthSignal {
   timestamp: number;
@@ -255,7 +255,7 @@ const AiConversation: React.FC = () => {
   // ── auto-replace timer ─────────────────────────────────────────────────────
   const autoReplaceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const userInteractedRef = useRef(false);
-  const regenerateFromIndexRef = useRef<(index: number) => void>(() => {});
+  const regenerateFromIndexRef = useRef<(index: number) => void>(() => { });
 
   // ── refs ───────────────────────────────────────────────────────────────────
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -342,7 +342,7 @@ const AiConversation: React.FC = () => {
       .catch(() => {
         setApiKeyWarning("Could not reach the AI service — check your connection.");
       });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── server health polling ─────────────────────────────────────────────────
@@ -386,7 +386,7 @@ const AiConversation: React.FC = () => {
       .then((data) => {
         if (data?.models?.length) setFreeModels(data.models);
       })
-      .catch(() => {});
+      .catch(() => { });
   }, []);
 
   // ── ai health ping ────────────────────────────────────────────────────────
@@ -1388,325 +1388,325 @@ const AiConversation: React.FC = () => {
               <button className="ai-popup-close" onClick={() => setShowSettings(false)}>✕</button>
             </div>
             <div className="ai-popup-body">
-        <div className="ai-settings-panel">
-          <div className="ai-settings-section">
-            <label className="ai-settings-label">API Key</label>
-            <div className="ai-key-row">
-              <input
-                className="ai-key-input"
-                type={showKey ? "text" : "password"}
-                value={uiApiKey}
-                onChange={(e) => setUiApiKey(e.target.value)}
-                onBlur={(e) => commitApiKey(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter")
-                    commitApiKey((e.target as HTMLInputElement).value);
-                }}
-                placeholder={
-                  serverHasKey
-                    ? "Server key active — paste to override"
-                    : "sk-or-..."
-                }
-                spellCheck={false}
-                autoComplete="off"
-              />
-              <button
-                className="ai-key-toggle"
-                onClick={() => setShowKey((p) => !p)}
-                title={showKey ? "Hide" : "Show"}
-              >
-                {showKey ? "Hide" : "Show"}
-              </button>
-              {keyDirty && (
-                <button
-                  className="ai-key-save"
-                  onClick={() => commitApiKey(uiApiKey)}
-                >
-                  Save
-                </button>
-              )}
-              {activeApiKey && (
-                <button
-                  className="ai-key-clear"
-                  onClick={clearApiKey}
-                  title="Remove override"
-                >
-                  X
-                </button>
-              )}
-            </div>
-            <span className="ai-key-hint">
-              {keyStatus === "checking" && (
-                <span style={{ color: "#888" }}>Checking server...</span>
-              )}
-              {keyStatus === "ui" && (
-                <span style={{ color: "#4caf50" }}>Using your key ...{activeApiKey.slice(-4)}</span>
-              )}
-              {keyStatus === "server" && (
-                <span style={{ color: "#4caf50" }}>Server key active</span>
-              )}
-              {keyStatus === "none" && (
-                <span style={{ color: "#e94560" }}>
-                  No key — enter one above or set OPENROUTER_API_KEY on the server
-                </span>
-              )}
-            </span>
-          </div>
-
-          <div className="ai-settings-section">
-            <button
-              className="ai-prompt-accordion-btn"
-              onClick={() => setShowPromptAccordion((p) => !p)}
-            >
-              <span className="ai-prompt-accordion-title">System prompt</span>
-              <span className={`ai-prompt-accordion-toggle${showPromptAccordion ? " open" : ""}`}>
-                ▼
-              </span>
-            </button>
-
-            {showPromptAccordion && (
-              <div className="ai-prompt-accordion-content">
-                <div className="ai-prompt-list">
-                  {promptList.map((p, i) => (
-                    <div
-                      key={i}
-                      className={`ai-prompt-item${p === systemPrompt ? " active" : ""}`}
-                      onClick={() => selectPrompt(p)}
-                      title={p}
+              <div className="ai-settings-panel">
+                <div className="ai-settings-section">
+                  <label className="ai-settings-label">API Key</label>
+                  <div className="ai-key-row">
+                    <input
+                      className="ai-key-input"
+                      type={showKey ? "text" : "password"}
+                      value={uiApiKey}
+                      onChange={(e) => setUiApiKey(e.target.value)}
+                      onBlur={(e) => commitApiKey(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter")
+                          commitApiKey((e.target as HTMLInputElement).value);
+                      }}
+                      placeholder={
+                        serverHasKey
+                          ? "Server key active — paste to override"
+                          : "sk-or-..."
+                      }
+                      spellCheck={false}
+                      autoComplete="off"
+                    />
+                    <button
+                      className="ai-key-toggle"
+                      onClick={() => setShowKey((p) => !p)}
+                      title={showKey ? "Hide" : "Show"}
                     >
-                      <span className="ai-prompt-text">{p}</span>
+                      {showKey ? "Hide" : "Show"}
+                    </button>
+                    {keyDirty && (
                       <button
-                        className="ai-prompt-remove"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          removePrompt(i);
-                        }}
-                        title="Remove"
+                        className="ai-key-save"
+                        onClick={() => commitApiKey(uiApiKey)}
                       >
-                        ✕
+                        Save
                       </button>
+                    )}
+                    {activeApiKey && (
+                      <button
+                        className="ai-key-clear"
+                        onClick={clearApiKey}
+                        title="Remove override"
+                      >
+                        X
+                      </button>
+                    )}
+                  </div>
+                  <span className="ai-key-hint">
+                    {keyStatus === "checking" && (
+                      <span style={{ color: "#888" }}>Checking server...</span>
+                    )}
+                    {keyStatus === "ui" && (
+                      <span style={{ color: "#4caf50" }}>Using your key ...{activeApiKey.slice(-4)}</span>
+                    )}
+                    {keyStatus === "server" && (
+                      <span style={{ color: "#4caf50" }}>Server key active</span>
+                    )}
+                    {keyStatus === "none" && (
+                      <span style={{ color: "#e94560" }}>
+                        No key — enter one above or set OPENROUTER_API_KEY on the server
+                      </span>
+                    )}
+                  </span>
+                </div>
+
+                <div className="ai-settings-section">
+                  <button
+                    className="ai-prompt-accordion-btn"
+                    onClick={() => setShowPromptAccordion((p) => !p)}
+                  >
+                    <span className="ai-prompt-accordion-title">System prompt</span>
+                    <span className={`ai-prompt-accordion-toggle${showPromptAccordion ? " open" : ""}`}>
+                      ▼
+                    </span>
+                  </button>
+
+                  {showPromptAccordion && (
+                    <div className="ai-prompt-accordion-content">
+                      <div className="ai-prompt-list">
+                        {promptList.map((p, i) => (
+                          <div
+                            key={i}
+                            className={`ai-prompt-item${p === systemPrompt ? " active" : ""}`}
+                            onClick={() => selectPrompt(p)}
+                            title={p}
+                          >
+                            <span className="ai-prompt-text">{p}</span>
+                            <button
+                              className="ai-prompt-remove"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removePrompt(i);
+                              }}
+                              title="Remove"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="ai-prompt-add-row">
+                        <input
+                          className="ai-prompt-add-input"
+                          placeholder="Add a new prompt..."
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              const val = (e.target as HTMLInputElement).value;
+                              if (val.trim()) {
+                                addPrompt(val.trim());
+                                (e.target as HTMLInputElement).value = "";
+                              }
+                            }
+                          }}
+                        />
+                        <button
+                          className="ai-prompt-add-btn"
+                          onClick={() => {
+                            const input = document.querySelector(".ai-prompt-add-input") as HTMLInputElement;
+                            if (input?.value.trim()) {
+                              addPrompt(input.value.trim());
+                              input.value = "";
+                            }
+                          }}
+                        >
+                          Add
+                        </button>
+                      </div>
+                      <textarea
+                        className="ai-settings-textarea"
+                        value={systemPrompt}
+                        onChange={(e) => setSystemPrompt(e.target.value)}
+                        placeholder="e.g. You are a helpful assistant."
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="ai-settings-section">
+                  <label className="ai-settings-label">
+                    Reply length —{" "}
+                    <span className="ai-words-value">{maxWords} words</span>
+                  </label>
+                  <div className="ai-words-row">
+                    <span className="ai-words-edge">5</span>
+                    <input
+                      type="range"
+                      className="ai-words-range"
+                      min={5}
+                      max={50}
+                      step={1}
+                      value={maxWords}
+                      onChange={(e) => handleMaxWordsChange(Number(e.target.value))}
+                    />
+                    <span className="ai-words-edge">50</span>
+                    <input
+                      type="number"
+                      className="ai-words-number"
+                      min={5}
+                      max={50}
+                      value={maxWords}
+                      onChange={(e) => {
+                        const v = Math.min(50, Math.max(5, Number(e.target.value)));
+                        handleMaxWordsChange(v);
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="ai-settings-section">
+                  <label className="ai-settings-label">
+                    Vocabulary level —{" "}
+                    <span className="ai-words-value">
+                      {VOCAB_LEVELS.find((v) => v.level === vocabLevel)?.label}
+                    </span>
+                  </label>
+                  <div className="ai-words-row">
+                    <span className="ai-words-edge">1</span>
+                    <input
+                      type="range"
+                      className="ai-words-range ai-vocab-range"
+                      min={1}
+                      max={5}
+                      step={1}
+                      value={vocabLevel}
+                      onChange={(e) => handleVocabLevelChange(Number(e.target.value))}
+                    />
+                    <span className="ai-words-edge">5</span>
+                  </div>
+                  <p className="ai-vocab-hint">
+                    {VOCAB_LEVELS.find((v) => v.level === vocabLevel)?.hint}
+                  </p>
+                </div>
+
+                <div className="ai-settings-section">
+                  <label className="ai-settings-label">
+                    Auto-replace —{" "}
+                    <span className="ai-words-value">
+                      {autoReplaceSec === 0 ? "Off" : `${autoReplaceSec}s`}
+                    </span>
+                  </label>
+                  <div className="ai-words-row">
+                    <span className="ai-words-edge">0</span>
+                    <input
+                      type="range"
+                      className="ai-words-range"
+                      min={0}
+                      max={30}
+                      step={1}
+                      value={autoReplaceSec}
+                      onChange={(e) => handleAutoReplaceChange(Number(e.target.value))}
+                    />
+                    <span className="ai-words-edge">30</span>
+                    <input
+                      type="number"
+                      className="ai-words-number"
+                      min={0}
+                      max={60}
+                      value={autoReplaceSec}
+                      onChange={(e) => {
+                        const v = Math.min(60, Math.max(0, Number(e.target.value)));
+                        handleAutoReplaceChange(v);
+                      }}
+                    />
+                  </div>
+                </div>
+
+                <div className="ai-settings-row">
+                  <label className="ai-settings-check">
+                    <input
+                      type="checkbox"
+                      checked={ttsEnabled}
+                      onChange={(e) => setTtsEnabled(e.target.checked)}
+                    />
+                    Read replies aloud
+                  </label>
+                </div>
+
+                <div className="ai-settings-section">
+                  <label className="ai-settings-label">Playback speed per language</label>
+                  {VOICE_LANGS.map((l) => (
+                    <div key={l.code} className="ai-tts-rate-row">
+                      <span className="ai-tts-rate-lang">{l.label}</span>
+                      <input
+                        type="range"
+                        className="ai-words-range"
+                        min={0.5}
+                        max={2.0}
+                        step={0.05}
+                        value={ttsRates[l.code] ?? 1.0}
+                        onChange={(e) => handleTtsRateChange(l.code, Number(e.target.value))}
+                      />
+                      <span className="ai-tts-rate-value">{(ttsRates[l.code] ?? 1.0).toFixed(2)}×</span>
                     </div>
                   ))}
                 </div>
-                <div className="ai-prompt-add-row">
-                  <input
-                    className="ai-prompt-add-input"
-                    placeholder="Add a new prompt..."
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        const val = (e.target as HTMLInputElement).value;
-                        if (val.trim()) {
-                          addPrompt(val.trim());
-                          (e.target as HTMLInputElement).value = "";
-                        }
-                      }
-                    }}
-                  />
-                  <button
-                    className="ai-prompt-add-btn"
-                    onClick={() => {
-                      const input = document.querySelector(".ai-prompt-add-input") as HTMLInputElement;
-                      if (input?.value.trim()) {
-                        addPrompt(input.value.trim());
-                        input.value = "";
-                      }
-                    }}
-                  >
-                    Add
-                  </button>
+
+                <div className="ai-settings-section">
+                  <label className="ai-settings-label">Voice per language</label>
+                  {VOICE_LANGS.map((l) => {
+                    const langVoices = availableVoices.filter((v) =>
+                      v.lang === l.code ||
+                      v.lang.replace("_", "-") === l.code ||
+                      v.lang.split(/[-_]/)[0].toLowerCase() === l.code.split("-")[0].toLowerCase(),
+                    );
+                    return (
+                      <div key={l.code} className="ai-voice-row">
+                        <span className="ai-tts-rate-lang">{l.label}</span>
+                        <select
+                          className="ai-voice-select"
+                          value={selectedVoiceNames[l.code] ?? ""}
+                          onChange={(e) => handleVoiceNameChange(l.code, e.target.value)}
+                        >
+                          <option value="">Auto</option>
+                          {langVoices.map((v) => (
+                            <option key={v.name} value={v.name}>{v.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    );
+                  })}
                 </div>
-                <textarea
-                  className="ai-settings-textarea"
-                  value={systemPrompt}
-                  onChange={(e) => setSystemPrompt(e.target.value)}
-                  placeholder="e.g. You are a helpful assistant."
-                />
-              </div>
-            )}
-          </div>
 
-          <div className="ai-settings-section">
-            <label className="ai-settings-label">
-              Reply length —{" "}
-              <span className="ai-words-value">{maxWords} words</span>
-            </label>
-            <div className="ai-words-row">
-              <span className="ai-words-edge">5</span>
-              <input
-                type="range"
-                className="ai-words-range"
-                min={5}
-                max={50}
-                step={1}
-                value={maxWords}
-                onChange={(e) => handleMaxWordsChange(Number(e.target.value))}
-              />
-              <span className="ai-words-edge">50</span>
-              <input
-                type="number"
-                className="ai-words-number"
-                min={5}
-                max={50}
-                value={maxWords}
-                onChange={(e) => {
-                  const v = Math.min(50, Math.max(5, Number(e.target.value)));
-                  handleMaxWordsChange(v);
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="ai-settings-section">
-            <label className="ai-settings-label">
-              Vocabulary level —{" "}
-              <span className="ai-words-value">
-                {VOCAB_LEVELS.find((v) => v.level === vocabLevel)?.label}
-              </span>
-            </label>
-            <div className="ai-words-row">
-              <span className="ai-words-edge">1</span>
-              <input
-                type="range"
-                className="ai-words-range ai-vocab-range"
-                min={1}
-                max={5}
-                step={1}
-                value={vocabLevel}
-                onChange={(e) => handleVocabLevelChange(Number(e.target.value))}
-              />
-              <span className="ai-words-edge">5</span>
-            </div>
-            <p className="ai-vocab-hint">
-              {VOCAB_LEVELS.find((v) => v.level === vocabLevel)?.hint}
-            </p>
-          </div>
-
-          <div className="ai-settings-section">
-            <label className="ai-settings-label">
-              Auto-replace —{" "}
-              <span className="ai-words-value">
-                {autoReplaceSec === 0 ? "Off" : `${autoReplaceSec}s`}
-              </span>
-            </label>
-            <div className="ai-words-row">
-              <span className="ai-words-edge">0</span>
-              <input
-                type="range"
-                className="ai-words-range"
-                min={0}
-                max={30}
-                step={1}
-                value={autoReplaceSec}
-                onChange={(e) => handleAutoReplaceChange(Number(e.target.value))}
-              />
-              <span className="ai-words-edge">30</span>
-              <input
-                type="number"
-                className="ai-words-number"
-                min={0}
-                max={60}
-                value={autoReplaceSec}
-                onChange={(e) => {
-                  const v = Math.min(60, Math.max(0, Number(e.target.value)));
-                  handleAutoReplaceChange(v);
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="ai-settings-row">
-            <label className="ai-settings-check">
-              <input
-                type="checkbox"
-                checked={ttsEnabled}
-                onChange={(e) => setTtsEnabled(e.target.checked)}
-              />
-              Read replies aloud
-            </label>
-          </div>
-
-          <div className="ai-settings-section">
-            <label className="ai-settings-label">Playback speed per language</label>
-            {VOICE_LANGS.map((l) => (
-              <div key={l.code} className="ai-tts-rate-row">
-                <span className="ai-tts-rate-lang">{l.label}</span>
-                <input
-                  type="range"
-                  className="ai-words-range"
-                  min={0.5}
-                  max={2.0}
-                  step={0.05}
-                  value={ttsRates[l.code] ?? 1.0}
-                  onChange={(e) => handleTtsRateChange(l.code, Number(e.target.value))}
-                />
-                <span className="ai-tts-rate-value">{(ttsRates[l.code] ?? 1.0).toFixed(2)}×</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="ai-settings-section">
-            <label className="ai-settings-label">Voice per language</label>
-            {VOICE_LANGS.map((l) => {
-              const langVoices = availableVoices.filter((v) =>
-                v.lang === l.code ||
-                v.lang.replace("_", "-") === l.code ||
-                v.lang.split(/[-_]/)[0].toLowerCase() === l.code.split("-")[0].toLowerCase(),
-              );
-              return (
-                <div key={l.code} className="ai-voice-row">
-                  <span className="ai-tts-rate-lang">{l.label}</span>
-                  <select
-                    className="ai-voice-select"
-                    value={selectedVoiceNames[l.code] ?? ""}
-                    onChange={(e) => handleVoiceNameChange(l.code, e.target.value)}
-                  >
-                    <option value="">Auto</option>
-                    {langVoices.map((v) => (
-                      <option key={v.name} value={v.name}>{v.name}</option>
-                    ))}
-                  </select>
+                <div className="ai-settings-section">
+                  <label className="ai-settings-label">
+                    Vocabulary recycling —{" "}
+                    <span className="ai-words-value">
+                      {repeatFromLines === 0 ? "All lines" : `Last ${repeatFromLines} exchanges`}
+                    </span>
+                  </label>
+                  <div className="ai-words-row">
+                    <span className="ai-words-edge">All</span>
+                    <input
+                      type="range"
+                      className="ai-words-range"
+                      min={0}
+                      max={10}
+                      step={1}
+                      value={repeatFromLines}
+                      onChange={(e) => handleRepeatFromLinesChange(Number(e.target.value))}
+                    />
+                    <span className="ai-words-edge">10</span>
+                    <input
+                      type="number"
+                      className="ai-words-number"
+                      min={0}
+                      max={20}
+                      value={repeatFromLines}
+                      onChange={(e) =>
+                        handleRepeatFromLinesChange(Math.max(0, Number(e.target.value)))
+                      }
+                    />
+                  </div>
+                  <p className="ai-vocab-hint">
+                    {repeatFromLines === 0
+                      ? "Reuse vocabulary from the entire conversation."
+                      : `Only reuse vocabulary from the last ${repeatFromLines} message exchange${repeatFromLines === 1 ? "" : "s"}.`}
+                  </p>
                 </div>
-              );
-            })}
-          </div>
-
-          <div className="ai-settings-section">
-            <label className="ai-settings-label">
-              Vocabulary recycling —{" "}
-              <span className="ai-words-value">
-                {repeatFromLines === 0 ? "All lines" : `Last ${repeatFromLines} exchanges`}
-              </span>
-            </label>
-            <div className="ai-words-row">
-              <span className="ai-words-edge">All</span>
-              <input
-                type="range"
-                className="ai-words-range"
-                min={0}
-                max={10}
-                step={1}
-                value={repeatFromLines}
-                onChange={(e) => handleRepeatFromLinesChange(Number(e.target.value))}
-              />
-              <span className="ai-words-edge">10</span>
-              <input
-                type="number"
-                className="ai-words-number"
-                min={0}
-                max={20}
-                value={repeatFromLines}
-                onChange={(e) =>
-                  handleRepeatFromLinesChange(Math.max(0, Number(e.target.value)))
-                }
-              />
-            </div>
-            <p className="ai-vocab-hint">
-              {repeatFromLines === 0
-                ? "Reuse vocabulary from the entire conversation."
-                : `Only reuse vocabulary from the last ${repeatFromLines} message exchange${repeatFromLines === 1 ? "" : "s"}.`}
-            </p>
-          </div>
-        </div>
+              </div>
             </div>
           </div>
         </>
@@ -1869,16 +1869,16 @@ const AiConversation: React.FC = () => {
               >
                 {isPlaying && playingCharIndex !== null
                   ? (() => {
-                      let pos = 0;
-                      return msg.content.split(/(\s+)/).map((token, ti) => {
-                        const start = pos;
-                        pos += token.length;
-                        const hl = /\S/.test(token) && playingCharIndex >= start && playingCharIndex < pos;
-                        return hl
-                          ? <mark key={ti} className="ai-word-playing">{token}</mark>
-                          : <span key={ti}>{token}</span>;
-                      });
-                    })()
+                    let pos = 0;
+                    return msg.content.split(/(\s+)/).map((token, ti) => {
+                      const start = pos;
+                      pos += token.length;
+                      const hl = /\S/.test(token) && playingCharIndex >= start && playingCharIndex < pos;
+                      return hl
+                        ? <mark key={ti} className="ai-word-playing">{token}</mark>
+                        : <span key={ti}>{token}</span>;
+                    });
+                  })()
                   : msg.content}
               </div>
               {msg.translation && (
@@ -1895,13 +1895,12 @@ const AiConversation: React.FC = () => {
       {/* ── input bar ───────────────────────────────────────────────────── */}
       <div className="ai-input-bar">
         <button
-          className={`ai-mic-btn${
-            listening
+          className={`ai-mic-btn${listening
               ? " listening"
               : voiceMode === "auto" && !isLoading && !isSpeaking
                 ? " auto-ready"
                 : ""
-          }`}
+            }`}
           onClick={toggleListening}
           title={listening ? "Stop recording" : "Start recording"}
         >

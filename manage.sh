@@ -682,8 +682,36 @@ LOG_DIR="logs"
 
 mkdir -p "$LOG_DIR"
 
+# Resolve the node binary — on Replit, node may only be in the Nix store path,
+# not in the bare PATH that nohup inherits.  Try: PATH first, then the Replit
+# helper that lists available node paths, then a known Nix profile location.
+_resolve_node() {
+  if command -v node &>/dev/null; then
+    command -v node
+    return
+  fi
+  local helper="/nix/store/h8lc486l7m2j4qxrgc0cf3ild1n9xjlr-replit-runtime-path/bin/available-pid2-node-paths"
+  if [[ -x "$helper" ]]; then
+    local p; p=$(bash "$helper" 2>/dev/null | head -1)
+    [[ -x "$p" ]] && { echo "$p"; return; }
+  fi
+  # Fall back: glob the most recent nodejs in the Nix store
+  local p; p=$(ls /nix/store/*/bin/node 2>/dev/null | sort -V | tail -1)
+  [[ -x "$p" ]] && { echo "$p"; return; }
+  echo "node"  # last resort — let the error surface naturally
+}
+NODE="$(_resolve_node)"
+# On Replit, npm is often named "nodenpm" next to the node binary.
+_resolve_npm() {
+  local dir; dir="$(dirname "$NODE")"
+  if [[ -x "${dir}/npm" ]];     then echo "${dir}/npm";     return; fi
+  if [[ -x "${dir}/nodenpm" ]]; then echo "${dir}/nodenpm"; return; fi
+  command -v npm 2>/dev/null || echo "npm"
+}
+NPM="$(_resolve_npm)"
+
 port_is_free() {
-  node -e "
+  "$NODE" -e "
     const net = require('net');
     const s = net.createServer();
     s.listen($1, '0.0.0.0', () => { s.close(); process.exit(0); });
@@ -734,8 +762,15 @@ native_start_service() {
   fi
 
   if ! port_is_free "$port"; then
-    error "Port $port is already in use — cannot start $name."
-    return 1
+    # Check if we can identify who holds the port.  If nobody can be found
+    # (e.g. Replit proxy / different network namespace), attempt to start
+    # anyway — the process itself will surface a real bind error if needed.
+    local holder; holder=$(pid_on_port "$port") || true
+    if [[ -n "${holder:-}" ]]; then
+      error "Port $port is already in use (PID $holder) — cannot start $name."
+      return 1
+    fi
+    warn "Port $port appears busy but no owning process found (likely a Replit proxy port) — attempting to start $name anyway."
   fi
 
   info "Starting $name on port $port (logs → $logfile)…"
@@ -787,21 +822,35 @@ native_stop_service() {
       kill -9 "$squatter" 2>/dev/null || true
       info "Port $port freed."
     else
-      warn "Port $port is in use but the holder could not be identified — proceeding anyway."
+      # pid_on_port failed — try fuser as a fallback, then accept the port
+      # may be held by a Replit proxy in a different network namespace.
+      if fuser -k "${port}/tcp" 2>/dev/null; then
+        info "Port $port freed via fuser."
+      else
+        warn "Port $port is in use but the holder could not be identified (likely a Replit proxy port) — proceeding anyway."
+      fi
     fi
   fi
 }
 
 native_start() {
+  # Ensure node/npm are on PATH for child processes (e.g. vite's #!/usr/bin/env node shebang)
+  local node_bin_dir; node_bin_dir="$(dirname "$NODE")"
+  export PATH="${node_bin_dir}:${PATH}"
+  # Also expose npm as "npm" even if the binary has a different name on this platform
+  if [[ "$(basename "$NPM")" != "npm" ]] && [[ ! -e "${node_bin_dir}/npm" ]]; then
+    ln -sf "$NPM" "${node_bin_dir}/npm" 2>/dev/null || true
+  fi
+
   # Start server first, then client
   native_start_service \
     "server" "$SERVER_PID" "$LOG_DIR/server.log" 3001 \
-    node server/index.js \
+    "$NODE" server/index.js \
   || exit 1
 
   native_start_service \
     "client" "$CLIENT_PID" "$LOG_DIR/client.log" 5000 \
-    env PORT=5000 DANGEROUSLY_DISABLE_HOST_CHECK=true npm start \
+    env PORT=5000 DANGEROUSLY_DISABLE_HOST_CHECK=true "$NPM" start \
   || exit 1
 
   echo ""

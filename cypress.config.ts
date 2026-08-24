@@ -1,19 +1,18 @@
 import { defineConfig } from 'cypress'
 
 export default defineConfig({
-  projectId: 'hp34pm',
+    projectId: 'hp34pm',
     e2e: {
-        "defaultCommandTimeout": 10000,
-        "chromeWebSecurity": false,
-        "experimentalSourceRewriting": true,
-        "env": {
-            "NODE_ENV": "test"
+        defaultCommandTimeout: 10000,
+        chromeWebSecurity: false,
+        experimentalSourceRewriting: true,
+        env: {
+            NODE_ENV: 'test',
         },
-        "baseUrl": 'http://localhost:3000',
-        "specPattern": "./cypress/e2e/*.cy.js",
-
-        "supportFile": false,
-        "video": false
+        baseUrl: 'http://localhost:3000',
+        specPattern: './cypress/e2e/**/*.cy.{js,jsx,ts,tsx}',
+        supportFile: false,
+        video: false,
     },
-})
+});
 

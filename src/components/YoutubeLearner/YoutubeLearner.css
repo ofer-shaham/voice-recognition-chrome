@@ -492,6 +492,11 @@
   color: #94a3b8;
 }
 
+.yl-setup-method-field {
+  justify-content: center;
+  margin-top: 1rem;
+}
+
 .yl-setting-field span {
   white-space: nowrap;
   color: #94a3b8;
@@ -749,6 +754,24 @@
 }
 .yl-btn-ghost:hover, .yl-btn-ghost.yl-active { background: #1e2535; color: #e2e8f0; }
 .yl-btn-ghost:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.yl-btn-ghost-danger {
+  background: transparent;
+  color: #94a3b8;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  padding: 0.35rem 0.8rem;
+  font-size: 0.83rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.yl-btn-ghost-danger:hover { background: #3b0f0f; color: #f87171; border-color: #7f1d1d; }
+
+.yl-clear-history {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
 
 .yl-btn-play {
   background: #16a34a;
@@ -1169,6 +1192,20 @@ input[type="range"] {
   display: flex;
   flex-wrap: wrap;
   gap: 0.4rem;
+}
+
+.yl-extra-langs {
+  margin: -0.25rem 0 0.25rem;
+}
+.yl-extra-langs > summary {
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.yl-extra-langs > summary::-webkit-details-marker { display: none; }
+.yl-extra-langs > summary:hover { color: #cbd5e1; }
+.yl-extra-langs .yl-lang-chips {
+  margin-top: 0.5rem;
 }
 
 .yl-lang-chip {

@@ -11,6 +11,7 @@ import { useYtProjects, YtProject } from "../../hooks/useYtProjects";
 import ProjectsMenu from "./ProjectsMenu";
 import NewProjectWizard from "./NewProjectWizard";
 import FullscreenPlayer from "./FullscreenPlayer";
+import { transcriptMethodQueryParam, getTranscriptMethod, setTranscriptMethod, TranscriptMethod } from "../../services/transcriptMethodConfig";
 
 const MAX_LINES = 50;
 
@@ -148,8 +149,8 @@ function WordHighlight({ text, active }: { text: string; active: ActiveWord | nu
   if (!active || !text || active.charLength === 0) return <>{text}</>;
   const { charIndex, charLength } = active;
   const before = text.slice(0, charIndex);
-  const word   = text.slice(charIndex, charIndex + charLength);
-  const after  = text.slice(charIndex + charLength);
+  const word = text.slice(charIndex, charIndex + charLength);
+  const after = text.slice(charIndex + charLength);
   return (
     <>
       {before}
@@ -159,12 +160,16 @@ function WordHighlight({ text, active }: { text: string; active: ActiveWord | nu
   );
 }
 
+export function isActiveWordForCell(activeWord: ActiveWord | null, gi: number, colId: string): boolean {
+  return Boolean(activeWord && activeWord.gi === gi && activeWord.col === colId);
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 function YoutubeTranscriptParser() {
   // ── input / config state (auto-mode only — no URL/paste setup, no default params) ──
   const [fromLang, setFromLang] = useState("en-US");
-  const [toLang,   setToLang]   = useState("he-IL");
+  const [toLang, setToLang] = useState("he-IL");
   const [videoUrl, setVideoUrl] = useState("");
   const videoId = extractVideoId(videoUrl);
 
@@ -175,59 +180,65 @@ function YoutubeTranscriptParser() {
   });
 
   // extra SRT columns — fetched from YouTube only (auto-mode only)
-  const [extraCols,      setExtraCols]      = useState<ExtraSrtCol[]>([]);
-  const [nextColIndex,   setNextColIndex]   = useState(1);
-  const [addSrtOpen,     setAddSrtOpen]     = useState(false);
-  const [newSrtLang,     setNewSrtLang]     = useState("en-US");
-  const [newSrtLabel,    setNewSrtLabel]    = useState("");
-  const [newSrtLoading,  setNewSrtLoading]  = useState(false);
-  const [newSrtYtError,  setNewSrtYtError]  = useState("");
+  const [extraCols, setExtraCols] = useState<ExtraSrtCol[]>([]);
+  const [nextColIndex, setNextColIndex] = useState(1);
+  const [addSrtOpen, setAddSrtOpen] = useState(false);
+  const [newSrtLang, setNewSrtLang] = useState("en-US");
+  const [newSrtLabel, setNewSrtLabel] = useState("");
+  const [newSrtLoading, setNewSrtLoading] = useState(false);
+  const [newSrtYtError, setNewSrtYtError] = useState("");
 
   // playback order — default: source → translation → video
   const [playOrder, setPlayOrder] = useState<string[]>(["source", "translation", "video"]);
 
   const [ttsRateSource, setTtsRateSource] = useState(1.0);
-  const [ttsRateTrans,  setTtsRateTrans]  = useState(1.0);
+  const [ttsRateTrans, setTtsRateTrans] = useState(1.0);
   const [showThumbnails, setShowThumbnails] = useState(false);
 
   // ── playback runtime state ────────────────────────────────────────────────
   const [playingIndex, setPlayingIndex] = useState<number | null>(null);
-  const [isPlaying,    setIsPlaying]    = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [isVideoPhase, setIsVideoPhase] = useState(false); // true only during the video step
-  const [activeWord,   setActiveWord]   = useState<ActiveWord | null>(null);
+  const [activeWord, setActiveWord] = useState<ActiveWord | null>(null);
+  const activeWordRef = useRef<ActiveWord | null>(null);
   const playingRef = useRef(false);
-  const stopRef    = useRef(false);
+  const stopRef = useRef(false);
 
   // Google TTS usage counters
   const [gttsCount, setGttsCount] = useState(0);
   const [gttsChars, setGttsChars] = useState(0);
 
+  useEffect(() => { activeWordRef.current = activeWord; }, [activeWord]);
+
   // Projects system
   const { projects, saveProject, deleteProject, setLastProjectId } = useYtProjects();
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
-  const [showWizard,       setShowWizard]        = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
   const currentProjectRef = useRef<YtProject | null>(null);
 
   // Top-menu video URL lookup
   const [menuVideoDetails, setMenuVideoDetails] = useState<import("./NewProjectWizard").VideoDetails | null>(null);
-  const [menuAvailLangs,   setMenuAvailLangs]   = useState<import("./NewProjectWizard").AvailableLang[]>([]);
+  const [menuAvailLangs, setMenuAvailLangs] = useState<import("./NewProjectWizard").AvailableLang[]>([]);
   const [menuLookupLoading, setMenuLookupLoading] = useState(false);
-  const [menuLookupError,   setMenuLookupError]   = useState("");
+  const [menuLookupError, setMenuLookupError] = useState("");
 
   // ── pagination / selection ────────────────────────────────────────────────
   const [selectedLine, setSelectedLine] = useState<number | null>(null);
-  const [currentPage,  setCurrentPage]  = useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
   const [linesPerPage, setLinesPerPage] = useState(10);
   const totalPages = Math.max(1, Math.ceil(lines.length / linesPerPage));
 
   // ── event log ─────────────────────────────────────────────────────────────
   const [eventLog, setEventLog] = useState<LogEntry[]>([]);
-  const [showLog,  setShowLog]  = useState(false);
+  const [showLog, setShowLog] = useState(false);
 
   // ── debug mode (on by default; persisted) ─────────────────────────────────
   const [debugMode, setDebugMode] = useState<boolean>(() => {
     try { return localStorage.getItem("yt_debug_mode") !== "false"; } catch { return true; }
   });
+
+  // ── subtitle-fetch method (persisted) ─────────────────────────────────────
+  const [transcriptMethod, setTranscriptMethodState] = useState<TranscriptMethod>(() => getTranscriptMethod());
 
   // ── global error banner ───────────────────────────────────────────────────
   interface GlobalError { msg: string; detail: string; context: string; time: string; }
@@ -235,7 +246,7 @@ function YoutubeTranscriptParser() {
 
   // ── audio-only / fullscreen mode ──────────────────────────────────────────
   const [audioOnly, setAudioOnly] = useState(false);
-  const [fsMode,    setFsMode]    = useState(false);
+  const [fsMode, setFsMode] = useState(false);
 
   // ── auto-scroll ref ───────────────────────────────────────────────────────
   const playingRowRef = useRef<HTMLTableRowElement | null>(null);
@@ -253,29 +264,29 @@ function YoutubeTranscriptParser() {
   // reportError: logs + surfaces a visible banner (always, not just in debug mode)
   const reportError = useCallback((context: string, err: unknown) => {
     const detail = err instanceof Error ? err.message : String(err);
-    const time   = nowTs();
+    const time = nowTs();
     setEventLog((prev) => [{ time, msg: `[${context}] ${detail}`, type: "error" as const }, ...prev].slice(0, 200));
     setGlobalError({ msg: context, detail, context, time });
   }, []);
 
   // ── refs for stale-closure-safe playback loop ─────────────────────────────
-  const playOrderRef       = useRef(playOrder);
-  const extraColsRef       = useRef(extraCols);
-  const playbackConfigRef  = useRef(playbackConfig);
-  const ttsRateSourceRef   = useRef(ttsRateSource);
-  const ttsRateTransRef    = useRef(ttsRateTrans);
+  const playOrderRef = useRef(playOrder);
+  const extraColsRef = useRef(extraCols);
+  const playbackConfigRef = useRef(playbackConfig);
+  const ttsRateSourceRef = useRef(ttsRateSource);
+  const ttsRateTransRef = useRef(ttsRateTrans);
   const availableVoicesRef = useRef(availableVoices);
-  const linesRef           = useRef(lines);
-  const linesPerPageRef    = useRef(linesPerPage);
+  const linesRef = useRef(lines);
+  const linesPerPageRef = useRef(linesPerPage);
 
-  useEffect(() => { playOrderRef.current       = playOrder;       }, [playOrder]);
-  useEffect(() => { extraColsRef.current       = extraCols;       }, [extraCols]);
-  useEffect(() => { playbackConfigRef.current  = playbackConfig;  }, [playbackConfig]);
-  useEffect(() => { ttsRateSourceRef.current   = ttsRateSource;   }, [ttsRateSource]);
-  useEffect(() => { ttsRateTransRef.current    = ttsRateTrans;    }, [ttsRateTrans]);
+  useEffect(() => { playOrderRef.current = playOrder; }, [playOrder]);
+  useEffect(() => { extraColsRef.current = extraCols; }, [extraCols]);
+  useEffect(() => { playbackConfigRef.current = playbackConfig; }, [playbackConfig]);
+  useEffect(() => { ttsRateSourceRef.current = ttsRateSource; }, [ttsRateSource]);
+  useEffect(() => { ttsRateTransRef.current = ttsRateTrans; }, [ttsRateTrans]);
   useEffect(() => { availableVoicesRef.current = availableVoices; }, [availableVoices]);
-  useEffect(() => { linesRef.current           = lines;           }, [lines]);
-  useEffect(() => { linesPerPageRef.current    = linesPerPage;    }, [linesPerPage]);
+  useEffect(() => { linesRef.current = lines; }, [lines]);
+  useEffect(() => { linesPerPageRef.current = linesPerPage; }, [linesPerPage]);
 
   // ── auto-scroll playing row into view ─────────────────────────────────────
   useEffect(() => {
@@ -347,24 +358,24 @@ function YoutubeTranscriptParser() {
     playingRef.current = false;
 
     const primary = project.tracks[0];
-    const parsed  = parseContent(primary.srtContent);
+    const parsed = parseContent(primary.srtContent);
     setCurrentPage(1);
     setFromLang(primary.lang);
 
     // Build unique labels using buildColLabel so every column gets [N] prefix + auto/translation info
     const extras: ExtraSrtCol[] = project.tracks.slice(1).map((track, i) => ({
-      id:              `extra_${i + 1}_${track.lang}`,
-      colIndex:        i + 1,
-      label:           buildColLabel(i + 1, track.lang, {
-                         isAutoGenerated: track.isAutoGenerated,
-                         translatedFrom:  track.translatedFrom,
-                       }),
-      lang:            track.lang,
-      texts:           parseContent(track.srtContent).map(p => p.text),
-      visible:         true,
-      playEnabled:     true,
+      id: `extra_${i + 1}_${track.lang}`,
+      colIndex: i + 1,
+      label: buildColLabel(i + 1, track.lang, {
+        isAutoGenerated: track.isAutoGenerated,
+        translatedFrom: track.translatedFrom,
+      }),
+      lang: track.lang,
+      texts: parseContent(track.srtContent).map(p => p.text),
+      visible: true,
+      playEnabled: true,
       isAutoGenerated: track.isAutoGenerated ?? false,
-      translatedFrom:  track.translatedFrom,
+      translatedFrom: track.translatedFrom,
     }));
     setExtraCols(extras);
     setNextColIndex(extras.length + 1);
@@ -429,12 +440,12 @@ function YoutubeTranscriptParser() {
     setNewSrtLoading(true);
     const langCode = newSrtLang.split("-")[0];
     try {
-      const r = await fetch(`/api/srt?videoId=${encodeURIComponent(videoId)}&lang=${langCode}`);
+      const r = await fetch(`/api/transcript/translate?videoId=${encodeURIComponent(videoId)}&lang=${langCode}${transcriptMethodQueryParam()}`);
       if (!r.ok) {
         const j = await r.json().catch(() => ({ error: r.statusText }));
         throw new Error(j.error || `HTTP ${r.status}`);
       }
-      const raw   = await r.text();
+      const raw = await r.text();
       const texts = parseContent(raw).map(p => p.text);
       if (!texts.length) throw new Error("No lines parsed from transcript");
 
@@ -451,14 +462,14 @@ function YoutubeTranscriptParser() {
           } else if (langs.length > 0) {
             // fetched via &tlang — track is a translation of the video's native track
             isAutoGenerated = langs[0].isAutoGenerated;
-            translatedFrom  = langs[0].languageCode;
+            translatedFrom = langs[0].languageCode;
           }
         }
       } catch { /* metadata failure is non-fatal */ }
 
       const colIndex = nextColIndex;
-      const id       = `extra_${colIndex}_${Date.now()}`;
-      const label    = buildColLabel(colIndex, newSrtLang, {
+      const id = `extra_${colIndex}_${Date.now()}`;
+      const label = buildColLabel(colIndex, newSrtLang, {
         isAutoGenerated,
         translatedFrom,
         customLabel: newSrtLabel.trim() || undefined,
@@ -499,8 +510,8 @@ function YoutubeTranscriptParser() {
   useEffect(() => {
     if (!lines.length) return;
     const start = (currentPage - 1) * linesPerPage;
-    const end   = Math.min(start + linesPerPage, lines.length);
-    const jobs  = lines.slice(start, end)
+    const end = Math.min(start + linesPerPage, lines.length);
+    const jobs = lines.slice(start, end)
       .map((l, vi) => ({ line: l, gi: start + vi }))
       .filter(({ line }) => !line.translated);
     if (!jobs.length) return;
@@ -532,10 +543,11 @@ function YoutubeTranscriptParser() {
       new Promise((resolve) => {
         window.speechSynthesis.cancel();
         setActiveWord(null);
+        activeWordRef.current = null;
 
-        const voices   = availableVoicesRef.current;
+        const voices = availableVoicesRef.current;
         const baseLang = lang.split(/[-_]/)[0].toLowerCase();
-        const voice    =
+        const voice =
           voices.find(v => v.lang === lang || v.lang.replace("_", "-") === lang) ||
           voices.find(v => v.lang.split(/[-_]/)[0].toLowerCase() === baseLang) ||
           null;
@@ -549,15 +561,15 @@ function YoutubeTranscriptParser() {
           setGttsChars(c => c + Math.min(text.length, 200));
           const audio = new Audio(url);
           audio.playbackRate = Math.max(0.5, Math.min(4, rate)); // #7 apply rate dynamically
-          audio.onended  = () => resolve();
-          audio.onerror  = (err) => { logEvent(`  Google TTS error [${lang}]: ${String(err)}`, "warn"); resolve(); };
+          audio.onended = () => resolve();
+          audio.onerror = (err) => { logEvent(`  Google TTS error [${lang}]: ${String(err)}`, "warn"); resolve(); };
           audio.play().catch((err) => { logEvent(`  Google TTS blocked: ${err?.message ?? err}`, "warn"); resolve(); });
           return;
         }
 
-        const utt  = new SpeechSynthesisUtterance(text);
-        utt.lang   = lang;
-        utt.rate   = rate;
+        const utt = new SpeechSynthesisUtterance(text);
+        utt.lang = lang;
+        utt.rate = rate;
         if (voice) {
           utt.voice = voice;
           logEvent(`  🔊 ${voice.name} [${voice.lang}] ×${rate.toFixed(1)}`);
@@ -569,7 +581,9 @@ function YoutubeTranscriptParser() {
         if (gi !== undefined && colId !== undefined) {
           utt.onboundary = (e: SpeechSynthesisEvent) => {
             if (e.name === "word") {
-              setActiveWord({ gi, col: colId, charIndex: e.charIndex, charLength: (e as any).charLength ?? 0 });
+              const nextActiveWord = { gi, col: colId, charIndex: e.charIndex, charLength: (e as any).charLength ?? 0 };
+              activeWordRef.current = nextActiveWord;
+              setActiveWord(nextActiveWord);
             }
           };
         }
@@ -579,8 +593,8 @@ function YoutubeTranscriptParser() {
           if (window.speechSynthesis.paused) window.speechSynthesis.resume();
         }, 5000);
 
-        const cleanup = () => { clearInterval(resumeTimer); setActiveWord(null); resolve(); };
-        utt.onend   = cleanup;
+        const cleanup = () => { clearInterval(resumeTimer); setActiveWord(null); activeWordRef.current = null; resolve(); };
+        utt.onend = cleanup;
         utt.onerror = (e) => { logEvent(`TTS error [${lang}]: ${e.error}`, "warn"); cleanup(); };
         setTimeout(() => window.speechSynthesis.speak(utt), 60);
       }),
@@ -593,7 +607,7 @@ function YoutubeTranscriptParser() {
 
   const getStopTime = useCallback((index: number): string =>
     index + 1 < linesRef.current.length ? linesRef.current[index + 1].timestamp : "99:99:99",
-  []);
+    []);
 
   // ── playFromLine — main playback loop ─────────────────────────────────────
   const playFromLine = useCallback(async (startIdx: number) => {
@@ -603,16 +617,16 @@ function YoutubeTranscriptParser() {
       logEvent("Stopping previous playback");
       await new Promise((r) => setTimeout(r, 300));
     }
-    stopRef.current  = false;
+    stopRef.current = false;
     playingRef.current = true;
-    setIsPlaying(true); setIsVideoPhase(false); setActiveWord(null);
+    setIsPlaying(true); setIsVideoPhase(false); setActiveWord(null); activeWordRef.current = null;
     logEvent(`▶ Playback start from line ${startIdx + 1}`);
 
     const ls = linesRef.current;
 
     for (let i = startIdx; i < ls.length; i++) {
       if (stopRef.current) break;
-      setPlayingIndex(i); setIsVideoPhase(false); setActiveWord(null);
+      setPlayingIndex(i); setIsVideoPhase(false); setActiveWord(null); activeWordRef.current = null;
       setCurrentPage(Math.floor(i / linesPerPageRef.current) + 1);
       logEvent(`── Line ${i + 1} [${ls[i].timestamp}]: "${ls[i].text.slice(0, 40)}"`);
 
@@ -635,7 +649,7 @@ function YoutubeTranscriptParser() {
         } else if (step === "video" && cfg.video) {
           const startSec = convertTimeToSeconds(ls[i].timestamp);
           const stopTime = getStopTime(i);
-          const stopSec  = convertTimeToSeconds(stopTime);
+          const stopSec = convertTimeToSeconds(stopTime);
           const duration = Math.max(0, (stopSec - startSec) * 1000);
           logEvent(`  ▶ video [${ls[i].timestamp} → ${stopTime}] (${(duration / 1000).toFixed(1)}s)`);
           setIsVideoPhase(true);
@@ -658,7 +672,7 @@ function YoutubeTranscriptParser() {
 
     playingRef.current = false;
     setIsPlaying(false); setIsVideoPhase(false);
-    setPlayingIndex(null); setActiveWord(null);
+    setPlayingIndex(null); setActiveWord(null); activeWordRef.current = null;
     logEvent(stopRef.current ? "■ Playback stopped" : "✓ Playback complete");
   }, [logEvent, getStopTime]);
 
@@ -673,9 +687,12 @@ function YoutubeTranscriptParser() {
   // ── inline speak with per-word highlight ──────────────────────────────────
   const speakInline = useCallback((text: string, lang: string, gi: number, colId: string) => {
     setActiveWord(null);
+    activeWordRef.current = null;
     freeSpeak(text, lang, 1.0, undefined, (ci, cl) => {
-      setActiveWord({ gi, col: colId, charIndex: ci, charLength: cl });
-    }).then(() => setActiveWord(null)).catch(() => setActiveWord(null));
+      const nextActiveWord = { gi, col: colId, charIndex: ci, charLength: cl };
+      activeWordRef.current = nextActiveWord;
+      setActiveWord(nextActiveWord);
+    }).then(() => { setActiveWord(null); activeWordRef.current = null; }).catch(() => { setActiveWord(null); activeWordRef.current = null; });
   }, []);
 
   // ── playback order helpers ────────────────────────────────────────────────
@@ -688,17 +705,17 @@ function YoutubeTranscriptParser() {
   };
 
   const stepLabel = (step: string): string => {
-    if (step === "source")      return `🔊 ${LANG_OPTIONS.find(l => l.code === fromLang)?.label ?? fromLang}`;
+    if (step === "source") return `🔊 ${LANG_OPTIONS.find(l => l.code === fromLang)?.label ?? fromLang}`;
     if (step === "translation") return `📝 ${LANG_OPTIONS.find(l => l.code === toLang)?.label ?? toLang}`;
-    if (step === "video")       return "🎬 Video";
+    if (step === "video") return "🎬 Video";
     const col = extraCols.find(c => c.id === step);
     return col ? `💬 ${col.label}` : step;
   };
 
   const stepEnabled = (step: string): boolean => {
-    if (step === "source")      return playbackConfig.source;
+    if (step === "source") return playbackConfig.source;
     if (step === "translation") return playbackConfig.translation;
-    if (step === "video")       return playbackConfig.video;
+    if (step === "video") return playbackConfig.video;
     return extraCols.find(c => c.id === step)?.playEnabled ?? false;
   };
 
@@ -708,7 +725,7 @@ function YoutubeTranscriptParser() {
   // ── render helpers ────────────────────────────────────────────────────────
   const visibleLines = lines.slice((currentPage - 1) * linesPerPage, currentPage * linesPerPage);
   const fromRtl = isRtl(fromLang);
-  const toRtl   = isRtl(toLang);
+  const toRtl = isRtl(toLang);
 
   // ── render ────────────────────────────────────────────────────────────────
   return (
@@ -774,9 +791,9 @@ function YoutubeTranscriptParser() {
             {(["source", "translation", "video"] as (keyof PlaybackConfig)[]).map((col) => (
               <label key={col} className={`yt-col-toggle${playbackConfig[col] ? " active" : ""}`}>
                 <input type="checkbox" checked={playbackConfig[col]} onChange={() => toggleCol(col)} />
-                {col === "source"      ? `🔊 ${LANG_OPTIONS.find(l => l.code === fromLang)?.label ?? fromLang}`
-                 : col === "translation" ? `📝 ${LANG_OPTIONS.find(l => l.code === toLang)?.label ?? toLang}`
-                 : "🎬 Video"}
+                {col === "source" ? `🔊 ${LANG_OPTIONS.find(l => l.code === fromLang)?.label ?? fromLang}`
+                  : col === "translation" ? `📝 ${LANG_OPTIONS.find(l => l.code === toLang)?.label ?? toLang}`
+                    : "🎬 Video"}
               </label>
             ))}
             {extraCols.map(col => (
@@ -843,10 +860,17 @@ function YoutubeTranscriptParser() {
             onClick={() => {
               const next = !debugMode;
               setDebugMode(next);
-              try { localStorage.setItem("yt_debug_mode", next ? "true" : "false"); } catch {}
+              try { localStorage.setItem("yt_debug_mode", next ? "true" : "false"); } catch { }
             }}>
             🐛 Debug{debugMode ? " ●" : ""}
           </button>
+          <select
+            className="yt-icon-btn yt-method-select"
+            title="Only the DownSub service is supported for subtitle fetching."
+            value="downsub"
+            disabled>
+            <option value="downsub">🔗 Fetch: DownSub</option>
+          </select>
           {isPlaying && <button className="yt-stop-btn" onClick={stopPlayback}>■ Stop</button>}
         </div>
       </div>
@@ -958,11 +982,11 @@ function YoutubeTranscriptParser() {
               </thead>
               <tbody>
                 {visibleLines.map((line, vi) => {
-                  const gi       = (currentPage - 1) * linesPerPage + vi;
+                  const gi = (currentPage - 1) * linesPerPage + vi;
                   const isActive = playingIndex === gi;
                   const isSelected = selectedLine === gi;
-                  const srcWord   = isActive && activeWord?.col === "source"      ? activeWord : null;
-                  const transWord = isActive && activeWord?.col === "translation" ? activeWord : null;
+                  const srcWord = isActive && isActiveWordForCell(activeWord, gi, "source") ? activeWord : null;
+                  const transWord = isActive && isActiveWordForCell(activeWord, gi, "translation") ? activeWord : null;
 
                   return (
                     <tr key={gi}
@@ -1012,9 +1036,9 @@ function YoutubeTranscriptParser() {
 
                       {/* Extra SRT columns */}
                       {extraCols.filter(c => c.visible).map(col => {
-                        const colWord = isActive && activeWord?.col === col.id ? activeWord : null;
-                        const txt     = col.texts[gi];
-                        const rtlCol  = isRtl(col.lang);
+                        const colWord = isActive && isActiveWordForCell(activeWord, gi, col.id) ? activeWord : null;
+                        const txt = col.texts[gi];
+                        const rtlCol = isRtl(col.lang);
                         return (
                           <td key={col.id} className={`yt-td-text${rtlCol ? " rtl" : ""}`}>
                             {txt ? (
