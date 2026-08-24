@@ -1,0 +1,1 @@
+- [YouTube subtitle providers](youtube-subtitle-providers.md) — preserve the selected provider for new projects and default older projects to youtube-transcript-plus.

@@ -29,6 +29,8 @@ export interface YtProject {
   tracks: YtTrack[];
   config: ProjectConfig;
   lastLine: number;
+  /** Subtitle fetcher used for this project. Older projects default to plus. */
+  subtitleService?: 'plus' | 'api-js';
 }
 
 export interface ParsedLine {
