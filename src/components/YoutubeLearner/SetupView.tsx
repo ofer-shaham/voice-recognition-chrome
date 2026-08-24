@@ -80,6 +80,7 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
   const [manualError, setManualError] = useState('');
   const [manualUrlLoading, setManualUrlLoading] = useState<number | null>(null);
   const fileRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const urlInputRef = useRef<HTMLInputElement | null>(null);
 
   const serviceToggle = (
     <div className="yl-service-picker" role="group" aria-label="Subtitle service">
@@ -373,6 +374,25 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
         </div>
       )}
 
+      {projects.length > 0 && (
+        <div className="yl-create-project-prompt">
+          <div>
+            <strong>Create another project</strong>
+            <span>Start a new YouTube transcript workspace.</span>
+          </div>
+          <button
+            type="button"
+            className="yl-btn-primary"
+            onClick={() => {
+              setMode('fetch');
+              requestAnimationFrame(() => urlInputRef.current?.focus());
+            }}
+          >
+            + New project
+          </button>
+        </div>
+      )}
+
       <div className="yl-mode-tabs" role="tablist" aria-label="Subtitle input method">
         <button type="button" role="tab" aria-selected={mode === 'fetch'} className={`yl-mode-tab ${mode === 'fetch' ? 'yl-mode-tab-active' : ''}`} onClick={() => setMode('fetch')}>
           🔗 Fetch from YouTube
@@ -385,6 +405,7 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
       {mode === 'fetch' ? <div className="yl-setup-form">
         <label className="yl-label">YouTube URL or Video ID</label>
         <input
+          ref={urlInputRef}
           className="yl-input"
           type="text"
           placeholder="https://www.youtube.com/watch?v=..."

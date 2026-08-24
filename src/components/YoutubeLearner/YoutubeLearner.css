@@ -436,6 +436,43 @@
   margin-top: 0.2rem;
 }
 
+.yl-create-project-prompt {
+  align-items: center;
+  background: #172554;
+  border: 1px solid #1d4ed8;
+  border-radius: 10px;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  max-width: 560px;
+  padding: 0.75rem 1rem;
+  width: 100%;
+}
+
+.yl-create-project-prompt strong,
+.yl-create-project-prompt span {
+  display: block;
+}
+
+.yl-create-project-prompt strong {
+  color: #dbeafe;
+  font-size: 0.88rem;
+}
+
+.yl-create-project-prompt span {
+  color: #93c5fd;
+  font-size: 0.75rem;
+  margin-top: 0.2rem;
+}
+
+@media (max-width: 520px) {
+  .yl-create-project-prompt {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
 .yl-lang-list {
   display: flex;
   flex-direction: column;
