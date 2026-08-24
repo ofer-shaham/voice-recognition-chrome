@@ -43,7 +43,7 @@ export default function SetupView({ onProjectReady, recentProject, onLoadRecent 
   const [step, setStep] = useState<Step>('url');
 
   // ── URL step ──────────────────────────────────────────────────────────────
-  const [url, setUrl] = useState('');
+  const [url, setUrl] = useState('https://www.youtube.com/watch?v=prSfxdmjNzE');
   const [findLoading, setFindLoading] = useState(false);
   const [findError, setFindError] = useState('');
 
