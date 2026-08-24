@@ -165,6 +165,11 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     let cancelled = false;
     const run = async () => {
       if (lines.length === 0) return; // Wait for lines to be populated
+      if (!configRef.current.targetLang.trim()) {
+        pendingSet.current.clear();
+        setLines(prev => prev.map(line => ({ ...line, translation: '', translated: true })));
+        return;
+      }
       const indices = Array.from(pendingSet.current).sort((a, b) => a - b);
       for (const i of indices) {
         if (cancelled) break;
@@ -575,9 +580,9 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
             {isPlaying ? `▶ ${currentLine + 1}/${lines.length}` : `${lines.length} lines`}
           </span>
 
-          {/* ── Target language (always editable) ── */}
+          {/* ── Target language (optional and always editable) ── */}
           <div className="yl-menu-lang-wrap">
-            <label className="yl-menu-lang-label">Translate to</label>
+            <label className="yl-menu-lang-label">Translate to (optional)</label>
             <input
               className="yl-menu-lang-input"
               type="text"

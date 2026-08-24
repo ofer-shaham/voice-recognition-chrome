@@ -163,7 +163,6 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
   const handleFetchSelected = async () => {
     setFetchError('');
     if (!selectedLangs.size) { setFetchError('Select at least one language track.'); return; }
-    if (!targetLang.trim()) { setFetchError('Enter a target language to translate to.'); return; }
     setFetchLoading(true);
     try {
       const chosen = availLangs.filter(l => selectedLangs.has(l.languageCode));
@@ -293,7 +292,7 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
             ))}
           </div>
 
-          <label className="yl-label">Translate subtitles to</label>
+           <label className="yl-label">Translate subtitles to <span className="yl-optional">(optional — can be set later in Settings)</span></label>
           <input
             className="yl-input"
             type="text"
@@ -410,7 +409,7 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
           <label className="yl-label">YouTube URL (optional — links video to transcript)</label>
           <input className="yl-input" type="text" placeholder="https://www.youtube.com/watch?v=... (optional)" value={manualVideoUrl} onChange={e => setManualVideoUrl(e.target.value)} />
 
-          <label className="yl-label">Translate subtitles to</label>
+           <label className="yl-label">Translate subtitles to <span className="yl-optional">(optional — can be set later in Settings)</span></label>
           <input className="yl-input" type="text" list="yl-manual-lang-suggestions" placeholder="en, he, ar…" value={manualTargetLang} onChange={e => setManualTargetLang(e.target.value)} />
           <datalist id="yl-manual-lang-suggestions">
             {LANG_OPTIONS.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
