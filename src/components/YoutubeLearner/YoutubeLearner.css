@@ -923,6 +923,12 @@ input[type="range"] {
   font-weight: 600;
 }
 
+.yl-input-method-hint {
+  color: #64748b;
+  font-size: 0.75rem;
+  margin: -0.35rem 0 0.1rem;
+}
+
 .yl-manual-tracks {
   display: flex;
   flex-direction: column;

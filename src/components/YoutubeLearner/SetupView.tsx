@@ -367,10 +367,11 @@ export default function SetupView({ onProjectReady, recentProject, onLoadRecent 
           </datalist>
 
            <div className="yl-srt-tabs">
-             <button type="button" className={`yl-srt-tab ${manualInputMode === 'url' ? 'yl-srt-tab-active' : ''}`} onClick={() => setManualInputMode('url')}>🔗 Fetch URL</button>
+             <button type="button" className={`yl-srt-tab ${manualInputMode === 'url' ? 'yl-srt-tab-active' : ''}`} onClick={() => setManualInputMode('url')}>🔗 Fetch SRT from URL</button>
             <button type="button" className={`yl-srt-tab ${manualInputMode === 'paste' ? 'yl-srt-tab-active' : ''}`} onClick={() => setManualInputMode('paste')}>✏️ Paste SRT</button>
             <button type="button" className={`yl-srt-tab ${manualInputMode === 'upload' ? 'yl-srt-tab-active' : ''}`} onClick={() => setManualInputMode('upload')}>📁 Upload File</button>
           </div>
+           <p className="yl-input-method-hint">Choose one way to provide the SRT for each track.</p>
 
           <div className="yl-manual-tracks">
           {manualTracks.map((track, index) => (
