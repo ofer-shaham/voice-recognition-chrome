@@ -59,7 +59,18 @@ export default function YoutubeLearner() {
       <SetupView
         onProjectReady={handleProjectReady}
         recentProject={recent}
+        projects={projects}
         hasHistory={projects.length > 0}
+        onLoadProject={handleSelectProject}
+        onDeleteProject={(id) => {
+          const project = projects.find(p => p.id === id);
+          if (!project || !window.confirm(`Delete "${project.title}"?`)) return;
+          remove(id);
+          if (recent?.id === id) {
+            setActiveProject(null);
+            setShowSetup(true);
+          }
+        }}
         onLoadRecent={() => {
           if (recent) { setActiveProject(recent); setShowSetup(false); }
         }}

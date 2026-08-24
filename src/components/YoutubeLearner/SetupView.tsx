@@ -6,8 +6,11 @@ import { extractVideoId, dedupeAvailLangs } from './utils';
 interface Props {
   onProjectReady: (project: YtProject) => void;
   recentProject: YtProject | null;
+  projects: YtProject[];
   hasHistory?: boolean;
   onLoadRecent: () => void;
+  onLoadProject: (project: YtProject) => void;
+  onDeleteProject: (id: string) => void;
   onClearHistory?: () => void;
 }
 
@@ -49,7 +52,7 @@ function buildProject(
   return { id, videoId, title, createdAt: Date.now(), updatedAt: Date.now(), tracks, config, lastLine: 0, subtitleService };
 }
 
-export default function SetupView({ onProjectReady, recentProject, onLoadRecent }: Props) {
+export default function SetupView({ onProjectReady, recentProject, projects, onLoadRecent, onLoadProject, onDeleteProject }: Props) {
   const [mode, setMode] = useState<SetupMode>('fetch');
   const [step, setStep] = useState<Step>('url');
 
@@ -335,6 +338,39 @@ export default function SetupView({ onProjectReady, recentProject, onLoadRecent 
             <div className="yl-recent-title">{recentProject.title}</div>
           </div>
           <button className="yl-btn-primary" onClick={onLoadRecent}>Resume →</button>
+        </div>
+      )}
+
+      {projects.length > 0 && (
+        <div className="yl-projects-card">
+          <div className="yl-projects-header">
+            <div>
+              <div className="yl-recent-label">Your library</div>
+              <h2 className="yl-projects-title">Saved YouTube projects</h2>
+            </div>
+            <span className="yl-project-count">{projects.length}</span>
+          </div>
+          <div className="yl-project-list">
+            {projects.map(project => (
+              <div className="yl-project-row" key={project.id}>
+                <button type="button" className="yl-project-load" onClick={() => onLoadProject(project)}>
+                  <span className="yl-project-name">{project.title}</span>
+                  <span className="yl-project-meta">
+                    {project.videoId ? `YouTube · ${project.videoId}` : 'Manual transcript'}
+                    {project.tracks.length > 0 && ` · ${project.tracks.length} track${project.tracks.length === 1 ? '' : 's'}`}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="yl-btn-ghost yl-btn-sm yl-btn-danger"
+                  aria-label={`Delete ${project.title}`}
+                  onClick={() => onDeleteProject(project.id)}
+                >
+                  Delete
+                </button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
