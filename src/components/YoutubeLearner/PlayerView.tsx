@@ -73,10 +73,8 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
   const [showSettings, setShowSettings] = useState(false);
   const [translationVer, setTranslationVer] = useState(0);
   const [currentWord, setCurrentWord]       = useState<{ lineIdx: number; charIndex: number; charLength: number } | null>(null);
-  const [seamlessMode, setSeamlessMode]       = useState(() => {
-    const params = new URLSearchParams(window.location.search);
-    return params.get('sm') !== '0'; // Default true, only false if sm=0
-  });
+  // Seamless playback is the single supported playback mode.
+  const seamlessMode = true;
   const [confirmDelete, setConfirmDelete]     = useState(false);
   const [showManageLangs, setShowManageLangs] = useState(false);
   const [availLangs, setAvailLangs]           = useState<AvailableLang[]>([]);
@@ -104,7 +102,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
   useEffect(() => { linesRef.current = lines; }, [lines]);
   useEffect(() => { configRef.current = config; }, [config]);
   useEffect(() => { projectRef.current = project; }, [project]);
-  useEffect(() => { seamlessRef.current = seamlessMode; }, [seamlessMode]);
+  useEffect(() => { seamlessRef.current = true; }, []);
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
   useEffect(() => { currentLineRef.current = currentLine; }, [currentLine]);
 
@@ -124,7 +122,6 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     else p.set('p', project.id);
     p.set('tl', config.targetLang);
     p.set('l', String(project.lastLine));
-    p.set('sm', seamlessMode ? '1' : '0');
     p.set('vl', String(config.visibleLines));
     for (const [colId, s] of Object.entries(config.colSettings)) {
       if (colId === 'video') continue;
@@ -506,12 +503,6 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     else { playFrom(lineIdx); }
   };
 
-  const handleSeamlessToggle = () => {
-    if (isPlaying) stop();
-    setSeamlessMode(s => !s);
-    setIframeKey(k => k + 1);
-  };
-
   const toggleVideo = () => {
     updateColSetting('video', { visible: !config.colSettings['video']?.visible });
   };
@@ -644,15 +635,6 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
                   {showVideo ? '📺 Hide' : '📺 Video'}
                 </button>
               )}
-              {showVideo && (
-                <button
-                  className={`yl-btn-ghost ${seamlessMode ? 'yl-active yl-btn-seamless-on' : ''}`}
-                  onClick={handleSeamlessToggle}
-                  title="Seamless mode: plays the full video and pauses at each subtitle for TTS"
-                >
-                  🎬 Seamless
-                </button>
-              )}
               <button
                 className="yl-btn-ghost"
                 title="Reset to the first line"
@@ -675,7 +657,6 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
                   else p.set('p', project.id);
                   p.set('tl', config.targetLang);
                   p.set('l', String(currentLine >= 0 ? currentLine : project.lastLine));
-                  p.set('sm', seamlessMode ? '1' : '0');
                   for (const [colId, s] of Object.entries(config.colSettings)) {
                     if (colId === 'video') continue;
                     const sid = shortCol(colId);
