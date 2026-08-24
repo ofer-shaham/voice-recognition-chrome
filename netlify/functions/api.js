@@ -178,6 +178,13 @@ const SWAGGER_SPEC = {
         responses: { 200: { description: "SRT text" }, 400: { description: "Missing params" }, 500: { description: "Error" } },
       },
     },
+    "/api/srt-url": {
+      get: {
+        summary: "Fetch a public subtitle file by URL", tags: ["Transcripts"],
+        parameters: [{ name: "url", in: "query", required: true, schema: { type: "string", format: "uri" } }],
+        responses: { 200: { description: "Subtitle file text" }, 400: { description: "Invalid URL" }, 502: { description: "Upstream fetch error" } },
+      },
+    },
     "/api/transcript/translate": {
       get: {
         summary: "Fetch translated transcript as SRT", tags: ["Transcripts"],
@@ -383,6 +390,27 @@ exports.handler = async (event) => {
     } catch (err) {
       log("error", "/api/youtube proxy failed", { path: upstreamPath, error: err.message, elapsed: Date.now() - t0 });
       return json(502, { error: err.message });
+    }
+  }
+
+  if (method === "GET" && apiPath === "/api/srt-url") {
+    const sourceUrl = String(qs.url || "").trim();
+    let parsed;
+    try {
+      parsed = new URL(sourceUrl);
+      if (!["http:", "https:"].includes(parsed.protocol)) throw new Error();
+    } catch {
+      return json(400, { error: "url must be a valid http:// or https:// URL" });
+    }
+    try {
+      const upstream = await proxyFetch(parsed.toString());
+      if (!upstream.ok) return json(502, { error: `Subtitle URL returned HTTP ${upstream.status}` });
+      if (!upstream.body.trim()) return json(502, { error: "Subtitle URL returned an empty file" });
+      log("info", "SRT URL OK", { host: parsed.hostname, bytes: Buffer.byteLength(upstream.body) });
+      return textResp(200, upstream.body);
+    } catch (err) {
+      log("error", "SRT URL failed", { host: parsed.hostname, error: err.message });
+      return json(502, { error: `Could not fetch subtitle URL: ${err.message}` });
     }
   }
 

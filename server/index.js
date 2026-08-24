@@ -64,6 +64,14 @@ const swaggerSpec = {
         responses: { 200: { description: "SRT-formatted transcript" }, 400: { description: "Missing videoId" }, 500: { description: "All fetch methods failed" } },
       },
     },
+    "/api/srt-url": {
+      get: {
+        tags: ["Transcripts"],
+        summary: "Fetch a public subtitle file by URL",
+        parameters: [{ name: "url", in: "query", required: true, schema: { type: "string", format: "uri" } }],
+        responses: { 200: { description: "Subtitle file text" }, 400: { description: "Invalid URL" }, 502: { description: "Upstream fetch error" } },
+      },
+    },
     "/api/tts": {
       get: {
         tags: ["TTS"],
@@ -291,6 +299,31 @@ app.get("/api/srt", async (req, res) => {
   } catch (e) {
     log("error", "SRT failed", { videoId, lang: langCode, error: e.message });
     res.status(500).json({ error: e.message });
+  }
+});
+
+app.get("/api/srt-url", async (req, res) => {
+  const sourceUrl = String(req.query.url || "").trim();
+  let parsed;
+  try {
+    parsed = new URL(sourceUrl);
+    if (!["http:", "https:"].includes(parsed.protocol)) throw new Error();
+  } catch {
+    return res.status(400).json({ error: "url must be a valid http:// or https:// URL" });
+  }
+  try {
+    const upstream = await fetch(parsed.toString(), {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; YouTubeLanguageLearner/1.0)" },
+      redirect: "follow",
+    });
+    if (!upstream.ok) return res.status(502).json({ error: `Subtitle URL returned HTTP ${upstream.status}` });
+    const text = await upstream.text();
+    if (!text.trim()) return res.status(502).json({ error: "Subtitle URL returned an empty file" });
+    log("info", "SRT URL OK", { host: parsed.hostname, bytes: Buffer.byteLength(text) });
+    res.type("text/plain; charset=utf-8").send(text);
+  } catch (e) {
+    log("error", "SRT URL failed", { host: parsed.hostname, error: e.message });
+    res.status(502).json({ error: `Could not fetch subtitle URL: ${e.message}` });
   }
 });
 

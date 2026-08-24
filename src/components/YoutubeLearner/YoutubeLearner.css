@@ -895,6 +895,7 @@ input[type="range"] {
 
 .yl-srt-tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 0;
   border: 1px solid #2d3748;
   border-radius: 6px;
@@ -987,6 +988,30 @@ input[type="range"] {
   align-items: center;
   gap: 0.75rem;
   padding: 0.5rem 0;
+}
+
+.yl-url-fetch {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.yl-url-fetch-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.yl-url-fetch-row .yl-input {
+  min-width: 0;
+  flex: 1;
+}
+
+@media (max-width: 520px) {
+  .yl-url-fetch-row {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }
 
 .yl-file-ok {
