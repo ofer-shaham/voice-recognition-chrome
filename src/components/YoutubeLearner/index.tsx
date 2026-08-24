@@ -10,18 +10,20 @@ export default function YoutubeLearner() {
   const [activeProject, setActiveProject] = useState<YtProject | null>(null);
   const [showSetup, setShowSetup] = useState(false);
 
-  // On mount: prefer project from URL ?v= or ?p=, then last used, then first available
+  // On mount: show the library by default. Explicit shared links can still
+  // open a specific project directly via ?v= or ?p=.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const urlId  = params.get('v') || params.get('p');
-    const lastId = getLastId();
-
     const fromUrl  = urlId  ? projects.find(p => p.id === urlId  || p.videoId === urlId)  : null;
-    const fromLast = lastId ? projects.find(p => p.id === lastId) : null;
-    const target   = fromUrl || fromLast || (projects.length > 0 ? projects[0] : null);
 
-    if (target) { setActiveProject(target); }
-    else        { setShowSetup(true); }
+    if (fromUrl) {
+      setActiveProject(fromUrl);
+      setShowSetup(false);
+    } else {
+      setActiveProject(null);
+      setShowSetup(true);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
