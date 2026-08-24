@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { YtProject, YtTrack, ProjectConfig, AvailableLang } from './types';
 import { LANG_OPTIONS, DEFAULT_TTS_RATE, DEFAULT_VISIBLE_LINES } from './constants';
 import { extractVideoId, dedupeAvailLangs } from './utils';
@@ -11,6 +11,13 @@ interface Props {
 
 type Step = 'url' | 'langs';
 type SubtitleService = 'plus' | 'api-js' | 'onrender';
+type SetupMode = 'fetch' | 'manual';
+
+interface ManualTrack {
+  label: string;
+  lang: string;
+  srt: string;
+}
 
 function buildProject(
   id: string,
@@ -40,6 +47,7 @@ function buildProject(
 }
 
 export default function SetupView({ onProjectReady, recentProject, onLoadRecent }: Props) {
+  const [mode, setMode] = useState<SetupMode>('fetch');
   const [step, setStep] = useState<Step>('url');
 
   // ── URL step ──────────────────────────────────────────────────────────────
@@ -57,6 +65,13 @@ export default function SetupView({ onProjectReady, recentProject, onLoadRecent 
   const [fetchError, setFetchError] = useState('');
   const [subtitleService, setSubtitleService] = useState<SubtitleService>('plus');
   const subtitleMethod = subtitleService === 'plus' ? '1' : subtitleService === 'api-js' ? '2' : '3';
+  const [manualTitle, setManualTitle] = useState('');
+  const [manualVideoUrl, setManualVideoUrl] = useState('');
+  const [manualTargetLang, setManualTargetLang] = useState('he');
+  const [manualTracks, setManualTracks] = useState<ManualTrack[]>([{ label: '', lang: 'en', srt: '' }]);
+  const [manualInputMode, setManualInputMode] = useState<'paste' | 'upload'>('paste');
+  const [manualError, setManualError] = useState('');
+  const fileRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const serviceToggle = (
     <div className="yl-service-picker" role="group" aria-label="Subtitle service">
@@ -160,6 +175,40 @@ export default function SetupView({ onProjectReady, recentProject, onLoadRecent 
     setFetchError('');
   };
 
+  const updateManualTrack = (index: number, patch: Partial<ManualTrack>) => {
+    setManualTracks(prev => prev.map((track, i) => i === index ? { ...track, ...patch } : track));
+  };
+
+  const handleManualFile = (index: number, file: File | null) => {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = event => {
+      const srt = typeof event.target?.result === 'string' ? event.target.result : '';
+      updateManualTrack(index, {
+        srt,
+        label: manualTracks[index].label || file.name.replace(/\.(srt|txt)$/i, ''),
+      });
+    };
+    reader.readAsText(file);
+  };
+
+  const handleManualSubmit = () => {
+    setManualError('');
+    if (!manualTitle.trim()) { setManualError('Enter a title for this project.'); return; }
+    const validTracks = manualTracks.filter(track => track.srt.trim());
+    if (!validTracks.length) { setManualError('Provide SRT content for at least one track.'); return; }
+
+    const tracks: YtTrack[] = validTracks.map((track, index) => ({
+      lang: track.lang.trim() || `track${index + 1}`,
+      label: track.label.trim() || `Track ${index + 1}`,
+      isAuto: false,
+      srtContent: track.srt.trim(),
+    }));
+    const manualVideoId = extractVideoId(manualVideoUrl.trim()) || '';
+    const id = manualVideoId || `manual-${Date.now()}`;
+    onProjectReady(buildProject(id, manualVideoId, manualTitle.trim(), tracks, manualTargetLang.trim(), 'plus'));
+  };
+
   // ── Render: language selection ───────────────────────────────────────────
   if (step === 'langs') {
     return (
@@ -234,7 +283,16 @@ export default function SetupView({ onProjectReady, recentProject, onLoadRecent 
         </div>
       )}
 
-      <div className="yl-setup-form">
+      <div className="yl-mode-tabs" role="tablist" aria-label="Subtitle input method">
+        <button type="button" role="tab" aria-selected={mode === 'fetch'} className={`yl-mode-tab ${mode === 'fetch' ? 'yl-mode-tab-active' : ''}`} onClick={() => setMode('fetch')}>
+          🔗 Fetch from YouTube
+        </button>
+        <button type="button" role="tab" aria-selected={mode === 'manual'} className={`yl-mode-tab ${mode === 'manual' ? 'yl-mode-tab-active' : ''}`} onClick={() => setMode('manual')}>
+          📄 Manual Import
+        </button>
+      </div>
+
+      {mode === 'fetch' ? <div className="yl-setup-form">
         <label className="yl-label">YouTube URL or Video ID</label>
         <input
           className="yl-input"
@@ -253,7 +311,62 @@ export default function SetupView({ onProjectReady, recentProject, onLoadRecent 
         <button className="yl-btn-primary yl-btn-full" onClick={handleFindLanguages} disabled={findLoading || !url.trim()}>
           {findLoading ? 'Finding subtitle tracks…' : 'Find subtitle tracks →'}
         </button>
-      </div>
+      </div> : (
+        <div className="yl-setup-form yl-manual-form">
+          <label className="yl-label">Project title <span className="yl-required">*</span></label>
+          <input className="yl-input" type="text" placeholder="e.g. My Study Transcript" value={manualTitle} onChange={e => setManualTitle(e.target.value)} autoFocus />
+
+          <label className="yl-label">YouTube URL (optional — links video to transcript)</label>
+          <input className="yl-input" type="text" placeholder="https://www.youtube.com/watch?v=... (optional)" value={manualVideoUrl} onChange={e => setManualVideoUrl(e.target.value)} />
+
+          <label className="yl-label">Translate subtitles to</label>
+          <input className="yl-input" type="text" list="yl-manual-lang-suggestions" placeholder="en, he, ar…" value={manualTargetLang} onChange={e => setManualTargetLang(e.target.value)} />
+          <datalist id="yl-manual-lang-suggestions">
+            {LANG_OPTIONS.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
+          </datalist>
+
+          <div className="yl-srt-tabs">
+            <button type="button" className={`yl-srt-tab ${manualInputMode === 'paste' ? 'yl-srt-tab-active' : ''}`} onClick={() => setManualInputMode('paste')}>✏️ Paste SRT</button>
+            <button type="button" className={`yl-srt-tab ${manualInputMode === 'upload' ? 'yl-srt-tab-active' : ''}`} onClick={() => setManualInputMode('upload')}>📁 Upload File</button>
+          </div>
+
+          <div className="yl-manual-tracks">
+            {manualTracks.map((track, index) => (
+              <div className="yl-track-card" key={index}>
+                <div className="yl-track-card-header">
+                  <span className="yl-track-num">Track {index + 1}</span>
+                  {manualTracks.length > 1 && <button className="yl-btn-ghost yl-btn-sm yl-btn-danger" type="button" onClick={() => setManualTracks(prev => prev.filter((_, i) => i !== index))}>✕ Remove</button>}
+                </div>
+                <div className="yl-track-meta">
+                  <div className="yl-track-meta-field">
+                    <label className="yl-label">Label</label>
+                    <input className="yl-input" type="text" placeholder="English, Spanish…" value={track.label} onChange={e => updateManualTrack(index, { label: e.target.value })} />
+                  </div>
+                  <div className="yl-track-meta-field">
+                    <label className="yl-label">Language code</label>
+                    <input className="yl-input" type="text" placeholder="en, he, ar…" value={track.lang} onChange={e => updateManualTrack(index, { lang: e.target.value })} />
+                  </div>
+                </div>
+                {manualInputMode === 'paste' ? (
+                  <>
+                    <label className="yl-label">SRT content</label>
+                    <textarea className="yl-textarea" placeholder={'1\n00:00:01,000 --> 00:00:04,000\nHello world'} value={track.srt} onChange={e => updateManualTrack(index, { srt: e.target.value })} rows={7} />
+                  </>
+                ) : (
+                  <div className="yl-file-upload">
+                    <input ref={element => { fileRefs.current[index] = element; }} type="file" accept=".srt,.txt" hidden onChange={e => handleManualFile(index, e.target.files?.[0] || null)} />
+                    <button className="yl-btn-secondary" type="button" onClick={() => fileRefs.current[index]?.click()}>📂 Choose .srt file</button>
+                    <span className={track.srt ? 'yl-file-ok' : 'yl-file-hint'}>{track.srt ? `✓ ${track.srt.split('\n').length} lines loaded` : 'No file selected'}</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <button className="yl-btn-secondary" type="button" onClick={() => setManualTracks(prev => [...prev, { label: '', lang: 'en', srt: '' }])}>+ Add another track</button>
+          {manualError && <p className="yl-error">{manualError}</p>}
+          <button className="yl-btn-primary yl-btn-full" type="button" onClick={handleManualSubmit}>Open Transcript →</button>
+        </div>
+      )}
     </div>
   );
 }
