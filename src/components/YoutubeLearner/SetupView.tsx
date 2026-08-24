@@ -10,7 +10,7 @@ interface Props {
 }
 
 type Step = 'url' | 'langs';
-type SubtitleService = 'plus' | 'api-js' | 'json3';
+type SubtitleService = 'plus' | 'api-js' | 'onrender';
 
 function buildProject(
   id: string,
@@ -80,11 +80,11 @@ export default function SetupView({ onProjectReady, recentProject, onLoadRecent 
         </button>
         <button
           type="button"
-          className={`yl-service-option ${subtitleService === 'json3' ? 'yl-service-option-active' : ''}`}
-          onClick={() => setSubtitleService('json3')}
-          aria-pressed={subtitleService === 'json3'}
+          className={`yl-service-option ${subtitleService === 'onrender' ? 'yl-service-option-active' : ''}`}
+          onClick={() => setSubtitleService('onrender')}
+          aria-pressed={subtitleService === 'onrender'}
         >
-          ytInitialPlayerResponse / JSON3
+          OnRender subtitle service
         </button>
       </div>
       <span className="yl-service-help">Choose which subtitle provider fetches the selected tracks.</span>
@@ -97,7 +97,8 @@ export default function SetupView({ onProjectReady, recentProject, onLoadRecent 
     if (!vid) { setFindError('Could not extract a video ID from that URL.'); return; }
     setFindLoading(true);
     try {
-      const res = await fetch(`/api/transcript/languages?videoId=${encodeURIComponent(vid)}`);
+      const serviceQuery = subtitleService === 'onrender' ? '&service=onrender' : '';
+      const res = await fetch(`/api/transcript/languages?videoId=${encodeURIComponent(vid)}${serviceQuery}`);
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error || `HTTP ${res.status}`);

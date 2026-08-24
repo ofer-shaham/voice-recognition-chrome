@@ -30,7 +30,7 @@ export interface YtProject {
   config: ProjectConfig;
   lastLine: number;
   /** Subtitle fetcher used for this project. Older projects default to plus. */
-  subtitleService?: 'plus' | 'api-js' | 'json3';
+  subtitleService?: 'plus' | 'api-js' | 'onrender';
 }
 
 export interface ParsedLine {

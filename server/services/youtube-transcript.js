@@ -260,10 +260,33 @@ async function fetchSrtMethod3(videoId, langCode) {
   return json3ToSrt(data);
 }
 
+async function fetchSrtOnrender(videoId, langCode) {
+  const youtubeUrl = `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`;
+  const endpoint =
+    `https://youtube-dl-jrte.onrender.com/api/subtitles?url=${encodeURIComponent(youtubeUrl)}` +
+    `&type=srt&language=${encodeURIComponent(langCode)}&autoTranslate=1`;
+  const response = await fetch(endpoint, {
+    headers: { Accept: "application/json, text/plain, */*" },
+  });
+  const body = await response.text();
+  if (!response.ok) {
+    throw new Error(`OnRender subtitle service HTTP ${response.status}: ${body.slice(0, 240)}`);
+  }
+  let parsed;
+  try { parsed = JSON.parse(body); } catch { return body; }
+  if (parsed?.error && !parsed?.content && !parsed?.subtitle && !parsed?.srt) {
+    throw new Error(parsed.message || parsed.error);
+  }
+  const content = parsed?.content || parsed?.subtitle || parsed?.srt || parsed?.text ||
+    parsed?.data?.content || parsed?.data?.subtitle || parsed?.data?.srt;
+  if (typeof content !== "string") throw new Error("OnRender returned no subtitle content");
+  return content;
+}
+
 async function fetchSrt(videoId, langCode, method) {
   if (method === "1") return fetchSrtMethod1(videoId, langCode);
   if (method === "2") return fetchSrtMethod2(videoId, langCode);
-  if (method === "3") return fetchSrtMethod3(videoId, langCode);
+  if (method === "3") return fetchSrtOnrender(videoId, langCode);
   let m1Error = null;
   try { return await fetchSrtMethod1(videoId, langCode); }
   catch (e1) { m1Error = e1.message; }
