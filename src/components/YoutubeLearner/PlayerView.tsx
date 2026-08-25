@@ -625,7 +625,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
               type="text"
               list="yl-header-lang-suggestions"
               value={config.targetLang}
-              onChange={e => { updateConfig({ targetLang: e.target.value }); retranslate(); }}
+              onChange={e => updateConfig({ targetLang: e.target.value })}
               placeholder="en, he, ar…"
               title="Target language code for translation (e.g. en, he, ar, ru)"
             />
@@ -785,7 +785,33 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
       {/* ── Settings Panel ─────────────────────────────────────────────────── */}
       {showSettings && lines.length > 0 && (
         <div className="yl-settings">
+          <div className="yl-settings-heading">
+            <div>
+              <strong>Project settings</strong>
+              <span>Choose what is shown and how captions are read.</span>
+            </div>
+            <button className="yl-btn-ghost yl-btn-sm" onClick={() => setShowSettings(false)}>Close</button>
+          </div>
           <div className="yl-settings-global">
+            <label className="yl-setting-field yl-translation-setting">
+              <span>Translate captions to</span>
+              <div className="yl-translation-setting-control">
+                <input
+                  className="yl-input-sm yl-target-input"
+                  type="text"
+                  list="yl-settings-lang-suggestions"
+                  value={config.targetLang}
+                  onChange={e => updateConfig({ targetLang: e.target.value })}
+                  aria-label="Translation language"
+                />
+                <button className="yl-btn-secondary yl-btn-sm" type="button" onClick={retranslate} disabled={!config.targetLang.trim() || translationStatus === 'translating'}>
+                  {translationStatus === 'translating' ? 'Working…' : 'Translate'}
+                </button>
+                <datalist id="yl-settings-lang-suggestions">
+                  {langOptions.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
+                </datalist>
+              </div>
+            </label>
             <label className="yl-setting-field">
               <span>Source column</span>
               <select className="yl-select-sm" value={config.translationSource}
@@ -906,13 +932,13 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
 
                   <div className="yl-manage-langs-section">
                     <span className="yl-manage-langs-label">
-                      Add language
+                      Add a subtitle
                       <button
                         className="yl-btn-ghost yl-btn-sm"
                         style={{ marginLeft: '0.4rem' }}
                         onClick={fetchAvailLangs}
                         disabled={langsLoading}
-                        title="Refresh language list"
+                        title="Refresh subtitle list"
                       >
                         {langsLoading ? '…' : '↺'}
                       </button>

@@ -16,7 +16,6 @@ interface Props {
 }
 
 type Step = 'url' | 'langs';
-type SubtitleService = 'plus' | 'api-js' | 'onrender';
 type SetupMode = 'fetch' | 'manual';
 
 interface ManualTrack {
@@ -33,7 +32,6 @@ function buildProject(
   description: string,
   tracks: YtTrack[],
   targetLang: string,
-  subtitleService: SubtitleService
 ): YtProject {
   const colOrder: string[] = [...tracks.map(t => `track:${t.lang}`), 'translation', 'video'];
   const colSettings: ProjectConfig['colSettings'] = {};
@@ -51,7 +49,7 @@ function buildProject(
     visibleLines: DEFAULT_VISIBLE_LINES,
   };
 
-  return { id, videoId, title, description, createdAt: Date.now(), updatedAt: Date.now(), tracks, config, lastLine: 0, subtitleService };
+  return { id, videoId, title, description, createdAt: Date.now(), updatedAt: Date.now(), tracks, config, lastLine: 0, subtitleService: 'plus' };
 }
 
 export default function SetupView({ onProjectReady, recentProject, projects, onLoadRecent, onLoadProject, onDeleteProject }: Props) {
@@ -61,7 +59,6 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
   // ── URL step ──────────────────────────────────────────────────────────────
   const [url, setUrl] = useState('https://www.youtube.com/watch?v=prSfxdmjNzE');
   const [findLoading, setFindLoading] = useState(false);
-  const [quickLoading, setQuickLoading] = useState(false);
   const [findError, setFindError] = useState('');
 
   // ── Language selection step ──────────────────────────────────────────────
@@ -74,8 +71,6 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
   const [targetLang, setTargetLang] = useState('he');
   const [fetchLoading, setFetchLoading] = useState(false);
   const [fetchError, setFetchError] = useState('');
-  const [subtitleService, setSubtitleService] = useState<SubtitleService>('plus');
-  const subtitleMethod = subtitleService === 'plus' ? '1' : subtitleService === 'api-js' ? '2' : '3';
   const [manualTitle, setManualTitle] = useState('');
   const [manualDescription, setManualDescription] = useState('');
   const [manualVideoUrl, setManualVideoUrl] = useState('');
@@ -101,49 +96,13 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
     reader.readAsText(file);
   };
 
-  const serviceToggle = (
-    <div className="yl-service-picker" role="group" aria-label="Subtitle service">
-      <span className="yl-service-label">Subtitle service</span>
-      <div className="yl-service-toggle">
-        <button
-          type="button"
-          className={`yl-service-option ${subtitleService === 'plus' ? 'yl-service-option-active' : ''}`}
-          onClick={() => setSubtitleService('plus')}
-          aria-pressed={subtitleService === 'plus'}
-        >
-          YouTube captions · transcript-plus <span className="yl-default-badge">default</span>
-        </button>
-        <button
-          type="button"
-          className={`yl-service-option ${subtitleService === 'api-js' ? 'yl-service-option-active' : ''}`}
-          onClick={() => setSubtitleService('api-js')}
-          aria-pressed={subtitleService === 'api-js'}
-        >
-          YouTube captions · API.js
-        </button>
-        <button
-          type="button"
-          className={`yl-service-option ${subtitleService === 'onrender' ? 'yl-service-option-active' : ''}`}
-          onClick={() => setSubtitleService('onrender')}
-          aria-pressed={subtitleService === 'onrender'}
-        >
-          Hosted captions · OnRender
-        </button>
-      </div>
-      <span className="yl-service-help">
-        This chooses how existing YouTube captions are fetched. Default: YouTube captions via transcript-plus.
-      </span>
-    </div>
-  );
-
   const handleFindLanguages = async () => {
     setFindError('');
     const vid = extractVideoId(url.trim());
     if (!vid) { setFindError('Could not extract a video ID from that URL.'); return; }
     setFindLoading(true);
     try {
-      const serviceQuery = subtitleService === 'onrender' ? '&service=onrender' : '';
-      const res = await fetch(`/api/transcript/languages?videoId=${encodeURIComponent(vid)}${serviceQuery}`);
+      const res = await fetch(`/api/transcript/languages?videoId=${encodeURIComponent(vid)}`);
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error || `HTTP ${res.status}`);
@@ -175,52 +134,6 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
     setFindLoading(false);
   };
 
-  const handleQuickCreate = async () => {
-    setFindError('');
-    const vid = extractVideoId(url.trim());
-    if (!vid) { setFindError('Enter a YouTube URL or video ID.'); return; }
-    setQuickLoading(true);
-    try {
-      const serviceQuery = subtitleService === 'onrender' ? '&service=onrender' : '';
-      const languagesResponse = await fetch(`/api/transcript/languages?videoId=${encodeURIComponent(vid)}${serviceQuery}`);
-      if (!languagesResponse.ok) {
-        const body = await languagesResponse.json().catch(() => ({}));
-        throw new Error(body.error || `Could not fetch video details (HTTP ${languagesResponse.status})`);
-      }
-      const data = await languagesResponse.json();
-      const languages = dedupeAvailLangs<AvailableLang>((data.availableLanguages || []).map((l: any): AvailableLang => ({
-        languageCode: l.languageCode || String(l),
-        name: l.name || l.languageCode || String(l),
-        isAutoGenerated: !!l.isAutoGenerated,
-      })));
-      const firstLanguage = languages[0] || { languageCode: 'en', name: 'English · language-code request', isAutoGenerated: false };
-      const langCode = firstLanguage.languageCode.split('-')[0];
-      const subtitlesResponse = await fetch(
-        `/api/srt?videoId=${encodeURIComponent(vid)}&lang=${encodeURIComponent(langCode)}&method=${subtitleMethod}`
-      );
-      if (!subtitlesResponse.ok) {
-        const body = await subtitlesResponse.json().catch(() => ({}));
-        throw new Error(body.error || `Could not fetch the default caption track (HTTP ${subtitlesResponse.status})`);
-      }
-      const srtContent = await subtitlesResponse.text();
-      if (!srtContent.trim()) throw new Error('The default caption track was empty.');
-
-      const title = data.videoDetails?.title || `YouTube video ${vid}`;
-      const description = data.videoDetails?.description || `YouTube video transcript for ${vid}`;
-      const track: YtTrack = {
-        lang: firstLanguage.languageCode,
-        label: firstLanguage.name,
-        isAuto: firstLanguage.isAutoGenerated,
-        srtContent,
-      };
-      onProjectReady(buildProject(vid, vid, title, description, [track], 'he', subtitleService));
-    } catch (e: any) {
-      setFindError(e.message || 'Could not create the YouTube project.');
-    } finally {
-      setQuickLoading(false);
-    }
-  };
-
   const toggleLang = (code: string) => {
     setSelectedLangs(prev => {
       const next = new Set(prev);
@@ -238,7 +151,7 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
       const tracks: YtTrack[] = [];
       for (const lang of chosen) {
         const langCode = lang.languageCode.split('-')[0];
-        const res = await fetch(`/api/srt?videoId=${encodeURIComponent(videoId)}&lang=${langCode}&method=${subtitleMethod}`);
+        const res = await fetch(`/api/srt?videoId=${encodeURIComponent(videoId)}&lang=${encodeURIComponent(langCode)}`);
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));
           throw new Error(j.error || `HTTP ${res.status}`);
@@ -246,7 +159,7 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
         const srtContent = await res.text();
         tracks.push({ lang: lang.languageCode, label: lang.name, isAuto: lang.isAutoGenerated, srtContent });
       }
-      onProjectReady(buildProject(videoId, videoId, videoTitle || `YouTube video ${videoId}`, videoDescription || `YouTube video transcript for ${videoId}`, tracks, targetLang.trim(), subtitleService));
+      onProjectReady(buildProject(videoId, videoId, videoTitle || `YouTube video ${videoId}`, videoDescription || `YouTube video transcript for ${videoId}`, tracks, targetLang.trim()));
     } catch (e: any) {
       setFetchError(e.message || 'Error fetching subtitles');
     }
@@ -327,7 +240,7 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
     }));
     const manualVideoId = extractVideoId(manualVideoUrl.trim()) || '';
     const id = manualVideoId || `manual-${Date.now()}`;
-    onProjectReady(buildProject(id, manualVideoId, manualTitle.trim(), manualDescription.trim() || `Manual transcript project${manualVideoId ? ` for ${manualVideoId}` : ''}`, tracks, manualTargetLang.trim(), 'plus'));
+    onProjectReady(buildProject(id, manualVideoId, manualTitle.trim(), manualDescription.trim() || `Manual transcript project${manualVideoId ? ` for ${manualVideoId}` : ''}`, tracks, manualTargetLang.trim()));
   };
 
   // ── Render: language selection ───────────────────────────────────────────
@@ -341,7 +254,6 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
 
         <div className="yl-setup-form">
           <label className="yl-label">Select subtitle track(s) to fetch</label>
-          {serviceToggle}
            {languageDiscoveryFallback && (
              <p className="yl-fetch-note">
                 YouTube did not return a confirmed track list. These are language-code requests; the selected subtitle provider will fetch the requested caption language directly.
@@ -506,18 +418,13 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
           autoFocus
         />
 
-        {serviceToggle}
-
         {findError && <p className="yl-error">{findError}</p>}
 
-         <button className="yl-btn-primary yl-btn-full" onClick={handleQuickCreate} disabled={quickLoading || findLoading || !url.trim()}>
-           {quickLoading ? 'Creating project…' : 'Quick create project →'}
-         </button>
-         <button className="yl-btn-secondary yl-btn-full" onClick={handleFindLanguages} disabled={quickLoading || findLoading || !url.trim()}>
-           {findLoading ? 'Finding subtitle tracks…' : 'Choose subtitle tracks instead'}
+         <button className="yl-btn-primary yl-btn-full" onClick={handleFindLanguages} disabled={findLoading || !url.trim()}>
+           {findLoading ? 'Finding caption tracks…' : 'Continue →'}
          </button>
          <p className="yl-input-method-hint">
-           Quick create fetches the video title, description, first available caption track, and sets Hebrew as the default translation. You can add caption languages or change the translation later.
+           We’ll find the available YouTube captions next. You can add more languages or change translation settings later.
          </p>
       </div> : (
         <div className="yl-setup-form yl-manual-form">

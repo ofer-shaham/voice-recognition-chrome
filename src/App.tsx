@@ -32,7 +32,7 @@ function AppInner() {
           <Routes>
             <Route path="/" element={<AppHub />} />
             <Route path="/listen" element={<Intro />} />
-            <Route path="/youtube" element={<YoutubeLearner />} />
+            <Route path="/youtube/*" element={<YoutubeLearner />} />
             <Route path="/proverb" element={<ProverbList />} />
             <Route
               path="/simultanuos_translation"
