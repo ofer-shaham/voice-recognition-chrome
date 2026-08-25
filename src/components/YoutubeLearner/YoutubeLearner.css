@@ -1483,6 +1483,51 @@ input[type="range"] {
   animation: yl-spin 0.8s linear infinite;
 }
 
+.yl-translation-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+  color: #94a3b8;
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
+.yl-translation-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #64748b;
+  flex: 0 0 auto;
+}
+
+.yl-translation-status-translating .yl-translation-status-dot {
+  background: #60a5fa;
+  animation: yl-pulse 1s ease-in-out infinite;
+}
+
+.yl-translation-status-ready .yl-translation-status-dot {
+  background: #4ade80;
+}
+
+.yl-translation-status-rate-limited {
+  color: #fbbf24;
+}
+
+.yl-translation-status-rate-limited .yl-translation-status-dot {
+  background: #fbbf24;
+}
+
+.yl-translation-on-demand {
+  color: #64748b;
+  font-size: 0.78rem;
+  font-style: italic;
+}
+
 @keyframes yl-spin {
   to { transform: rotate(360deg); }
+}
+
+@keyframes yl-pulse {
+  50% { opacity: 0.35; }
 }

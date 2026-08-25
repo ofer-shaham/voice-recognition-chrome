@@ -51,6 +51,7 @@ interface Props {
 
 // Encode colId for URL: track:en → en, translation → t
 const shortCol = (id: string) => id === 'translation' ? 't' : id.replace('track:', '');
+const TRANSLATION_AHEAD = 7;
 
 export default function PlayerView({ project, onSave, onNewVideo, onDelete, projects, onSelectProject }: Props) {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
@@ -83,6 +84,9 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
   const [langsError, setLangsError]           = useState('');
   const [addingLang, setAddingLang]           = useState<string | null>(null);
   const [cachedCount, setCachedCount]         = useState(() => getTranslationCacheCount());
+  const [translatingIndices, setTranslatingIndices] = useState<Set<number>>(new Set());
+  const [translationStatus, setTranslationStatus] = useState<'idle' | 'translating' | 'ready' | 'rate-limited'>('idle');
+  const [translationStatusMessage, setTranslationStatusMessage] = useState('');
 
   const { langOptions, voicesForLang } = useVoices();
 
@@ -91,6 +95,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
   const configRef      = useRef<ProjectConfig>(project.config);
   const projectRef     = useRef<YtProject>(project);
   const pendingSet     = useRef<Set<number>>(new Set());
+  const translatingSet = useRef<Set<number>>(new Set());
   const rowRefs        = useRef<Record<number, HTMLTableRowElement | null>>({});
   const iframeRef      = useRef<HTMLIFrameElement>(null);  // seamless visible iframe
   const audioRef       = useRef<HTMLIFrameElement>(null);  // always-present background audio iframe
@@ -158,17 +163,34 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.id]);
 
-  // ── Background translation ───────────────────────────────────────────────────
+  // ── On-demand translation ─────────────────────────────────────────────────────
+  // Translate only what the learner can see, plus a small lookahead. This keeps
+  // navigation responsive without sending the whole transcript to the API.
   useEffect(() => {
     let cancelled = false;
     const run = async () => {
       if (lines.length === 0) return; // Wait for lines to be populated
       if (!configRef.current.targetLang.trim()) {
         pendingSet.current.clear();
+        translatingSet.current.clear();
+        setTranslatingIndices(new Set());
+        setTranslationStatus('idle');
+        setTranslationStatusMessage('Choose a target language to translate');
         setLines(prev => prev.map(line => ({ ...line, translation: '', translated: true })));
         return;
       }
-      const indices = Array.from(pendingSet.current).sort((a, b) => a - b);
+      const rangeEnd = Math.min(lines.length, windowStart + configRef.current.visibleLines + TRANSLATION_AHEAD);
+      const indices = Array.from(pendingSet.current)
+        .filter(i => i >= windowStart && i < rangeEnd)
+        .sort((a, b) => a - b);
+      if (!indices.length) {
+        setTranslationStatus('ready');
+        setTranslationStatusMessage(`Visible lines are translated${TRANSLATION_AHEAD ? ` · ${TRANSLATION_AHEAD} ahead` : ''}`);
+        return;
+      }
+      setTranslationStatus('translating');
+      setTranslationStatusMessage(`Translating visible lines + ${TRANSLATION_AHEAD} ahead`);
+      let wasRateLimited = false;
       for (const i of indices) {
         if (cancelled) break;
         const line = linesRef.current[i];
@@ -180,20 +202,41 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
           setLines(prev => prev.map((l, idx) => idx === i ? { ...l, translation: '', translated: true } : l));
           continue;
         }
+        translatingSet.current.add(i);
+        setTranslatingIndices(new Set(translatingSet.current));
         try {
           const fromLang = cfg.translationSource.replace('track:', '').split('-')[0];
           const result = await translate({ finalTranscriptProxy: srcText, fromLang, toLang: cfg.targetLang });
+          if (result === 'translation error') {
+            wasRateLimited = true;
+            setTranslationStatus('rate-limited');
+            setTranslationStatusMessage('Translation API is rate limited · retrying when you navigate');
+            break;
+          }
           pendingSet.current.delete(i);
           setLines(prev => prev.map((l, idx) => idx === i ? { ...l, translation: result, translated: true } : l));
           setCachedCount(getTranslationCacheCount());
-        } catch { /* ignore individual failures */ }
-        if (i % 10 === 9) await sleep(80);
+        } catch {
+          wasRateLimited = true;
+          setTranslationStatus('rate-limited');
+          setTranslationStatusMessage('Translation unavailable · retrying when you navigate');
+          break;
+        } finally {
+          translatingSet.current.delete(i);
+          setTranslatingIndices(new Set(translatingSet.current));
+        }
+        // Space requests out to avoid bursting a rate-limited provider.
+        await sleep(250);
+      }
+      if (!cancelled && !wasRateLimited) {
+        setTranslationStatus('ready');
+        setTranslationStatusMessage(`Visible lines are translated · ${TRANSLATION_AHEAD} ahead`);
       }
     };
     run();
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [translationVer, lines.length]);
+  }, [translationVer, lines.length, windowStart, config.visibleLines]);
 
   // ── Slide window to follow current line ─────────────────────────────────────
   useEffect(() => {
@@ -234,6 +277,8 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
       pendingSet.current = new Set(prev.map((_, i) => i));
       return prev.map(l => ({ ...l, translation: '', translated: false }));
     });
+    setTranslationStatus('idle');
+    setTranslationStatusMessage('Translation queued for the visible window');
     setTranslationVer(v => v + 1);
   }, []);
 
@@ -919,6 +964,10 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
               onClick={() => setWindowStart(w => Math.min(lines.length - config.visibleLines, w + config.visibleLines))}>
               ↓ Next
             </button>
+            <span className={`yl-translation-status yl-translation-status-${translationStatus}`} role="status">
+              <span className="yl-translation-status-dot" />
+              {translationStatusMessage || 'Translation on demand'}
+            </span>
           </div>
 
           <table className="yl-table">
@@ -950,11 +999,13 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
                     const rtl = isTrans
                       ? isRtl(config.targetLang)
                       : isRtl(colId.replace('track:', ''));
-                    const isLoading = isTrans && !line.translated;
+                    const isLoading = isTrans && translatingIndices.has(line.index);
                     return (
                       <td key={colId} className="yl-td-text" dir={rtl ? 'rtl' : 'ltr'}>
                         {isLoading ? (
                           <span className="yl-translation-loading">Translating…</span>
+                        ) : isTrans && !line.translated ? (
+                          <span className="yl-translation-on-demand">On demand</span>
                         ) : (
                           renderHighlightedText(text, line.index)
                         )}
