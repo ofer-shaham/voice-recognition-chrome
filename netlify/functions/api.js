@@ -469,6 +469,28 @@ exports.handler = async (event) => {
     }
   }
 
+  if (method === "GET" && apiPath === "/api/timedtext") {
+    const sourceUrl = String(qs.url || "").trim();
+    let parsed;
+    try {
+      parsed = new URL(sourceUrl);
+      if (!["youtube.com", "www.youtube.com", "youtube-nocookie.com", "www.youtube-nocookie.com"].includes(parsed.hostname)) throw new Error();
+      if (!parsed.pathname.endsWith("/api/timedtext")) throw new Error();
+    } catch {
+      return json(400, { error: "url must be a YouTube timedtext request URL" });
+    }
+    parsed.searchParams.set("fmt", "srt");
+    try {
+      const upstream = await proxyFetch(parsed.toString());
+      if (!upstream.ok) return json(502, { error: `YouTube timedtext returned HTTP ${upstream.status}` });
+      if (!upstream.body.trim()) return json(502, { error: "YouTube timedtext returned an empty subtitle file" });
+      return textResp(200, upstream.body);
+    } catch (err) {
+      log("error", "timedtext conversion failed", { error: err.message });
+      return json(502, { error: `Could not fetch YouTube timedtext: ${err.message}` });
+    }
+  }
+
 
   // ── TTS proxy ─────────────────────────────────────────────────────────────────
   if (method === "GET" && apiPath === "/api/tts") {

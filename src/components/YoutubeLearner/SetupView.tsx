@@ -62,6 +62,8 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
   const [url, setUrl] = useState('https://www.youtube.com/watch?v=prSfxdmjNzE');
   const [findLoading, setFindLoading] = useState(false);
   const [findError, setFindError] = useState('');
+  const [capturedRequestUrl, setCapturedRequestUrl] = useState('');
+  const [capturedLoading, setCapturedLoading] = useState(false);
 
   // ── Language selection step ──────────────────────────────────────────────
   const [videoId, setVideoId] = useState('');
@@ -163,6 +165,37 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
       setFindError(e.message || 'Failed to fetch available languages');
     }
     setFindLoading(false);
+  };
+
+  const handleCapturedRequest = async () => {
+    if (!previewVideoId || !capturedRequestUrl.trim()) return;
+    setFindError('');
+    setCapturedLoading(true);
+    try {
+      const response = await fetch(`/api/timedtext?url=${encodeURIComponent(capturedRequestUrl.trim())}`);
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || `Could not fetch the captured caption request (HTTP ${response.status})`);
+      }
+      const srtContent = await response.text();
+      if (!srtContent.trim()) throw new Error('The converted SRT response was empty.');
+      const requestUrl = new URL(capturedRequestUrl.trim());
+      const lang = requestUrl.searchParams.get('lang') || 'en';
+      const isAuto = requestUrl.searchParams.get('kind') === 'asr' || requestUrl.searchParams.get('caps') === 'asr';
+      onProjectReady(buildProject(
+        previewVideoId,
+        previewVideoId,
+        `YouTube video ${previewVideoId}`,
+        `Subtitle imported from the YouTube player (${lang})`,
+        [{ lang, label: `${lang}${isAuto ? ' · auto-generated' : ''}`, isAuto, srtContent }],
+        'he',
+        'iframe',
+      ));
+    } catch (e: any) {
+      setFindError(e.message || 'Could not convert the captured caption request.');
+    } finally {
+      setCapturedLoading(false);
+    }
   };
 
   const toggleLang = (code: string) => {
@@ -466,6 +499,25 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
               allow="autoplay; encrypted-media; fullscreen"
               allowFullScreen
             />
+            <label className="yl-label" htmlFor="yl-captured-request">
+              Paste the timedtext request from DevTools
+            </label>
+            <input
+              id="yl-captured-request"
+              className="yl-input"
+              type="url"
+              placeholder="https://www.youtube-nocookie.com/api/timedtext?...&fmt=json3"
+              value={capturedRequestUrl}
+              onChange={e => setCapturedRequestUrl(e.target.value)}
+            />
+            <button
+              className="yl-btn-secondary"
+              type="button"
+              onClick={handleCapturedRequest}
+              disabled={capturedLoading || !capturedRequestUrl.trim()}
+            >
+              {capturedLoading ? 'Converting to SRT…' : 'Use captured request'}
+            </button>
           </div>
         )}
 

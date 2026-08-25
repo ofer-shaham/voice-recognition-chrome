@@ -329,6 +329,32 @@ app.get("/api/srt-url", async (req, res) => {
   }
 });
 
+// Convert a caption request copied from the YouTube player from json3 to SRT.
+// The signed query string must be preserved; only the response format changes.
+app.get("/api/timedtext", async (req, res) => {
+  const sourceUrl = String(req.query.url || "").trim();
+  let parsed;
+  try {
+    parsed = new URL(sourceUrl);
+    if (!["youtube.com", "www.youtube.com", "youtube-nocookie.com", "www.youtube-nocookie.com"].includes(parsed.hostname)) throw new Error();
+    if (!parsed.pathname.endsWith("/api/timedtext")) throw new Error();
+  } catch {
+    return res.status(400).json({ error: "url must be a YouTube timedtext request URL" });
+  }
+  parsed.searchParams.set("fmt", "srt");
+  try {
+    const upstream = await fetch(parsed.toString(), { headers: { "User-Agent": "Mozilla/5.0" } });
+    const text = await upstream.text();
+    if (!upstream.ok) return res.status(502).json({ error: `YouTube timedtext returned HTTP ${upstream.status}` });
+    if (!text.trim()) return res.status(502).json({ error: "YouTube timedtext returned an empty subtitle file" });
+    log("info", "timedtext SRT conversion OK", { lang: parsed.searchParams.get("lang") || null, bytes: Buffer.byteLength(text) });
+    res.type("text/plain; charset=utf-8").send(text);
+  } catch (e) {
+    log("error", "timedtext conversion failed", { error: e.message });
+    res.status(502).json({ error: `Could not fetch YouTube timedtext: ${e.message}` });
+  }
+});
+
 // ── TTS proxy ─────────────────────────────────────────────────────────────────
 app.get("/api/tts", async (req, res) => {
   const { text, lang } = req.query;
