@@ -128,8 +128,10 @@ async function fetchSrtMethod1(videoId, langCode) {
 }
 
 async function fetchSrtMethod2(videoId, langCode) {
-  const { YouTubeTranscriptApi, SRTFormatter } = await import("youtube-transcript-api-js");
-  const api  = new YouTubeTranscriptApi();
+  const { YouTubeTranscriptApi, SRTFormatter, GenericProxyConfig } = await import("youtube-transcript-api-js");
+  const proxyUrl = String(process.env.YOUTUBE_HTTP_PROXY || "").trim();
+  const proxyConfig = proxyUrl ? new GenericProxyConfig(proxyUrl, proxyUrl) : undefined;
+  const api  = new YouTubeTranscriptApi(proxyConfig);
   const list = await api.list(String(videoId));
   let transcript;
   try {

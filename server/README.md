@@ -56,7 +56,7 @@ The endpoint supports an optional `?method=` query parameter to force a specific
 | `method` value | Library used | Best for |
 |---|---|---|
 | `1` | `youtube-transcript-plus` | **DEPRECATED** (requires Node >=20). Use method 2, 3, or 4 instead. |
-| `2` | `youtube-transcript-api-js` | Uses YouTube's caption list API; reliable fallback |
+| `2` | `youtube-transcript-api-js` | Uses YouTube's caption list API; supports the server-side `YOUTUBE_HTTP_PROXY` setting |
 | `3` | ytInitialPlayerResponse+json3 | Parses YouTube watch page HTML directly (downsub-style) |
 | `4` | DownSub-hosted API | Default; third-party service at youtube-dl-jrte.onrender.com |
 | *(omitted)* | Auto-fallback | Defaults to method 4 (DownSub); falls back to 1→2 if unavailable |
@@ -82,6 +82,20 @@ curl "http://localhost:3001/api/srt?videoId=dQw4w9WgXcQ&lang=en"
 ```bash
 curl "http://localhost:3001/api/transcript/languages?videoId=dQw4w9WgXcQ"
 ```
+
+### Optional HTTP proxy
+
+Set `YOUTUBE_HTTP_PROXY` on the server to route method 2 transcript requests
+through an HTTP or HTTPS proxy:
+
+```bash
+YOUTUBE_HTTP_PROXY=http://proxy.example.com:8080
+```
+
+The proxy URL is read only from the server environment and is never accepted
+from browser query parameters. This setting is supported by
+`youtube-transcript-api-js` (method 2); the other providers do not expose the
+same proxy configuration.
 
 ---
 
