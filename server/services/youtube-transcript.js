@@ -132,19 +132,68 @@ async function fetchSrtMethod2(videoId, langCode) {
   const proxyUrl = String(process.env.YOUTUBE_HTTP_PROXY || "").trim();
   const proxyConfig = proxyUrl ? new GenericProxyConfig(proxyUrl, proxyUrl) : undefined;
   const api  = new YouTubeTranscriptApi(proxyConfig);
-  const list = await api.list(String(videoId));
-  let transcript;
   try {
-    transcript = list.findTranscript([langCode]);
-  } catch {
-    transcript = list.findTranscript(["en", "ar", "he", "fr", "es", "de", "ru", "zh", "ja"]);
+    const list = await api.list(String(videoId));
+    let transcript;
+    try {
+      transcript = list.findTranscript([langCode]);
+    } catch {
+      transcript = list.findTranscript(["en", "ar", "he", "fr", "es", "de", "ru", "zh", "ja"]);
+    }
+    if (transcript.languageCode !== langCode && transcript.isTranslatable
+        && transcript.translationLanguagesDict?.has(langCode)) {
+      transcript = transcript.translate(langCode);
+    }
+    const fetched = await transcript.fetch();
+    return new SRTFormatter().formatTranscript(fetched);
+  } catch (error) {
+    if (!invidiousEnabled()) throw error;
+    return fetchSrtFromInvidious(String(videoId), langCode, error);
   }
-  if (transcript.languageCode !== langCode && transcript.isTranslatable
-      && transcript.translationLanguagesDict?.has(langCode)) {
-    transcript = transcript.translate(langCode);
+}
+
+function invidiousEnabled() {
+  return String(process.env.YOUTUBE_INVIDIOUS_ENABLED ?? "true").toLowerCase() !== "false";
+}
+
+function invidiousInstances() {
+  return String(process.env.YOUTUBE_INVIDIOUS_INSTANCES || "https://yewtu.be")
+    .split(",")
+    .map(value => value.trim().replace(/\/+$/, ""))
+    .filter(Boolean);
+}
+
+function vttToSrt(vtt) {
+  return String(vtt)
+    .replace(/^WEBVTT[^\n]*\n+/i, "")
+    .replace(/(\d{2}:)?(\d{2}:\d{2})\.(\d{3})/g, (_, hours, minutes, millis) =>
+      `${hours ? hours : "00:"}${minutes},${millis}`)
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+async function fetchSrtFromInvidious(videoId, langCode, originalError) {
+  let lastError = originalError;
+  for (const instance of invidiousInstances()) {
+    try {
+      const captionsResponse = await fetch(
+        `${instance}/api/v1/captions/${encodeURIComponent(videoId)}`
+      );
+      if (!captionsResponse.ok) throw new Error(`Invidious captions HTTP ${captionsResponse.status}`);
+      const captions = await captionsResponse.json();
+      const baseLang = langCode.split("-")[0];
+      const caption = captions.find(item => item.languageCode === langCode) ||
+        captions.find(item => String(item.languageCode || "").startsWith(baseLang));
+      if (!caption?.url) throw new Error(`Invidious has no ${langCode} caption`);
+
+      const subtitleResponse = await fetch(`${caption.url}${caption.url.includes("?") ? "&" : "?"}fmt=vtt`);
+      if (!subtitleResponse.ok) throw new Error(`Invidious subtitle HTTP ${subtitleResponse.status}`);
+      return vttToSrt(await subtitleResponse.text());
+    } catch (error) {
+      lastError = error;
+    }
   }
-  const fetched = await transcript.fetch();
-  return new SRTFormatter().formatTranscript(fetched);
+  throw new Error(`YouTube provider and Invidious fallback failed: ${lastError.message}`);
 }
 
 // ── Method 3: parse ytInitialPlayerResponse from watch-page HTML ──────────────
@@ -287,7 +336,14 @@ async function fetchSrtOnrender(videoId, langCode) {
 }
 
 async function fetchSrt(videoId, langCode, method) {
-  if (method === "1") return fetchSrtMethod1(videoId, langCode);
+  if (method === "1") {
+    try {
+      return await fetchSrtMethod1(videoId, langCode);
+    } catch (error) {
+      if (!invidiousEnabled()) throw error;
+      return fetchSrtMethod2(videoId, langCode);
+    }
+  }
   if (method === "2") return fetchSrtMethod2(videoId, langCode);
   if (method === "3") return fetchSrtOnrender(videoId, langCode);
   const failures = [];

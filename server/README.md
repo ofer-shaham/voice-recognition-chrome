@@ -97,6 +97,17 @@ from browser query parameters. This setting is supported by
 `youtube-transcript-api-js` (method 2); the other providers do not expose the
 same proxy configuration.
 
+Invidious fallback is enabled by default after the YouTube providers fail.
+Configure it with:
+
+```bash
+YOUTUBE_INVIDIOUS_ENABLED=true
+YOUTUBE_INVIDIOUS_INSTANCES=https://yewtu.be
+```
+
+Use a comma-separated list for instance fallback. Set
+`YOUTUBE_INVIDIOUS_ENABLED=false` to disable this behavior.
+
 ---
 
 ## Service implementation files
