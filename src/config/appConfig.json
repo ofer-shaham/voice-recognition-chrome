@@ -5,6 +5,6 @@
     "defaultTargetLanguage": "he"
   },
   "translation": {
-    "method": "openapi"
+    "method": "google"
   }
 }

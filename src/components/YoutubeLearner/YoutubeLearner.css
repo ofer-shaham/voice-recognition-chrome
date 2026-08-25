@@ -1483,6 +1483,18 @@ input[type="range"] {
   animation: yl-spin 0.8s linear infinite;
 }
 
+.yl-default-badge {
+  display: inline-block;
+  margin-left: 0.3rem;
+  padding: 0.1rem 0.35rem;
+  border: 1px solid #2563eb;
+  border-radius: 999px;
+  color: #93c5fd;
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
 .yl-translation-status {
   display: inline-flex;
   align-items: center;
