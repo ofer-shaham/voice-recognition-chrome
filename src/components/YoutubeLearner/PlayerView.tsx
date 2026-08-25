@@ -619,7 +619,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
 
           {/* ── Target language (optional and always editable) ── */}
           <div className="yl-menu-lang-wrap">
-            <label className="yl-menu-lang-label">Translate to (optional)</label>
+            <label className="yl-menu-lang-label">Translate to</label>
             <input
               className="yl-menu-lang-input"
               type="text"
@@ -629,6 +629,15 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
               placeholder="en, he, ar…"
               title="Target language code for translation (e.g. en, he, ar, ru)"
             />
+            <button
+              className="yl-btn-ghost yl-btn-sm"
+              type="button"
+              onClick={retranslate}
+              disabled={!config.targetLang.trim() || translationStatus === 'translating'}
+              title="Translate the visible lines and the next seven lines now"
+            >
+              {translationStatus === 'translating' ? 'Translating…' : 'Translate now'}
+            </button>
             <datalist id="yl-header-lang-suggestions">
               {langOptions.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
             </datalist>
