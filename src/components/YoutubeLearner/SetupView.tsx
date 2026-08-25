@@ -26,6 +26,17 @@ interface ManualTrack {
   url: string;
 }
 
+function toSrtTimedTextUrl(value: string): string {
+  try {
+    const parsed = new URL(value.trim());
+    if (!parsed.pathname.endsWith('/api/timedtext')) return '';
+    parsed.searchParams.set('fmt', 'srt');
+    return parsed.toString();
+  } catch {
+    return '';
+  }
+}
+
 function buildProject(
   id: string,
   videoId: string,
@@ -64,6 +75,7 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
   const [findError, setFindError] = useState('');
   const [capturedRequestUrl, setCapturedRequestUrl] = useState('');
   const [capturedLoading, setCapturedLoading] = useState(false);
+  const replacedRequestUrl = toSrtTimedTextUrl(capturedRequestUrl);
 
   // ── Language selection step ──────────────────────────────────────────────
   const [videoId, setVideoId] = useState('');
@@ -168,18 +180,18 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
   };
 
   const handleCapturedRequest = async () => {
-    if (!previewVideoId || !capturedRequestUrl.trim()) return;
+    if (!previewVideoId || !replacedRequestUrl) return;
     setFindError('');
     setCapturedLoading(true);
     try {
-      const response = await fetch(`/api/timedtext?url=${encodeURIComponent(capturedRequestUrl.trim())}`);
+      const response = await fetch(`/api/timedtext?url=${encodeURIComponent(replacedRequestUrl)}`);
       if (!response.ok) {
         const body = await response.json().catch(() => ({}));
         throw new Error(body.error || `Could not fetch the captured caption request (HTTP ${response.status})`);
       }
       const srtContent = await response.text();
       if (!srtContent.trim()) throw new Error('The converted SRT response was empty.');
-      const requestUrl = new URL(capturedRequestUrl.trim());
+      const requestUrl = new URL(replacedRequestUrl);
       const lang = requestUrl.searchParams.get('lang') || 'en';
       const isAuto = requestUrl.searchParams.get('kind') === 'asr' || requestUrl.searchParams.get('caps') === 'asr';
       onProjectReady(buildProject(
@@ -510,11 +522,26 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
               value={capturedRequestUrl}
               onChange={e => setCapturedRequestUrl(e.target.value)}
             />
+            {replacedRequestUrl && (
+              <div className="yl-replaced-request">
+                <label className="yl-label" htmlFor="yl-replaced-request">
+                  Request that will be fetched (fmt=json3 → fmt=srt)
+                </label>
+                <textarea
+                  id="yl-replaced-request"
+                  className="yl-textarea yl-request-preview"
+                  value={replacedRequestUrl}
+                  readOnly
+                  rows={4}
+                  aria-label="Converted timedtext request"
+                />
+              </div>
+            )}
             <button
               className="yl-btn-secondary"
               type="button"
               onClick={handleCapturedRequest}
-              disabled={capturedLoading || !capturedRequestUrl.trim()}
+              disabled={capturedLoading || !replacedRequestUrl}
             >
               {capturedLoading ? 'Converting to SRT…' : 'Use captured request'}
             </button>
