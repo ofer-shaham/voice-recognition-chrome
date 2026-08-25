@@ -1590,6 +1590,25 @@ input[type="range"] {
 .yl-mode-tab { background: #fff; color: var(--yl-muted); }
 .yl-mode-tab-active { background: var(--yl-accent-soft); color: var(--yl-accent); }
 .yl-track-card { background: #fbfcfa; border-color: var(--yl-line); border-radius: 11px; }
+.yl-caption-preview {
+  display: flex;
+  flex-direction: column;
+  gap: .7rem;
+  padding: .9rem;
+  background: #f5f8f4;
+  border: 1px solid var(--yl-line);
+  border-radius: 11px;
+}
+.yl-caption-preview-copy { display: flex; flex-direction: column; gap: .25rem; }
+.yl-caption-preview-copy strong { color: var(--yl-ink); font-size: .88rem; }
+.yl-caption-preview-copy span { color: var(--yl-muted); font-size: .78rem; line-height: 1.45; }
+.yl-caption-preview-frame {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border: 0;
+  border-radius: 8px;
+  background: #111;
+}
 
 .yl-player { background: var(--yl-paper); color: var(--yl-ink); }
 .yl-header { background: #fff; border-bottom-color: var(--yl-line); min-height: 60px; }

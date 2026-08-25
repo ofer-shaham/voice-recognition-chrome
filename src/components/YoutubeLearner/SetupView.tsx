@@ -16,7 +16,7 @@ interface Props {
 }
 
 type Step = 'url' | 'langs';
-type SubtitleService = 'plus' | 'api-js' | 'onrender';
+type SubtitleService = 'plus' | 'api-js' | 'onrender' | 'iframe';
 type SetupMode = 'fetch' | 'manual';
 
 interface ManualTrack {
@@ -86,6 +86,7 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
   const fileRefs = useRef<(HTMLInputElement | null)[]>([]);
   const urlInputRef = useRef<HTMLInputElement | null>(null);
   const projectFileRef = useRef<HTMLInputElement | null>(null);
+  const previewVideoId = extractVideoId(url.trim());
 
   const serviceToggle = (
     <div className="yl-service-picker" role="group" aria-label="Subtitle fetch provider">
@@ -95,6 +96,7 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
           ['plus', 'Transcript Plus'],
           ['api-js', 'Transcript API.js'],
           ['onrender', 'Hosted captions'],
+          ['iframe', 'YouTube player'],
         ] as const).map(([value, label]) => (
           <button key={value} type="button"
             className={`yl-service-option ${subtitleService === value ? 'yl-service-option-active' : ''}`}
@@ -103,7 +105,11 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
           </button>
         ))}
       </div>
-      <span className="yl-service-help">Choose the caption source for this project.</span>
+      <span className="yl-service-help">
+        {subtitleService === 'iframe'
+          ? 'Open the player below, turn on CC, and inspect the caption request in DevTools.'
+          : 'Choose the caption source for this project.'}
+      </span>
     </div>
   );
 
@@ -176,7 +182,8 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
       const tracks: YtTrack[] = [];
       for (const lang of chosen) {
         const langCode = lang.languageCode.split('-')[0];
-        const res = await fetch(`/api/srt?videoId=${encodeURIComponent(videoId)}&lang=${encodeURIComponent(langCode)}&method=${subtitleMethod}`);
+        const methodQuery = subtitleService === 'iframe' ? '' : `&method=${subtitleMethod}`;
+        const res = await fetch(`/api/srt?videoId=${encodeURIComponent(videoId)}&lang=${encodeURIComponent(langCode)}${methodQuery}`);
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));
           throw new Error(j.error || `HTTP ${res.status}`);
@@ -445,6 +452,22 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
         />
 
         {serviceToggle}
+
+        {subtitleService === 'iframe' && previewVideoId && (
+          <div className="yl-caption-preview">
+            <div className="yl-caption-preview-copy">
+              <strong>Use the YouTube player</strong>
+              <span>Start DevTools Network recording, click CC in the player, then choose Continue below. YouTube’s caption request will appear in the network log.</span>
+            </div>
+            <iframe
+              className="yl-caption-preview-frame"
+              src={`https://www.youtube-nocookie.com/embed/${previewVideoId}?cc_load_policy=1&enablejsapi=1&rel=0`}
+              title="YouTube caption preview"
+              allow="autoplay; encrypted-media; fullscreen"
+              allowFullScreen
+            />
+          </div>
+        )}
 
         {findError && <p className="yl-error">{findError}</p>}
 
