@@ -104,6 +104,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
   const audioOnlyRef   = useRef(false);
   const isPlayingRef   = useRef(false);
   const currentLineRef = useRef(-1);
+  const initialSeekRef = useRef<number | null>(null);
 
   useEffect(() => { linesRef.current = lines; }, [lines]);
   useEffect(() => { configRef.current = config; }, [config]);
@@ -128,6 +129,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     else p.set('p', project.id);
     p.set('tl', config.targetLang);
     p.set('l', String(project.lastLine));
+    p.set('t', String(Math.floor(currentTimeSec)));
     p.set('vl', String(config.visibleLines));
     for (const [colId, s] of Object.entries(config.colSettings)) {
       if (colId === 'video') continue;
@@ -136,7 +138,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
       if (s.voiceName) p.set(`vn_${sid}`, s.voiceName);
     }
     window.history.replaceState(null, '', `${window.location.pathname}?${p.toString()}`);
-  }, [project.id, project.videoId, project.lastLine, config, seamlessMode]);
+  }, [project.id, project.videoId, project.lastLine, config, currentTimeSec, seamlessMode]);
 
   // ── Parse SRT on project change ─────────────────────────────────────────────
   useEffect(() => {
@@ -158,6 +160,10 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     // Read line number from URL if present
     const urlLine = parseInt(params.get('l') || '', 10);
     const startLine = !isNaN(urlLine) && urlLine >= 0 && urlLine < parsed.length ? urlLine : project.lastLine;
+    const urlTime = parseFloat(params.get('t') || '');
+    initialSeekRef.current = !isNaN(urlTime) && urlTime >= 0
+      ? urlTime
+      : (parsed[startLine]?.startSec ?? 0);
     setWindowStart(Math.max(0, startLine - 3));
     setTranslationVer(v => v + 1);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -383,6 +389,13 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
         JSON.stringify({ event: 'listening', id: 'yl-sync' }),
         '*'
       );
+      if (initialSeekRef.current !== null) {
+        ref.current?.contentWindow?.postMessage(
+          JSON.stringify({ event: 'command', func: 'seekTo', args: [initialSeekRef.current, true] }),
+          '*'
+        );
+        initialSeekRef.current = null;
+      }
     } catch { /* ignore cross-origin errors */ }
   }, []);
 
@@ -715,13 +728,15 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
                   else p.set('p', project.id);
                   p.set('tl', config.targetLang);
                   p.set('l', String(currentLine >= 0 ? currentLine : project.lastLine));
+                  p.set('t', String(Math.floor(currentLine >= 0 ? currentTimeSec : (lines[project.lastLine]?.startSec ?? 0))));
                   for (const [colId, s] of Object.entries(config.colSettings)) {
                     if (colId === 'video') continue;
                     const sid = shortCol(colId);
                     if (s.ttsRate !== DEFAULT_TTS_RATE) p.set(`r_${sid}`, s.ttsRate.toFixed(1));
                     if (s.voiceName) p.set(`vn_${sid}`, s.voiceName);
                   }
-                  const shareUrl = `${window.location.origin}${window.location.pathname}?${p.toString()}`;
+                  const sharePath = `/youtube/project/${encodeURIComponent(project.id)}`;
+                  const shareUrl = `${window.location.origin}${sharePath}?${p.toString()}`;
                   try {
                     await navigator.clipboard.writeText(shareUrl);
                     setShareCopied(true);

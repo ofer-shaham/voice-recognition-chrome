@@ -70,7 +70,10 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
   const [step, setStep] = useState<Step>('url');
 
   // ── URL step ──────────────────────────────────────────────────────────────
-  const [url, setUrl] = useState('https://www.youtube.com/watch?v=prSfxdmjNzE');
+  const [url, setUrl] = useState(() => {
+    const requestedId = new URLSearchParams(window.location.search).get('v');
+    return requestedId || 'https://www.youtube.com/watch?v=prSfxdmjNzE';
+  });
   const [findLoading, setFindLoading] = useState(false);
   const [findError, setFindError] = useState('');
   const [capturedRequestUrl, setCapturedRequestUrl] = useState('');
@@ -92,6 +95,8 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
   const [manualTitle, setManualTitle] = useState('');
   const [manualDescription, setManualDescription] = useState('');
   const [manualVideoUrl, setManualVideoUrl] = useState('');
+  const [manualMetadataLoading, setManualMetadataLoading] = useState(false);
+  const [manualMetadataId, setManualMetadataId] = useState('');
   const [manualTargetLang, setManualTargetLang] = useState('he');
   const [manualTracks, setManualTracks] = useState<ManualTrack[]>([{ label: '', lang: 'en', srt: '', url: '' }]);
   const [manualInputMode, setManualInputMode] = useState<'url' | 'paste' | 'upload'>('url');
@@ -138,6 +143,24 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
       }
     };
     reader.readAsText(file);
+  };
+
+  const fetchManualVideoMetadata = async () => {
+    const id = extractVideoId(manualVideoUrl.trim());
+    if (!id || id === manualMetadataId) return;
+    setManualMetadataLoading(true);
+    try {
+      const res = await fetch(`/api/transcript/languages?videoId=${encodeURIComponent(id)}`);
+      if (!res.ok) return;
+      const data = await res.json();
+      setManualMetadataId(id);
+      if (data.videoDetails?.title && !manualTitle.trim()) setManualTitle(data.videoDetails.title);
+      if (data.videoDetails?.description && !manualDescription.trim()) setManualDescription(data.videoDetails.description);
+    } catch {
+      // Metadata is supplemental; manual subtitle import remains available.
+    } finally {
+      setManualMetadataLoading(false);
+    }
   };
 
   const handleFindLanguages = async () => {
@@ -409,19 +432,6 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
             <span className="yl-project-count">{projects.length}</span>
           </div>
           <div className="yl-project-actions">
-            <input
-              ref={projectFileRef}
-              type="file"
-              accept=".json,application/json"
-              hidden
-              onChange={e => {
-                handleProjectImport(e.target.files?.[0] || null);
-                e.currentTarget.value = '';
-              }}
-            />
-            <button type="button" className="yl-btn-secondary" onClick={() => projectFileRef.current?.click()}>
-              Import project
-            </button>
             {recentProject && (
               <button type="button" className="yl-btn-secondary" onClick={() => downloadProject(recentProject)}>
                 Export recent
@@ -454,6 +464,23 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
           </div>
         </div>
       )}
+
+      <div className="yl-project-actions yl-import-project-action">
+        <input
+          ref={projectFileRef}
+          type="file"
+          accept=".json,application/json"
+          hidden
+          onChange={e => {
+            handleProjectImport(e.target.files?.[0] || null);
+            e.currentTarget.value = '';
+          }}
+        />
+        <button type="button" className="yl-btn-secondary" onClick={() => projectFileRef.current?.click()}>
+          Import YouTube project
+        </button>
+        <span className="yl-input-method-hint">Load a previously exported project file.</span>
+      </div>
 
       {projects.length > 0 && (
         <div className="yl-create-project-prompt">
@@ -571,7 +598,15 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
           />
 
           <label className="yl-label">YouTube URL (optional — links video to transcript)</label>
-          <input className="yl-input" type="text" placeholder="https://www.youtube.com/watch?v=... (optional)" value={manualVideoUrl} onChange={e => setManualVideoUrl(e.target.value)} />
+          <input
+            className="yl-input"
+            type="text"
+            placeholder="https://www.youtube.com/watch?v=... (optional)"
+            value={manualVideoUrl}
+            onChange={e => setManualVideoUrl(e.target.value)}
+            onBlur={fetchManualVideoMetadata}
+          />
+          {manualMetadataLoading && <p className="yl-input-method-hint">Loading video title and description…</p>}
 
            <label className="yl-label">Translate subtitles to <span className="yl-optional">(optional — can be set later in Settings)</span></label>
           <input className="yl-input" type="text" list="yl-manual-lang-suggestions" placeholder="en, he, ar…" value={manualTargetLang} onChange={e => setManualTargetLang(e.target.value)} />

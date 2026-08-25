@@ -26,6 +26,9 @@ export default function YoutubeLearner() {
     if (fromUrl) {
       setActiveProject(fromUrl);
       setShowSetup(false);
+      if (location.pathname !== `/youtube/project/${encodeURIComponent(fromUrl.id)}`) {
+        navigate(`/youtube/project/${encodeURIComponent(fromUrl.id)}`, { replace: true });
+      }
     } else if (location.pathname === '/youtube/setup' || location.pathname === '/youtube') {
       setActiveProject(null);
       setShowSetup(true);

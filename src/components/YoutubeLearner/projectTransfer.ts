@@ -2,7 +2,8 @@ import { YtProject } from './types';
 
 export function downloadProject(project: YtProject): void {
   const safeName = (project.title || project.videoId || 'youtube-project')
-    .replace(/[^a-z0-9_-]+/gi, '_')
+    .replace(/[\/\\:*?"<>|]+/g, '_')
+    .replace(/\s+/g, '_')
     .replace(/^_+|_+$/g, '')
     .slice(0, 80) || 'youtube-project';
   const blob = new Blob([JSON.stringify(project, null, 2)], { type: 'application/json;charset=utf-8' });
