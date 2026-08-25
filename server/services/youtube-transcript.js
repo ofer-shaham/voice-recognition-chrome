@@ -1,5 +1,3 @@
-const { fetchTranscript } = require("youtube-transcript-plus");
-
 function padN(n, len) { return String(n).padStart(len, "0"); }
 
 function msToSrtTime(ms) {
@@ -107,6 +105,9 @@ async function ytCaptionBaseUrl(videoId) {
 
 async function fetchSrtMethod1(videoId, langCode) {
   try {
+    // Keep this provider optional: the server can still use the other
+    // transcript implementations if npm omits optional dependencies.
+    const { fetchTranscript } = require("youtube-transcript-plus");
     const segments = await fetchTranscript(String(videoId), { lang: langCode });
     return segmentsToSrt(segments);
   } catch {
@@ -287,13 +288,19 @@ async function fetchSrt(videoId, langCode, method) {
   if (method === "1") return fetchSrtMethod1(videoId, langCode);
   if (method === "2") return fetchSrtMethod2(videoId, langCode);
   if (method === "3") return fetchSrtOnrender(videoId, langCode);
-  let m1Error = null;
-  try { return await fetchSrtMethod1(videoId, langCode); }
-  catch (e1) { m1Error = e1.message; }
-  try { return await fetchSrtMethod2(videoId, langCode); }
-  catch (e2) {
-    throw new Error(`Could not fetch transcript. m1: ${m1Error}. m2: ${e2.message}`);
+  const failures = [];
+  for (const [name, fetcher] of [
+    ["youtube-transcript-plus", fetchSrtMethod1],
+    ["youtube-transcript-api-js", fetchSrtMethod2],
+    ["HTML/YouTube captions", fetchSrtMethod3],
+  ]) {
+    try {
+      return await fetcher(videoId, langCode);
+    } catch (error) {
+      failures.push(`${name}: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
+  throw new Error(`Could not fetch transcript. ${failures.join(" | ")}`);
 }
 
 module.exports = { ytPlayerData, ytCaptionBaseUrl, fetchSrt, fetchSrtMethod1, fetchSrtMethod2, fetchSrtMethod3, segmentsToSrt };
