@@ -1,6 +1,7 @@
 const express = require("express");
 const cors = require("cors");
 const swaggerUi = require("swagger-ui-express");
+const path = require("path");
 const { ytPlayerData, fetchSrt } = require("./services/youtube-transcript");
 const { fetchTtsAudio } = require("./services/tts-proxy");
 
@@ -273,6 +274,7 @@ app.get("/api/transcript/languages", async (req, res) => {
     res.json({
       videoDetails: {
         title: vd.title || null, author: vd.author || null,
+        description: vd.shortDescription || vd.description || null,
         lengthSeconds: vd.lengthSeconds || null, videoId: vd.videoId || videoId,
       },
       availableLanguages: tracks.map(t => ({
@@ -424,6 +426,16 @@ app.post("/api/chat", async (req, res) => {
     log("error", "OpenRouter fetch failed", { error: err.message, elapsed: Date.now() - t0 });
     res.status(500).json({ error: err.message });
   }
+});
+
+// Serve the compiled React app when running as a single production service.
+const clientBuild = path.join(__dirname, "../build");
+app.use(express.static(clientBuild));
+app.use((req, res, next) => {
+  if (req.path.startsWith("/api/") || req.path === "/swagger.json" || req.path === "/docs") return next();
+  res.sendFile(path.join(clientBuild, "index.html"), err => {
+    if (err) next();
+  });
 });
 
 app.listen(PORT, () => {

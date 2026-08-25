@@ -1315,6 +1315,13 @@ input[type="range"] {
   color: #f1f5f9;
 }
 
+.yl-project-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin: 0.75rem 0;
+}
+
 /* ── Manage Languages ──────────────────────────────────────────────────────── */
 .yl-manage-langs {
   padding-top: 0.5rem;

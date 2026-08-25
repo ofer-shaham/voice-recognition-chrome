@@ -24,6 +24,7 @@ export interface YtProject {
   id: string;
   videoId: string;
   title: string;
+  description?: string;
   createdAt: number;
   updatedAt: number;
   tracks: YtTrack[];

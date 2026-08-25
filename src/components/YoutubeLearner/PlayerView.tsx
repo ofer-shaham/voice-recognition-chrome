@@ -6,6 +6,7 @@ import { translate, getTranslationCacheCount } from '../../utils/translate';
 import { freeSpeak } from '../../utils/freeSpeak';
 import isRtl from '../../utils/isRtl';
 import { useVoices } from './useVoices';
+import { downloadProject } from './projectTransfer';
 
 // Wake Lock for background playback on mobile
 let wakeLock: any = null;
@@ -625,6 +626,9 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
                   </>
                 )}
               </div>
+              <button className="yl-btn-ghost" title="Export project" onClick={() => downloadProject(project)}>
+                ⤓ Project
+              </button>
 
               {project.videoId && (
                 <button
