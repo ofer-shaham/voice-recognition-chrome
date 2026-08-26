@@ -30,6 +30,8 @@ export interface YtProject {
   tracks: YtTrack[];
   config: ProjectConfig;
   lastLine: number;
+  /** Last video position in seconds, used with lastLine for resume. */
+  lastTime?: number;
   /** Subtitle fetcher used for this project. Older projects default to plus. */
   subtitleService?: 'plus' | 'api-js' | 'onrender' | 'iframe';
   /** Optional Invidious-compatible alternate host, e.g. https://yewtu.be. */

@@ -66,7 +66,7 @@ function buildProject(
 
   return {
     id, videoId, title, description, createdAt: Date.now(), updatedAt: Date.now(),
-    tracks, config, lastLine: 0, subtitleService,
+    tracks, config, lastLine: 0, lastTime: 0, subtitleService,
     alternateYoutubeUrl: alternateYoutubeUrl.trim() || undefined,
     subtitleProxyUrl: subtitleProxyUrl.trim() || undefined,
   };
@@ -147,11 +147,11 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
         ))}
       </div>
       <label className="yl-service-extra">
-        <span>Alternate YouTube host <span className="yl-optional">(optional)</span></span>
+        <span>Alternate YouTube / Invidious host(s) <span className="yl-optional">(optional)</span></span>
         <input
           className="yl-input"
-          type="url"
-          placeholder="https://yewtu.be"
+          type="text"
+          placeholder="https://yewtu.be, https://invidious.io"
           value={alternateYoutubeUrl}
           onChange={e => setAlternateYoutubeUrl(e.target.value)}
         />

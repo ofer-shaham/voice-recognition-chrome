@@ -380,6 +380,22 @@ async function fetchSrtOnrender(videoId, langCode) {
 }
 
 async function fetchSrt(videoId, langCode, method, configuredInstances, proxyUrl) {
+  // An explicitly supplied alternate host is authoritative. Try it before
+  // YouTube so the client can use yewtu.be/Invidious as the actual provider.
+  if (configuredInstances) {
+    try {
+      return await fetchSrtFromInvidious(String(videoId), langCode, null, configuredInstances);
+    } catch (alternateError) {
+      if (method === "2") {
+        // Keep the npm client as a fallback when an Invidious instance is down.
+        try {
+          return await fetchSrtMethod2(videoId, langCode, undefined, proxyUrl);
+        } catch (apiError) {
+          throw new Error(`Alternate provider failed: ${alternateError.message}; YouTube API.js fallback failed: ${apiError.message}`);
+        }
+      }
+    }
+  }
   if (method === "1") {
     try {
       return await fetchSrtMethod1(videoId, langCode);

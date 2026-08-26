@@ -56,7 +56,7 @@ interface Props {
 const shortCol = (id: string) => id === 'translation' ? 't' : id.replace('track:', '');
 const TRANSLATION_AHEAD = 7;
 
-export default function PlayerView({ project, onSave, onNewVideo, onDelete, projects, onSelectProject }: Props) {
+export default function PlayerView({ project, onSave, onBackHome, onNewVideo, onDelete, projects, onSelectProject, theme, onThemeChange }: Props) {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   const defaultVisibleLines = () => {
     const params = new URLSearchParams(window.location.search);
@@ -72,6 +72,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
   }));
   const [isPlaying, setIsPlaying]       = useState(false);
   const [currentLine, setCurrentLine]   = useState(-1);
+  const [playbackTime, setPlaybackTime] = useState(project.lastTime ?? 0);
   const [windowStart, setWindowStart]   = useState(0);
   const [iframeSeg, setIframeSeg]       = useState({ startSec: 0, endSec: 0 });
   const [iframeKey, setIframeKey]       = useState(0);
@@ -90,6 +91,8 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
   const [translatingIndices, setTranslatingIndices] = useState<Set<number>>(new Set());
   const [translationStatus, setTranslationStatus] = useState<'idle' | 'translating' | 'ready' | 'rate-limited'>('idle');
   const [translationStatusMessage, setTranslationStatusMessage] = useState('');
+  const [alternateYoutubeUrl, setAlternateYoutubeUrl] = useState(project.alternateYoutubeUrl || '');
+  const [subtitleProxyUrl, setSubtitleProxyUrl] = useState(project.subtitleProxyUrl || '');
 
   const { langOptions, voicesForLang } = useVoices();
 
@@ -108,19 +111,50 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
   const isPlayingRef   = useRef(false);
   const currentLineRef = useRef(-1);
   const initialSeekRef = useRef<number | null>(null);
+  const playbackSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingPlayback = useRef({ time: project.lastTime ?? 0, line: project.lastLine ?? 0 });
 
   useEffect(() => { linesRef.current = lines; }, [lines]);
   useEffect(() => { configRef.current = config; }, [config]);
   useEffect(() => { projectRef.current = project; }, [project]);
+  useEffect(() => {
+    setAlternateYoutubeUrl(project.alternateYoutubeUrl || '');
+    setSubtitleProxyUrl(project.subtitleProxyUrl || '');
+  }, [project.id]);
   useEffect(() => { seamlessRef.current = true; }, []);
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
   useEffect(() => { currentLineRef.current = currentLine; }, [currentLine]);
+
+  const savePlaybackPosition = useCallback((time: number, line: number) => {
+    pendingPlayback.current = { time, line };
+    if (playbackSaveTimer.current !== null) return;
+    playbackSaveTimer.current = setTimeout(() => {
+      playbackSaveTimer.current = null;
+      const latest = pendingPlayback.current;
+      onSave({ ...projectRef.current, lastLine: Math.max(0, latest.line), lastTime: Math.max(0, latest.time), updatedAt: Date.now() });
+    }, 750);
+  }, [onSave]);
+
+  const flushPlaybackPosition = useCallback(() => {
+    if (playbackSaveTimer.current !== null) {
+      clearTimeout(playbackSaveTimer.current);
+      playbackSaveTimer.current = null;
+    }
+    onSave({
+      ...projectRef.current,
+      lastLine: Math.max(0, currentLineRef.current),
+      lastTime: Math.max(0, pendingPlayback.current.time || playbackTime),
+      updatedAt: Date.now(),
+    });
+  }, [onSave, playbackTime]);
 
   // ── Derived: video visible? audio-only mode? ─────────────────────────────────
   const showVideo      = config.colSettings['video']?.visible && !!project.videoId;
   const audioOnlyMode  = !showVideo && !!project.videoId;
   const totalDuration  = lines.length > 0 ? lines[lines.length - 1].endSec : 0;
-  const currentTimeSec = currentLine >= 0 ? (lines[currentLine]?.startSec ?? 0) : 0;
+  const currentTimeSec = playbackTime > 0
+    ? playbackTime
+    : (currentLine >= 0 ? (lines[currentLine]?.startSec ?? 0) : 0);
 
   useEffect(() => { showVideoRef.current  = showVideo;     }, [showVideo]);
   useEffect(() => { audioOnlyRef.current  = audioOnlyMode; }, [audioOnlyMode]);
@@ -132,7 +166,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     else p.set('p', project.id);
     p.set('tl', config.targetLang);
     p.set('l', String(project.lastLine));
-    p.set('t', String(Math.floor(currentTimeSec)));
+    p.set('t', String(Math.floor(playbackTime)));
     p.set('vl', String(config.visibleLines));
     for (const [colId, s] of Object.entries(config.colSettings)) {
       if (colId === 'video') continue;
@@ -141,7 +175,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
       if (s.voiceName) p.set(`vn_${sid}`, s.voiceName);
     }
     window.history.replaceState(null, '', `${window.location.pathname}?${p.toString()}`);
-  }, [project.id, project.videoId, project.lastLine, config, currentTimeSec, seamlessMode]);
+  }, [project.id, project.videoId, project.lastLine, config, playbackTime, seamlessMode]);
 
   // ── Parse SRT on project change ─────────────────────────────────────────────
   useEffect(() => {
@@ -164,9 +198,11 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     const urlLine = parseInt(params.get('l') || '', 10);
     const startLine = !isNaN(urlLine) && urlLine >= 0 && urlLine < parsed.length ? urlLine : project.lastLine;
     const urlTime = parseFloat(params.get('t') || '');
-    initialSeekRef.current = !isNaN(urlTime) && urlTime >= 0
+    const initialTime = !isNaN(urlTime) && urlTime >= 0
       ? urlTime
-      : (parsed[startLine]?.startSec ?? 0);
+      : (project.lastTime ?? parsed[startLine]?.startSec ?? 0);
+    initialSeekRef.current = initialTime;
+    setPlaybackTime(initialTime);
     setCurrentLine(startLine);
     setWindowStart(Math.max(0, startLine - 3));
     setTranslationVer(v => v + 1);
@@ -389,6 +425,30 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     rebuildLines(newTracks, newConfig);
   }, [onSave, rebuildLines]);
 
+  const toggleTranslation = useCallback(() => {
+    const p = projectRef.current;
+    const hasTranslation = p.config.colOrder.includes('translation');
+    const trackCols = p.config.colOrder.filter(id => id !== 'translation' && id !== 'video');
+    const colOrder = hasTranslation
+      ? [...trackCols, 'video']
+      : [...trackCols, 'translation', 'video'];
+    const colSettings = { ...p.config.colSettings };
+    if (!hasTranslation) {
+      colSettings.translation = {
+        visible: true,
+        playOrder: trackCols.length + 1,
+        ttsRate: 0.9,
+      };
+    }
+    const updatedConfig = { ...p.config, colOrder, colSettings };
+    onSave({ ...p, config: updatedConfig, updatedAt: Date.now() });
+    setConfig(updatedConfig);
+  }, [onSave]);
+
+  const saveProviderSettings = useCallback((patch: Pick<YtProject, 'alternateYoutubeUrl' | 'subtitleProxyUrl'>) => {
+    onSave({ ...projectRef.current, ...patch, updatedAt: Date.now() });
+  }, [onSave]);
+
   // ── YouTube postMessage control ──────────────────────────────────────────────
   // Routes to: visible seamless iframe (iframeRef) when seamless+video, else background audio iframe (audioRef)
   const ytCmd = useCallback((func: string, args: any[] = []) => {
@@ -432,6 +492,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
       if (data?.event !== 'infoDelivery' || !data.info) return;
       const t = data.info.currentTime;
       if (typeof t !== 'number') return;
+      setPlaybackTime(t);
       const ls = linesRef.current;
       if (!ls.length) return;
       let idx = -1;
@@ -443,10 +504,11 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
         currentLineRef.current = idx;
         setCurrentLine(idx);
       }
+      savePlaybackPosition(t, idx);
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, []);
+  }, [savePlaybackPosition]);
 
   // ── Playback ─────────────────────────────────────────────────────────────────
   const playLine = useCallback(async (lineIdx: number) => {
@@ -510,8 +572,9 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     ytCmd('pauseVideo');
     releaseWakeLock();
     setIsPlaying(false);
+    flushPlaybackPosition();
     setCurrentLine(-1);
-  }, [ytCmd]);
+  }, [flushPlaybackPosition, ytCmd]);
 
   const pausePlayback = useCallback(() => {
     cancelRef.current = true;
@@ -521,9 +584,9 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     setIsPlaying(false);
     const line = currentLineRef.current;
     if (line >= 0) {
-      onSave({ ...projectRef.current, lastLine: line, updatedAt: Date.now() });
+      onSave({ ...projectRef.current, lastLine: line, lastTime: playbackTime, updatedAt: Date.now() });
     }
-  }, [onSave, ytCmd]);
+  }, [onSave, playbackTime, ytCmd]);
 
   const playFrom = useCallback(async (startIdx: number) => {
     // Ensure video is paused before starting new playback
@@ -534,7 +597,8 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
     for (let i = startIdx; i < linesRef.current.length; i++) {
       if (cancelRef.current) break;
       setCurrentLine(i);
-      onSave({ ...projectRef.current, lastLine: i, updatedAt: Date.now() });
+      setPlaybackTime(linesRef.current[i]?.startSec ?? 0);
+      onSave({ ...projectRef.current, lastLine: i, lastTime: linesRef.current[i]?.startSec ?? 0, updatedAt: Date.now() });
       await playLine(i);
     }
     if (!cancelRef.current) {
@@ -623,7 +687,7 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
   }, [project.title]);
 
   return (
-    <div className="yl-player">
+    <div className={`yl-player yl-theme-${theme}`}>
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="yl-header">
@@ -882,6 +946,34 @@ export default function PlayerView({ project, onSave, onNewVideo, onDelete, proj
               <span>Cached translations</span>
               <span className="yl-setting-info">{cachedCount} line{cachedCount === 1 ? '' : 's'}</span>
             </div>
+            <div className="yl-setting-field">
+              <span>Translation column</span>
+              <button className="yl-btn-secondary yl-btn-sm" type="button" onClick={toggleTranslation}>
+                {config.colOrder.includes('translation') ? 'Remove translation' : 'Add translation'}
+              </button>
+            </div>
+            <label className="yl-setting-field yl-provider-setting">
+              <span>Alternate YouTube / Invidious host</span>
+              <input
+                className="yl-input-sm"
+                type="text"
+                placeholder="https://yewtu.be"
+                value={alternateYoutubeUrl}
+                onChange={e => setAlternateYoutubeUrl(e.target.value)}
+                onBlur={() => saveProviderSettings({ alternateYoutubeUrl: alternateYoutubeUrl.trim() || undefined })}
+              />
+            </label>
+            <label className="yl-setting-field yl-provider-setting">
+              <span>Webshare / HTTP proxy URL</span>
+              <input
+                className="yl-input-sm"
+                type="url"
+                placeholder="http://proxy.example:8080"
+                value={subtitleProxyUrl}
+                onChange={e => setSubtitleProxyUrl(e.target.value)}
+                onBlur={() => saveProviderSettings({ subtitleProxyUrl: subtitleProxyUrl.trim() || undefined })}
+              />
+            </label>
           </div>
 
           <div className="yl-settings-cols">

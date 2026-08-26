@@ -1,4 +1,8 @@
 const { fetchTtsAudio } = require("../../server/services/tts-proxy");
+const {
+  fetchSrt: fetchServerSrt,
+  fetchInvidiousLanguages: fetchAlternateLanguages,
+} = require("../../server/services/youtube-transcript");
 
 const ENV_KEY = process.env.OPENROUTER_API_KEY || process.env.REACT_APP_OPENAI_API_KEY || "";
 const YOUTUBE_API_BASE = "https://youtube-dl-jrte.onrender.com";
@@ -364,6 +368,9 @@ exports.handler = async (event) => {
     const videoId = String(qs.videoId || "").trim();
     if (!videoId) return json(400, { error: "videoId is required" });
     try {
+      if (qs.instanceUrl) {
+        return json(200, await fetchAlternateLanguages(videoId, String(qs.instanceUrl)));
+      }
       const upstream = await fetchYoutube("/api/video-info", { url: buildVideoUrl(videoId) });
       const data = parseJson(upstream.body);
       if (!upstream.ok || data?.error) throw new Error(data?.message || data?.error || `HTTP ${upstream.status}`);
@@ -392,6 +399,10 @@ exports.handler = async (event) => {
     const lang = String(qs.lang || "en").split("-")[0];
     if (!videoId) return json(400, { error: "videoId is required" });
     try {
+      if (qs.instanceUrl || qs.proxyUrl || qs.method) {
+        const content = await fetchServerSrt(videoId, lang, qs.method, qs.instanceUrl, qs.proxyUrl);
+        return textResp(200, content);
+      }
       const upstream = await fetchYoutube("/api/subtitles", {
         url: buildVideoUrl(videoId),
         type: "srt",
