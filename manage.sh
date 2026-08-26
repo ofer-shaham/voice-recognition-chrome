@@ -32,6 +32,10 @@
 
 set -uo pipefail
 
+# Always operate from the project root, even when called from another directory.
+PROJECT_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+cd "$PROJECT_ROOT" || exit 1
+
 # ── defaults ──────────────────────────────────────────────────────────────────
 USE_NATIVE=false
 COMMAND=""
@@ -77,6 +81,16 @@ fi
 
 # ── Check helpers (used by doctor + docker_check) ─────────────────────────────
 PASS="${GREEN}[PASS]${NC}"; FAIL="${RED}[FAIL]${NC}"; SKIP="${YELLOW}[SKIP]${NC}"
+
+check_project_file() {
+  local file="$1" description="$2"
+  if [[ -f "$file" ]]; then
+    echo -e "  ${PASS}  ${description} (${file})"
+    return 0
+  fi
+  echo -e "  ${FAIL}  ${description} missing (${file})"
+  return 1
+}
 
 check_docker_installed() {
   if command -v docker &>/dev/null; then
@@ -148,6 +162,25 @@ check_node() {
   fi
 }
 
+check_node_version() {
+  if ! command -v node &>/dev/null; then
+    return 1
+  fi
+  local required=20 actual major
+  if [[ -f .nvmrc ]] && grep -Eq '^[[:space:]]*[0-9]+' .nvmrc; then
+    required="$(grep -Eo '[0-9]+' .nvmrc | head -1)"
+  fi
+  actual="$(node --version 2>/dev/null | sed 's/^v//' || true)"
+  major="${actual%%.*}"
+  if [[ "$major" =~ ^[0-9]+$ ]] && (( major >= required )); then
+    echo -e "  ${PASS}  Node.js ${actual} meets the required version (>= ${required})"
+    return 0
+  fi
+  echo -e "  ${FAIL}  Node.js ${actual:-unknown} is too old (requires >= ${required})"
+  echo    "          → Install/use Node.js ${required} or newer."
+  return 1
+}
+
 check_npm() {
   if command -v npm &>/dev/null; then
     echo -e "  ${PASS}  npm $(npm --version)"
@@ -158,26 +191,132 @@ check_npm() {
   fi
 }
 
-check_server_deps() {
-  if [[ -d server/node_modules ]]; then
-    echo -e "  ${PASS}  server/node_modules present"
+check_package_manager() {
+  if [[ -f pnpm-lock.yaml ]]; then
+    if command -v pnpm &>/dev/null; then
+      echo -e "  ${PASS}  pnpm $(pnpm --version 2>/dev/null) matches pnpm-lock.yaml"
+      return 0
+    fi
+    echo -e "  ${FAIL}  pnpm-lock.yaml is present but pnpm is not installed"
+    echo    "          → Enable Corepack or install pnpm, then run: pnpm install"
+    return 1
+  fi
+  if [[ -f package-lock.json ]] && command -v npm &>/dev/null; then
+    echo -e "  ${PASS}  npm $(npm --version 2>/dev/null) matches package-lock.json"
     return 0
+  fi
+  if [[ -f yarn.lock ]] && command -v yarn &>/dev/null; then
+    echo -e "  ${PASS}  yarn $(yarn --version 2>/dev/null) matches yarn.lock"
+    return 0
+  fi
+  echo -e "  ${FAIL}  No installed package manager matches the project lockfile"
+  echo    "          → Run './manage.sh install' after installing the matching package manager."
+  return 1
+}
+
+check_server_deps() {
+  if [[ -d server/node_modules || -d node_modules ]]; then
+    if command -v node &>/dev/null && node -e "require.resolve('express')" &>/dev/null; then
+      echo -e "  ${PASS}  Server dependencies are resolvable"
+      return 0
+    fi
+    echo -e "  ${FAIL}  Server dependency directory exists but express is not resolvable"
+    echo    "          → Run './manage.sh install'"
+    return 1
   else
-    echo -e "  ${FAIL}  server/node_modules missing"
-    echo    "          → Run: cd server && npm install"
+    echo -e "  ${FAIL}  Server dependencies are missing"
+    echo    "          → Run './manage.sh install'"
     return 1
   fi
 }
 
 check_client_deps() {
-  if [[ -d node_modules ]]; then
-    echo -e "  ${PASS}  node_modules present"
+  if [[ -d node_modules && -x node_modules/.bin/vite ]]; then
+    echo -e "  ${PASS}  Client dependencies and Vite are present"
     return 0
-  else
-    echo -e "  ${FAIL}  node_modules missing"
-    echo    "          → Run: npm install --legacy-peer-deps"
+  fi
+  echo -e "  ${FAIL}  Client dependencies or Vite are missing"
+  echo    "          → Run './manage.sh install'"
+  return 1
+}
+
+check_json_file() {
+  local file="$1"
+  if ! command -v node &>/dev/null || [[ ! -f "$file" ]]; then
     return 1
   fi
+  if node -e 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"))' "$file" &>/dev/null; then
+    echo -e "  ${PASS}  Valid JSON: ${file}"
+    return 0
+  fi
+  echo -e "  ${FAIL}  Invalid JSON: ${file}"
+  echo    "          → Fix the JSON syntax before installing dependencies."
+  return 1
+}
+
+check_server_syntax() {
+  if ! command -v node &>/dev/null; then
+    echo -e "  ${SKIP}  Server syntax check skipped (node not found)"
+    return 0
+  fi
+  local failed=0 file
+  for file in server/index.js netlify/functions/api.js server/services/youtube-transcript.js; do
+    if node --check "$file" &>/dev/null; then
+      echo -e "  ${PASS}  JavaScript syntax: ${file}"
+    else
+      echo -e "  ${FAIL}  JavaScript syntax error: ${file}"
+      node --check "$file" 2>&1 | tail -4 | sed 's/^/          /'
+      failed=$((failed+1))
+    fi
+  done
+  return "$failed"
+}
+
+check_project_build() {
+  local manager=""
+  if [[ -f pnpm-lock.yaml ]] && command -v pnpm &>/dev/null; then
+    manager="pnpm"
+  elif command -v npm &>/dev/null; then
+    manager="npm"
+  else
+    echo -e "  ${SKIP}  Production build skipped (no package manager available)"
+    return 0
+  fi
+  if [[ ! -x node_modules/.bin/vite ]]; then
+    echo -e "  ${SKIP}  Production build skipped (client dependencies unavailable)"
+    return 0
+  fi
+
+  local output
+  output="$(mktemp "${TMPDIR:-/tmp}/manage-doctor-build.XXXXXX")"
+  if "$manager" run build >"$output" 2>&1; then
+    echo -e "  ${PASS}  Production build succeeds (${manager} run build)"
+    rm -f "$output"
+    return 0
+  fi
+  echo -e "  ${FAIL}  Production build failed (${manager} run build)"
+  tail -12 "$output" | sed 's/^/          /'
+  rm -f "$output"
+  return 1
+}
+
+check_live_health() {
+  local label="$1" url="$2" status
+  if ! command -v curl &>/dev/null; then
+    echo -e "  ${SKIP}  ${label} health check skipped (curl not found)"
+    return 0
+  fi
+  status="$(curl -sS -L --max-time 3 -o /dev/null -w '%{http_code}' "$url" 2>/dev/null || true)"
+  if [[ "$status" =~ ^2[0-9][0-9]$ ]]; then
+    echo -e "  ${PASS}  ${label} healthy (${url} → HTTP ${status})"
+    return 0
+  fi
+  if [[ "$status" == "000" || -z "$status" ]]; then
+    echo -e "  ${SKIP}  ${label} is not running (${url})"
+    return 0
+  fi
+  echo -e "  ${FAIL}  ${label} returned HTTP ${status} (${url})"
+  return 1
 }
 
 check_env_file() {
@@ -222,25 +361,50 @@ check_port() {
 
 # ── doctor ────────────────────────────────────────────────────────────────────
 run_doctor() {
-  local docker_ok=0 native_ok=0 issues=0
+  local docker_ok=0 native_ok=0 issues=0 warnings=0
+
+  echo ""
+  head_ "Project location"
+  echo -e "  ${PASS}  ${PROJECT_ROOT}"
 
   echo ""
   head_ "Docker environment"
-  check_docker_installed && check_docker_daemon && check_compose_available \
-    && docker_ok=1 || issues=$((issues+1))
+  if check_docker_installed && check_docker_daemon && check_compose_available; then
+    docker_ok=1
+  else
+    warnings=$((warnings+1))
+  fi
 
   echo ""
-  head_ "Native (node/npm) environment"
-  check_node   || issues=$((issues+1))
-  check_npm    || issues=$((issues+1))
+  head_ "Prerequisites"
+  check_node || issues=$((issues+1))
+  check_node_version || issues=$((issues+1))
+  check_npm || issues=$((issues+1))
+  check_package_manager || issues=$((issues+1))
+
+  echo ""
+  head_ "Dependencies"
   check_server_deps || issues=$((issues+1))
   check_client_deps || issues=$((issues+1))
-  (check_node && check_npm && [[ -d server/node_modules ]] && [[ -d node_modules ]]) \
+  (check_node && check_npm && check_client_deps && check_server_deps) \
     && native_ok=1
 
   echo ""
   head_ "Configuration"
+  check_project_file package.json "Client manifest" || issues=$((issues+1))
+  check_project_file server/package.json "Server manifest" || issues=$((issues+1))
+  check_project_file vite.config.ts "Vite configuration" || issues=$((issues+1))
+  check_project_file netlify.toml "Netlify configuration" || issues=$((issues+1))
+  check_project_file server/index.js "Server entrypoint" || issues=$((issues+1))
+  check_project_file netlify/functions/api.js "Netlify function" || issues=$((issues+1))
   check_env_file
+
+  echo ""
+  head_ "Project health"
+  check_json_file package.json || issues=$((issues+1))
+  check_json_file server/package.json || issues=$((issues+1))
+  check_server_syntax || issues=$((issues+1))
+  check_project_build || issues=$((issues+1))
 
   echo ""
   head_ "Ports"
@@ -248,9 +412,16 @@ run_doctor() {
   check_port 3001 "server"
 
   echo ""
+  head_ "Live service health"
+  check_live_health "Client" "http://localhost:5000/" || issues=$((issues+1))
+  check_live_health "Server API" "http://localhost:3001/api/health" || issues=$((issues+1))
+
+  echo ""
   head_ "Summary"
   if (( docker_ok )); then
     echo -e "  ${PASS}  Docker is ready  →  ./manage.sh start"
+  elif [[ -n "${REPL_ID:-}" ]]; then
+    echo -e "  ${SKIP}  Docker is unavailable in this Replit sandbox"
   else
     echo -e "  ${FAIL}  Docker is NOT ready (see issues above)"
   fi
@@ -259,7 +430,16 @@ run_doctor() {
   else
     echo -e "  ${FAIL}  Native mode is NOT ready (see issues above)"
   fi
+  if (( warnings > 0 )); then
+    echo -e "  ${SKIP}  Docker checks unavailable — native mode can still be used"
+  fi
+  if (( issues > 0 )); then
+    echo -e "  ${FAIL}  ${issues} project issue(s) require attention"
+  else
+    echo -e "  ${PASS}  Project prerequisites and health checks passed"
+  fi
   echo ""
+  (( issues == 0 ))
 }
 
 # ── recover recent issues ─────────────────────────────────────────────────────
