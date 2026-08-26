@@ -49,6 +49,27 @@ function toSrtTimedTextUrl(value: string): string {
   }
 }
 
+function getDirectSubtitleInfo(value: string): { label: string; lang: string; isAuto: boolean } {
+  try {
+    const parsed = new URL(value.trim());
+    const label = parsed.searchParams.get('label')?.trim() || '';
+    const requestedLang = parsed.searchParams.get('lang')?.trim() || '';
+    const normalizedLabel = label.toLowerCase();
+    const language = LANG_OPTIONS.find(option =>
+      normalizedLabel.startsWith(option.label.split(' ')[0].toLowerCase()),
+    );
+    const lang = requestedLang || language?.code || 'und';
+    const isAuto = /auto-generated|automatic|\basr\b/i.test(label);
+    return {
+      label: label || `${lang}${isAuto ? ' · auto-generated' : ''}`,
+      lang: `${lang}${isAuto && !lang.endsWith('-auto') ? '-auto' : ''}`,
+      isAuto,
+    };
+  } catch {
+    return { label: 'Imported subtitles', lang: 'und', isAuto: false };
+  }
+}
+
 function buildProject(
   id: string,
   videoId: string,
@@ -114,6 +135,8 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
   const [capturedLoading, setCapturedLoading] = useState(false);
   const replacedRequestUrl = toSrtTimedTextUrl(capturedRequestUrl);
   const [subtitleIndexUrl, setSubtitleIndexUrl] = useState('');
+  const [directSubtitleUrl, setDirectSubtitleUrl] = useState('');
+  const [directSubtitleLoading, setDirectSubtitleLoading] = useState(false);
 
   // ── Language selection step ──────────────────────────────────────────────
   const [videoId, setVideoId] = useState('');
@@ -232,8 +255,78 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
     }
   };
 
+  const handleDirectSubtitleFetch = async (sourceUrl = directSubtitleUrl.trim()) => {
+    setFindError('');
+    if (!sourceUrl) {
+      setFindError('Paste a direct subtitle URL first.');
+      return;
+    }
+
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(sourceUrl);
+      if (!['http:', 'https:'].includes(parsedUrl.protocol)) throw new Error();
+    } catch {
+      setFindError('Enter a valid public http:// or https:// subtitle URL.');
+      return;
+    }
+
+    const directVideoId = extractVideoId(url.trim()) || extractVideoId(sourceUrl);
+    if (!directVideoId) {
+      setFindError('Enter a YouTube video URL or ID so the subtitle can be attached to a video.');
+      return;
+    }
+
+    setDirectSubtitleLoading(true);
+    try {
+      const response = await fetch(`/api/srt-url?url=${encodeURIComponent(parsedUrl.toString())}`);
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || `Subtitle fetch failed (HTTP ${response.status})`);
+      }
+      const srtContent = await response.text();
+      if (!srtContent.trim()) throw new Error('The subtitle URL returned an empty file.');
+
+      const info = getDirectSubtitleInfo(parsedUrl.toString());
+      onProjectReady(buildProject(
+        directVideoId,
+        directVideoId,
+        `YouTube video ${directVideoId}`,
+        `Subtitle imported from ${parsedUrl.hostname}`,
+        [{
+          lang: info.lang,
+          label: info.label,
+          isAuto: info.isAuto,
+          srtContent,
+          subtitleUrl: parsedUrl.toString(),
+        }],
+        targetLang.trim(),
+        subtitleService,
+        alternateYoutubeUrl,
+        subtitleProxyUrl,
+      ));
+    } catch (e: any) {
+      setFindError(e.message || 'Could not fetch the subtitle URL.');
+    } finally {
+      setDirectSubtitleLoading(false);
+    }
+  };
+
   const handleFindLanguages = async () => {
     setFindError('');
+    // A signed Invidious URL with a label is already a concrete subtitle
+    // file request. Do not treat it as the captions index endpoint.
+    if (!directSubtitleUrl.trim() && /\/api\/v1\/captions\/[^/?]+/i.test(url.trim())) {
+      try {
+        const parsed = new URL(url.trim());
+        if (parsed.searchParams.has('label')) {
+          await handleDirectSubtitleFetch(url.trim());
+          return;
+        }
+      } catch {
+        // Continue with the normal video URL validation below.
+      }
+    }
     const vid = extractVideoId(url.trim());
     if (!vid) { setFindError('Could not extract a video ID from that URL.'); return; }
     setFindLoading(true);
@@ -638,17 +731,45 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
       </div>
 
       {mode === 'fetch' ? <div className="yl-setup-form">
-         <label className="yl-label">YouTube URL, Invidious captions URL, or Video ID</label>
+         <label className="yl-label">YouTube video URL or Video ID</label>
         <input
           ref={urlInputRef}
           className="yl-input"
           type="text"
-           placeholder="https://www.youtube.com/watch?v=... or Invidious /api/v1/captions/..."
+            placeholder="https://www.youtube.com/watch?v=..."
           value={url}
           onChange={e => setUrl(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleFindLanguages()}
           autoFocus
         />
+
+         <div className="yl-direct-subtitle">
+           <div className="yl-direct-subtitle-heading">Have a subtitle URL?</div>
+           <p className="yl-input-method-hint">
+             Paste a direct .srt, .vtt, or Invidious caption URL. Signed URLs with
+             <code>label=</code> and <code>check=</code> are supported.
+           </p>
+           <label className="yl-label" htmlFor="yl-direct-subtitle-url">
+             Subtitle URL <span className="yl-optional">(optional)</span>
+           </label>
+           <input
+             id="yl-direct-subtitle-url"
+             className="yl-input"
+             type="url"
+             placeholder="https://invidious.example/companion/api/v1/captions/VIDEO_ID?label=English%20(auto-generated)&check=..."
+             value={directSubtitleUrl}
+             onChange={e => setDirectSubtitleUrl(e.target.value)}
+             onKeyDown={e => e.key === 'Enter' && handleDirectSubtitleFetch()}
+           />
+           <button
+             className="yl-btn-secondary yl-btn-full"
+             type="button"
+             onClick={() => handleDirectSubtitleFetch()}
+             disabled={directSubtitleLoading || !directSubtitleUrl.trim()}
+           >
+             {directSubtitleLoading ? 'Fetching subtitles…' : 'Fetch subtitles from URL'}
+           </button>
+         </div>
 
         {serviceToggle}
 

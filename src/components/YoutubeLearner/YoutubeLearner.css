@@ -345,6 +345,35 @@
   padding: 0.6rem 0.7rem;
 }
 
+.yl-direct-subtitle {
+  background: #172033;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  margin: 0.25rem 0;
+  padding: 0.75rem;
+}
+
+.yl-direct-subtitle-heading {
+  color: #e2e8f0;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.yl-direct-subtitle .yl-input-method-hint {
+  margin: 0;
+}
+
+.yl-direct-subtitle code {
+  background: #0f172a;
+  border-radius: 3px;
+  color: #bfdbfe;
+  font-size: 0.72rem;
+  padding: 0.08rem 0.25rem;
+}
+
 .yl-recent-card {
   background: #1a2540;
   border: 1px solid #3b82f6;
