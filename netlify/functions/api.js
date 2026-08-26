@@ -3,6 +3,7 @@ const {
   fetchSrt: fetchServerSrt,
   fetchLanguagesMethod2,
   fetchInvidiousLanguages: fetchAlternateLanguages,
+  vttToSrt,
 } = require("../../server/services/youtube-transcript");
 
 const ENV_KEY = process.env.OPENROUTER_API_KEY || process.env.REACT_APP_OPENAI_API_KEY || "";
@@ -484,8 +485,9 @@ exports.handler = async (event) => {
       const upstream = await proxyFetch(parsed.toString());
       if (!upstream.ok) return json(502, { error: `Subtitle URL returned HTTP ${upstream.status}` });
       if (!upstream.body.trim()) return json(502, { error: "Subtitle URL returned an empty file" });
-      log("info", "SRT URL OK", { host: parsed.hostname, bytes: Buffer.byteLength(upstream.body) });
-      return textResp(200, upstream.body);
+      const srt = vttToSrt(upstream.body);
+      log("info", "SRT URL OK", { host: parsed.hostname, bytes: Buffer.byteLength(srt), convertedVtt: srt !== upstream.body.trim() });
+      return textResp(200, srt);
     } catch (err) {
       log("error", "SRT URL failed", { host: parsed.hostname, error: err.message });
       return json(502, { error: `Could not fetch subtitle URL: ${err.message}` });

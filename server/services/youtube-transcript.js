@@ -197,12 +197,36 @@ function invidiousInstances(override) {
 }
 
 function vttToSrt(vtt) {
-  return String(vtt)
-    .replace(/^WEBVTT[^\n]*\n+/i, "")
-    .replace(/(\d{2}:)?(\d{2}:\d{2})\.(\d{3})/g, (_, hours, minutes, millis) =>
-      `${hours ? hours : "00:"}${minutes},${millis}`)
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
+  const source = String(vtt).replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
+  if (!/^\s*WEBVTT(?:\s|$)/i.test(source)) return source.trim();
+
+  const blocks = source
+    .replace(/^\s*WEBVTT[^\n]*(?:\n|$)/i, "")
+    .split(/\n{2,}/)
+    .map(block => block.trim())
+    .filter(block => block && !/^(NOTE|STYLE|REGION)(?:\s|$)/i.test(block));
+
+  const cues = [];
+  for (const block of blocks) {
+    const lines = block.split("\n");
+    const timingIndex = lines.findIndex(line =>
+      /^\s*(?:\d{2}:)?\d{2}:\d{2}[.,]\d{3}\s+-->\s+(?:\d{2}:)?\d{2}:\d{2}[.,]\d{3}/.test(line)
+    );
+    if (timingIndex < 0) continue;
+    const timing = lines[timingIndex].match(
+      /^\s*((?:\d{2}:)?\d{2}:\d{2})[.,](\d{3})\s+-->\s+((?:\d{2}:)?\d{2}:\d{2})[.,](\d{3})/
+    );
+    if (!timing) continue;
+    const toSrtTime = (clock, millis) => {
+      const parts = clock.split(":");
+      const normalized = parts.length === 2 ? ["00", ...parts] : parts;
+      return `${normalized.map(part => part.padStart(2, "0")).join(":")},${millis}`;
+    };
+    const text = lines.slice(timingIndex + 1).join("\n").trim();
+    if (text) cues.push({ start: toSrtTime(timing[1], timing[2]), end: toSrtTime(timing[3], timing[4]), text });
+  }
+
+  return cues.map((cue, index) => `${index + 1}\n${cue.start} --> ${cue.end}\n${cue.text}`).join("\n\n").trim();
 }
 
 async function fetchSrtFromInvidious(videoId, langCode, originalError, configuredInstances) {
@@ -453,5 +477,6 @@ module.exports = {
   fetchSrtMethod3,
   fetchLanguagesMethod2,
   fetchInvidiousLanguages,
+  vttToSrt,
   segmentsToSrt,
 };

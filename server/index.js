@@ -7,6 +7,7 @@ const {
   fetchSrt,
   fetchLanguagesMethod2,
   fetchInvidiousLanguages,
+  vttToSrt,
 } = require("./services/youtube-transcript");
 const { fetchTtsAudio } = require("./services/tts-proxy");
 
@@ -342,8 +343,9 @@ app.get("/api/srt-url", async (req, res) => {
     if (!upstream.ok) return res.status(502).json({ error: `Subtitle URL returned HTTP ${upstream.status}` });
     const text = await upstream.text();
     if (!text.trim()) return res.status(502).json({ error: "Subtitle URL returned an empty file" });
-    log("info", "SRT URL OK", { host: parsed.hostname, bytes: Buffer.byteLength(text) });
-    res.type("text/plain; charset=utf-8").send(text);
+    const srt = vttToSrt(text);
+    log("info", "SRT URL OK", { host: parsed.hostname, bytes: Buffer.byteLength(srt), convertedVtt: srt !== text.trim() });
+    res.type("text/plain; charset=utf-8").send(srt);
   } catch (e) {
     log("error", "SRT URL failed", { host: parsed.hostname, error: e.message });
     res.status(502).json({ error: `Could not fetch subtitle URL: ${e.message}` });
