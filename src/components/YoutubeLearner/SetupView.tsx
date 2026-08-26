@@ -335,14 +335,12 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
       if (invidiousRequest) {
         // Fetch the captions index through our server proxy so this works
         // even when the Invidious host does not allow browser CORS requests.
-        const indexResponse = await fetch(`/api/srt-url?url=${encodeURIComponent(invidiousRequest.url)}`);
+        const indexResponse = await fetch(`/api/captions-index?url=${encodeURIComponent(invidiousRequest.url)}`);
         if (!indexResponse.ok) {
           const j = await indexResponse.json().catch(() => ({}));
           throw new Error(j.error || `Invidious captions request failed (HTTP ${indexResponse.status})`);
         }
-        const indexText = await indexResponse.text();
-        let indexData: any;
-        try { indexData = JSON.parse(indexText); } catch { throw new Error('The Invidious captions response was not valid JSON.'); }
+        const indexData = await indexResponse.json();
         const captions = Array.isArray(indexData?.captions) ? indexData.captions : [];
         const langs = dedupeAvailLangs<AvailableLang>(captions.map((caption: any): AvailableLang => {
           const label = String(caption.label || caption.name || caption.languageCode || '').trim();

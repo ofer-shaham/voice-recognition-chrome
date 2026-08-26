@@ -494,6 +494,35 @@ exports.handler = async (event) => {
     }
   }
 
+  if (method === "GET" && apiPath === "/api/captions-index") {
+    const sourceUrl = String(qs.url || "").trim();
+    let parsed;
+    try {
+      parsed = new URL(sourceUrl);
+      if (!["http:", "https:"].includes(parsed.protocol)) throw new Error();
+    } catch {
+      return json(400, { error: "url must be a valid http:// or https:// URL" });
+    }
+    try {
+      const upstream = await proxyFetch(parsed.toString());
+      if (!upstream.ok) return json(502, { error: `Captions index returned HTTP ${upstream.status}` });
+      let data;
+      try {
+        data = JSON.parse(upstream.body);
+      } catch {
+        return json(502, { error: "Captions index did not return valid JSON" });
+      }
+      if (!Array.isArray(data?.captions)) {
+        return json(502, { error: "Captions index did not contain a captions array" });
+      }
+      log("info", "Captions index OK", { host: parsed.hostname, count: data.captions.length });
+      return json(200, data);
+    } catch (err) {
+      log("error", "Captions index failed", { host: parsed.hostname, error: err.message });
+      return json(502, { error: `Could not fetch captions index: ${err.message}` });
+    }
+  }
+
   if (method === "GET" && apiPath === "/api/timedtext") {
     const sourceUrl = String(qs.url || "").trim();
     let parsed;
