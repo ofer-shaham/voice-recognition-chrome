@@ -137,7 +137,7 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
     const reader = new FileReader();
     reader.onload = event => {
       try {
-        onLoadProject(parseProjectFile(String(event.target?.result || '')));
+         onProjectReady(parseProjectFile(String(event.target?.result || '')));
       } catch (error: any) {
         setFindError(error.message || 'Could not import that project file.');
       }
