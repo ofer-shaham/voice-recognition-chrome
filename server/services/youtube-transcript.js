@@ -127,7 +127,7 @@ async function fetchSrtMethod1(videoId, langCode) {
   return segmentsToSrt(segments);
 }
 
-async function fetchSrtMethod2(videoId, langCode) {
+async function fetchSrtMethod2(videoId, langCode, configuredInstances) {
   const { YouTubeTranscriptApi, SRTFormatter, GenericProxyConfig } = await import("youtube-transcript-api-js");
   const proxyUrl = String(process.env.YOUTUBE_HTTP_PROXY || "").trim();
   const proxyConfig = proxyUrl ? new GenericProxyConfig(proxyUrl, proxyUrl) : undefined;
@@ -148,7 +148,7 @@ async function fetchSrtMethod2(videoId, langCode) {
     return new SRTFormatter().formatTranscript(fetched);
   } catch (error) {
     if (!invidiousEnabled()) throw error;
-    return fetchSrtFromInvidious(String(videoId), langCode, error);
+    return fetchSrtFromInvidious(String(videoId), langCode, error, configuredInstances);
   }
 }
 
@@ -156,10 +156,20 @@ function invidiousEnabled() {
   return String(process.env.YOUTUBE_INVIDIOUS_ENABLED ?? "true").toLowerCase() !== "false";
 }
 
-function invidiousInstances() {
-  return String(process.env.YOUTUBE_INVIDIOUS_INSTANCES || "https://yewtu.be")
+function invidiousInstances(override) {
+  const configured = override || process.env.YOUTUBE_INVIDIOUS_INSTANCES;
+  return String(configured || "https://yewtu.be")
     .split(",")
-    .map(value => value.trim().replace(/\/+$/, ""))
+    .map(value => {
+      const candidate = value.trim().replace(/\/+$/, "");
+      try {
+        const parsed = new URL(candidate);
+        if (!["http:", "https:"].includes(parsed.protocol) || parsed.username || parsed.password) return "";
+        return parsed.toString().replace(/\/+$/, "");
+      } catch {
+        return "";
+      }
+    })
     .filter(Boolean);
 }
 
@@ -172,9 +182,9 @@ function vttToSrt(vtt) {
     .trim();
 }
 
-async function fetchSrtFromInvidious(videoId, langCode, originalError) {
+async function fetchSrtFromInvidious(videoId, langCode, originalError, configuredInstances) {
   let lastError = originalError;
-  for (const instance of invidiousInstances()) {
+  for (const instance of invidiousInstances(configuredInstances)) {
     try {
       const captionsResponse = await fetch(
         `${instance}/api/v1/captions/${encodeURIComponent(videoId)}`
@@ -335,16 +345,16 @@ async function fetchSrtOnrender(videoId, langCode) {
   return content;
 }
 
-async function fetchSrt(videoId, langCode, method) {
+async function fetchSrt(videoId, langCode, method, configuredInstances) {
   if (method === "1") {
     try {
       return await fetchSrtMethod1(videoId, langCode);
     } catch (error) {
       if (!invidiousEnabled()) throw error;
-      return fetchSrtMethod2(videoId, langCode);
+      return fetchSrtMethod2(videoId, langCode, configuredInstances);
     }
   }
-  if (method === "2") return fetchSrtMethod2(videoId, langCode);
+  if (method === "2") return fetchSrtMethod2(videoId, langCode, configuredInstances);
   if (method === "3") return fetchSrtOnrender(videoId, langCode);
   const failures = [];
   for (const [name, fetcher] of [
