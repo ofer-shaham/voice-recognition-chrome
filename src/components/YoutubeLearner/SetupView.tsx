@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   YtProject,
   YtTrack,
@@ -70,6 +70,17 @@ function getDirectSubtitleInfo(value: string): { label: string; lang: string; is
   }
 }
 
+function getSetupParam(name: string): string {
+  return new URLSearchParams(window.location.search).get(name)?.trim() || '';
+}
+
+function getSetupService(): SubtitleService {
+  const value = getSetupParam('service');
+  return value === 'plus' || value === 'api-js' || value === 'onrender' || value === 'iframe'
+    ? value
+    : 'plus';
+}
+
 function buildProject(
   id: string,
   videoId: string,
@@ -121,21 +132,21 @@ interface SetupProps {
 }
 
 export default function SetupView({ onProjectReady, recentProject, projects, onLoadRecent, onLoadProject, onDeleteProject, theme, onThemeChange }: SetupProps) {
-  const [mode, setMode] = useState<SetupMode>('fetch');
+  const [mode, setMode] = useState<SetupMode>(() => getSetupParam('mode') === 'manual' ? 'manual' : 'fetch');
   const [step, setStep] = useState<Step>('url');
 
   // ── URL step ──────────────────────────────────────────────────────────────
   const [url, setUrl] = useState(() => {
-    const requestedId = new URLSearchParams(window.location.search).get('v');
+    const requestedId = getSetupParam('v') || getSetupParam('video');
     return requestedId || 'https://www.youtube.com/watch?v=prSfxdmjNzE';
   });
   const [findLoading, setFindLoading] = useState(false);
   const [findError, setFindError] = useState('');
-  const [capturedRequestUrl, setCapturedRequestUrl] = useState('');
+  const [capturedRequestUrl, setCapturedRequestUrl] = useState(() => getSetupParam('timedtext'));
   const [capturedLoading, setCapturedLoading] = useState(false);
   const replacedRequestUrl = toSrtTimedTextUrl(capturedRequestUrl);
   const [subtitleIndexUrl, setSubtitleIndexUrl] = useState('');
-  const [directSubtitleUrl, setDirectSubtitleUrl] = useState('');
+  const [directSubtitleUrl, setDirectSubtitleUrl] = useState(() => getSetupParam('subtitleUrl') || getSetupParam('subtitle'));
   const [directSubtitleLoading, setDirectSubtitleLoading] = useState(false);
 
   // ── Language selection step ──────────────────────────────────────────────
@@ -144,14 +155,16 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
   const [videoDescription, setVideoDescription] = useState('');
   const [availLangs, setAvailLangs] = useState<AvailableLang[]>([]);
   const [languageDiscoveryFallback, setLanguageDiscoveryFallback] = useState(false);
-  const [selectedLangs, setSelectedLangs] = useState<Set<string>>(new Set());
-  const [targetLang, setTargetLang] = useState('he');
+  const [selectedLangs, setSelectedLangs] = useState<Set<string>>(
+    () => new Set(getSetupParam('langs').split(',').filter(Boolean)),
+  );
+  const [targetLang, setTargetLang] = useState(() => getSetupParam('targetLang') || 'he');
   const [fetchLoading, setFetchLoading] = useState(false);
   const [fetchError, setFetchError] = useState('');
-  const [subtitleService, setSubtitleService] = useState<SubtitleService>('plus');
+  const [subtitleService, setSubtitleService] = useState<SubtitleService>(getSetupService);
   const subtitleMethod = subtitleService === 'plus' ? '1' : subtitleService === 'api-js' ? '2' : '3';
-  const [alternateYoutubeUrl, setAlternateYoutubeUrl] = useState('');
-  const [subtitleProxyUrl, setSubtitleProxyUrl] = useState('');
+  const [alternateYoutubeUrl, setAlternateYoutubeUrl] = useState(() => getSetupParam('instanceUrl') || getSetupParam('alternate'));
+  const [subtitleProxyUrl, setSubtitleProxyUrl] = useState(() => getSetupParam('proxyUrl') || getSetupParam('proxy'));
   const [manualTitle, setManualTitle] = useState('');
   const [manualDescription, setManualDescription] = useState('');
   const [manualVideoUrl, setManualVideoUrl] = useState('');
@@ -167,6 +180,45 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
   const projectFileRef = useRef<HTMLInputElement | null>(null);
   const previewVideoId = extractVideoId(url.trim());
   const subtitleServiceInfo = SUBTITLE_SERVICE_INFO[subtitleService];
+
+  // Keep every fetch option shareable and restorable from the address bar.
+  // replaceState avoids adding one browser-history entry per keystroke.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const setOrDelete = (name: string, value: string) => {
+      if (value.trim()) params.set(name, value.trim());
+      else params.delete(name);
+    };
+
+    setOrDelete('mode', mode);
+    setOrDelete('v', url);
+    setOrDelete('subtitleUrl', directSubtitleUrl);
+    setOrDelete('service', subtitleService);
+    setOrDelete('instanceUrl', alternateYoutubeUrl);
+    setOrDelete('proxyUrl', subtitleProxyUrl);
+    setOrDelete('targetLang', targetLang);
+    setOrDelete('timedtext', capturedRequestUrl);
+
+    const selected = Array.from(selectedLangs);
+    setOrDelete('langs', selected.join(','));
+
+    const query = params.toString();
+    window.history.replaceState(
+      window.history.state,
+      '',
+      `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`,
+    );
+  }, [
+    mode,
+    url,
+    directSubtitleUrl,
+    subtitleService,
+    alternateYoutubeUrl,
+    subtitleProxyUrl,
+    targetLang,
+    capturedRequestUrl,
+    selectedLangs,
+  ]);
 
   const serviceToggle = (
     <div className="yl-service-picker" role="group" aria-label="Subtitle fetch provider">
@@ -359,7 +411,8 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
         setVideoDescription(indexData.videoDetails?.description || `Invidious captions for ${invidiousRequest.videoId}`);
         setAvailLangs(langs);
         setLanguageDiscoveryFallback(false);
-        setSelectedLangs(new Set([langs[0].languageCode]));
+         const requestedLangs = getSetupParam('langs').split(',').filter(code => langs.some(lang => lang.languageCode === code));
+         setSelectedLangs(new Set(requestedLangs.length ? requestedLangs : [langs[0].languageCode]));
         setSubtitleIndexUrl(invidiousRequest.url);
         setStep('langs');
       } else {
@@ -400,7 +453,8 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
         setVideoDescription(data.videoDetails?.description || `YouTube video transcript for ${vid}`);
         setAvailLangs(usableLangs);
         setLanguageDiscoveryFallback(!langs.length);
-        setSelectedLangs(new Set([usableLangs[0].languageCode]));
+         const requestedLangs = getSetupParam('langs').split(',').filter(code => usableLangs.some(lang => lang.languageCode === code));
+         setSelectedLangs(new Set(requestedLangs.length ? requestedLangs : [usableLangs[0].languageCode]));
         setStep('langs');
       }
     } catch (e: any) {
