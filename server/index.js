@@ -2,7 +2,7 @@ const express = require("express");
 const cors = require("cors");
 const swaggerUi = require("swagger-ui-express");
 const path = require("path");
-const { ytPlayerData, fetchSrt } = require("./services/youtube-transcript");
+const { ytPlayerData, fetchSrt, fetchInvidiousLanguages } = require("./services/youtube-transcript");
 const { fetchTtsAudio } = require("./services/tts-proxy");
 
 const app = express();
@@ -240,7 +240,7 @@ app.get("/api/config", (_req, res) => res.json({ serverHasKey: !!ENV_KEY }));
 
 // ── Transcript languages ───────────────────────────────────────────────────────
 app.get("/api/transcript/languages", async (req, res) => {
-  const { videoId, service } = req.query;
+  const { videoId, service, instanceUrl } = req.query;
   if (!videoId) return res.status(400).json({ error: "videoId is required" });
   try {
     if (service === "onrender") {
@@ -267,6 +267,11 @@ app.get("/api/transcript/languages", async (req, res) => {
         })),
       });
     }
+    if (instanceUrl) {
+      const alternate = await fetchInvidiousLanguages(String(videoId), String(instanceUrl));
+      log("info", "alternate transcript/languages OK", { videoId, n: alternate.availableLanguages.length });
+      return res.json(alternate);
+    }
     const data   = await ytPlayerData(String(videoId));
     const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];
     const vd     = data?.videoDetails || {};
@@ -291,11 +296,12 @@ app.get("/api/transcript/languages", async (req, res) => {
 
 // ── SRT fetch ─────────────────────────────────────────────────────────────────
 app.get("/api/srt", async (req, res) => {
-  const { videoId, lang, method } = req.query;
+  const { videoId, lang, method, instanceUrl, proxyUrl } = req.query;
   if (!videoId) return res.status(400).json({ error: "videoId is required" });
   const langCode = String(lang || "en").split("-")[0];
   try {
-    const srt = await fetchSrt(String(videoId), langCode, method);
+    const instances = instanceUrl ? String(instanceUrl) : undefined;
+    const srt = await fetchSrt(String(videoId), langCode, method, instances, proxyUrl);
     log("info", "SRT OK", { videoId, lang: langCode, method: method || "auto" });
     res.type("text/plain; charset=utf-8").send(srt);
   } catch (e) {

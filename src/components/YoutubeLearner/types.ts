@@ -32,7 +32,13 @@ export interface YtProject {
   lastLine: number;
   /** Subtitle fetcher used for this project. Older projects default to plus. */
   subtitleService?: 'plus' | 'api-js' | 'onrender' | 'iframe';
+  /** Optional Invidious-compatible alternate host, e.g. https://yewtu.be. */
+  alternateYoutubeUrl?: string;
+  /** Optional Webshare/HTTP proxy URL used by the transcript API client. */
+  subtitleProxyUrl?: string;
 }
+
+export type YoutubeTheme = 'light' | 'dark' | 'blue';
 
 export interface ParsedLine {
   index: number;

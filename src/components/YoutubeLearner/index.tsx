@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { YtProject } from './types';
+import { YtProject, YoutubeTheme } from './types';
 import { useProject } from './useProject';
 import SetupView from './SetupView';
 import PlayerView from './PlayerView';
@@ -12,6 +12,15 @@ export default function YoutubeLearner() {
   const location = useLocation();
   const [activeProject, setActiveProject] = useState<YtProject | null>(null);
   const [showSetup, setShowSetup] = useState(false);
+  const [theme, setTheme] = useState<YoutubeTheme>(() => {
+    const saved = localStorage.getItem('youtube-learner-theme');
+    return saved === 'dark' || saved === 'blue' ? saved : 'light';
+  });
+
+  const handleThemeChange = (next: YoutubeTheme) => {
+    setTheme(next);
+    localStorage.setItem('youtube-learner-theme', next);
+  };
 
   // Keep the two real views addressable: /youtube/setup and
   // /youtube/project/:projectId. Query links remain supported for sharing.
@@ -101,6 +110,8 @@ export default function YoutubeLearner() {
           clearAll();
           setActiveProject(null);
         }}
+        theme={theme}
+        onThemeChange={handleThemeChange}
       />
     );
   }
@@ -109,10 +120,13 @@ export default function YoutubeLearner() {
     <PlayerView
       project={activeProject}
       onSave={handleSave}
+      onBackHome={() => { setShowSetup(true); setActiveProject(null); navigate('/youtube'); }}
        onNewVideo={() => { setShowSetup(true); setActiveProject(null); navigate('/youtube/setup'); }}
       onDelete={handleDelete}
       projects={projects}
       onSelectProject={handleSelectProject}
+      theme={theme}
+      onThemeChange={handleThemeChange}
     />
   );
 }

@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { YtProject, YtTrack, ProjectConfig, AvailableLang } from './types';
+import { YtProject, YtTrack, ProjectConfig, AvailableLang, YoutubeTheme } from './types';
 import { LANG_OPTIONS, DEFAULT_TTS_RATE, DEFAULT_VISIBLE_LINES } from './constants';
 import { extractVideoId, dedupeAvailLangs } from './utils';
 import { downloadProject, parseProjectFile } from './projectTransfer';
@@ -45,6 +45,8 @@ function buildProject(
   tracks: YtTrack[],
   targetLang: string,
   subtitleService: SubtitleService,
+  alternateYoutubeUrl = '',
+  subtitleProxyUrl = '',
 ): YtProject {
   const colOrder: string[] = [...tracks.map(t => `track:${t.lang}`), 'translation', 'video'];
   const colSettings: ProjectConfig['colSettings'] = {};
@@ -62,10 +64,28 @@ function buildProject(
     visibleLines: DEFAULT_VISIBLE_LINES,
   };
 
-  return { id, videoId, title, description, createdAt: Date.now(), updatedAt: Date.now(), tracks, config, lastLine: 0, subtitleService };
+  return {
+    id, videoId, title, description, createdAt: Date.now(), updatedAt: Date.now(),
+    tracks, config, lastLine: 0, subtitleService,
+    alternateYoutubeUrl: alternateYoutubeUrl.trim() || undefined,
+    subtitleProxyUrl: subtitleProxyUrl.trim() || undefined,
+  };
 }
 
-export default function SetupView({ onProjectReady, recentProject, projects, onLoadRecent, onLoadProject, onDeleteProject }: Props) {
+interface SetupProps {
+  onProjectReady: (project: YtProject) => void;
+  recentProject: YtProject | null;
+  projects: YtProject[];
+  hasHistory?: boolean;
+  onLoadRecent: () => void;
+  onLoadProject: (project: YtProject) => void;
+  onDeleteProject: (id: string) => void;
+  onClearHistory?: () => void;
+  theme: YoutubeTheme;
+  onThemeChange: (theme: YoutubeTheme) => void;
+}
+
+export default function SetupView({ onProjectReady, recentProject, projects, onLoadRecent, onLoadProject, onDeleteProject, theme, onThemeChange }: SetupProps) {
   const [mode, setMode] = useState<SetupMode>('fetch');
   const [step, setStep] = useState<Step>('url');
 
@@ -92,6 +112,8 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
   const [fetchError, setFetchError] = useState('');
   const [subtitleService, setSubtitleService] = useState<SubtitleService>('plus');
   const subtitleMethod = subtitleService === 'plus' ? '1' : subtitleService === 'api-js' ? '2' : '3';
+  const [alternateYoutubeUrl, setAlternateYoutubeUrl] = useState('');
+  const [subtitleProxyUrl, setSubtitleProxyUrl] = useState('');
   const [manualTitle, setManualTitle] = useState('');
   const [manualDescription, setManualDescription] = useState('');
   const [manualVideoUrl, setManualVideoUrl] = useState('');
@@ -124,6 +146,26 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
           </button>
         ))}
       </div>
+      <label className="yl-service-extra">
+        <span>Alternate YouTube host <span className="yl-optional">(optional)</span></span>
+        <input
+          className="yl-input"
+          type="url"
+          placeholder="https://yewtu.be"
+          value={alternateYoutubeUrl}
+          onChange={e => setAlternateYoutubeUrl(e.target.value)}
+        />
+      </label>
+      <label className="yl-service-extra">
+        <span>Webshare / HTTP proxy URL <span className="yl-optional">(optional)</span></span>
+        <input
+          className="yl-input"
+          type="url"
+          placeholder="http://proxy.example:8080"
+          value={subtitleProxyUrl}
+          onChange={e => setSubtitleProxyUrl(e.target.value)}
+        />
+      </label>
       <span className="yl-service-help">
         {subtitleService === 'iframe'
           ? 'Open the player below, turn on CC, and inspect the caption request in DevTools.'
@@ -169,8 +211,10 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
     if (!vid) { setFindError('Could not extract a video ID from that URL.'); return; }
     setFindLoading(true);
     try {
+      const sourceQuery = new URLSearchParams();
+      if (alternateYoutubeUrl.trim()) sourceQuery.set('instanceUrl', alternateYoutubeUrl.trim());
       const serviceQuery = subtitleService === 'onrender' ? '&service=onrender' : '';
-      const res = await fetch(`/api/transcript/languages?videoId=${encodeURIComponent(vid)}${serviceQuery}`);
+      const res = await fetch(`/api/transcript/languages?videoId=${encodeURIComponent(vid)}${serviceQuery}${sourceQuery.toString() ? `&${sourceQuery}` : ''}`);
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error || `HTTP ${res.status}`);
@@ -248,10 +292,15 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
     try {
       const chosen = availLangs.filter(l => selectedLangs.has(l.languageCode));
       const tracks: YtTrack[] = [];
+      const sourceQuery = new URLSearchParams();
+      if (alternateYoutubeUrl.trim()) sourceQuery.set('instanceUrl', alternateYoutubeUrl.trim());
+      if (subtitleProxyUrl.trim()) sourceQuery.set('proxyUrl', subtitleProxyUrl.trim());
+      const query = sourceQuery.toString();
       for (const lang of chosen) {
         const langCode = lang.languageCode.split('-')[0];
         const methodQuery = subtitleService === 'iframe' ? '' : `&method=${subtitleMethod}`;
-        const res = await fetch(`/api/srt?videoId=${encodeURIComponent(videoId)}&lang=${encodeURIComponent(langCode)}${methodQuery}`);
+        const trackUrl = `/api/srt?videoId=${encodeURIComponent(videoId)}&lang=${encodeURIComponent(langCode)}${methodQuery}${query ? `&${query}` : ''}`;
+        const res = await fetch(trackUrl);
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));
           throw new Error(j.error || `HTTP ${res.status}`);
@@ -259,7 +308,9 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
         const srtContent = await res.text();
         tracks.push({ lang: lang.languageCode, label: lang.name, isAuto: lang.isAutoGenerated, srtContent });
       }
-      onProjectReady(buildProject(videoId, videoId, videoTitle || `YouTube video ${videoId}`, videoDescription || `YouTube video transcript for ${videoId}`, tracks, targetLang.trim(), subtitleService));
+      // Keep the selected source settings on the project so additional tracks
+      // use the same alternate host/proxy from the player settings.
+      onProjectReady(buildProject(videoId, videoId, videoTitle || `YouTube video ${videoId}`, videoDescription || `YouTube video transcript for ${videoId}`, tracks, targetLang.trim(), subtitleService, alternateYoutubeUrl, subtitleProxyUrl));
     } catch (e: any) {
       setFetchError(e.message || 'Error fetching subtitles');
     }
@@ -346,10 +397,18 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
   // ── Render: language selection ───────────────────────────────────────────
   if (step === 'langs') {
     return (
-      <div className="yl-setup">
+      <div className={`yl-setup yl-theme-${theme}`}>
         <div className="yl-setup-hero">
           <h1 className="yl-setup-title">🎓 YouTube Language Learner</h1>
           {videoTitle && <p className="yl-setup-subtitle">{videoTitle}</p>}
+          <label className="yl-theme-control">
+            Theme
+            <select className="yl-theme-select" value={theme} onChange={e => onThemeChange(e.target.value as YoutubeTheme)}>
+              <option value="light">Light</option>
+              <option value="blue">Blue</option>
+              <option value="dark">Dark</option>
+            </select>
+          </label>
         </div>
 
         <div className="yl-setup-form">
@@ -404,12 +463,20 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
 
   // ── Render: URL step ──────────────────────────────────────────────────────
   return (
-    <div className="yl-setup">
+    <div className={`yl-setup yl-theme-${theme}`}>
       <div className="yl-setup-hero">
         <h1 className="yl-setup-title">🎓 YouTube Language Learner</h1>
         <p className="yl-setup-subtitle">
           Watch YouTube videos with synchronized multi-language transcripts and TTS playback.
         </p>
+        <label className="yl-theme-control">
+          Theme
+          <select className="yl-theme-select" value={theme} onChange={e => onThemeChange(e.target.value as YoutubeTheme)}>
+            <option value="light">Light</option>
+            <option value="blue">Blue</option>
+            <option value="dark">Dark</option>
+          </select>
+        </label>
       </div>
 
       {recentProject && (
@@ -481,25 +548,6 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
         </button>
         <span className="yl-input-method-hint">Load a previously exported project file.</span>
       </div>
-
-      {projects.length > 0 && (
-        <div className="yl-create-project-prompt">
-          <div>
-            <strong>Create another project</strong>
-            <span>Start a new YouTube transcript workspace.</span>
-          </div>
-          <button
-            type="button"
-            className="yl-btn-primary"
-            onClick={() => {
-              setMode('fetch');
-              requestAnimationFrame(() => urlInputRef.current?.focus());
-            }}
-          >
-            + New project
-          </button>
-        </div>
-      )}
 
       <div className="yl-mode-tabs" role="tablist" aria-label="Subtitle input method">
         <button type="button" role="tab" aria-selected={mode === 'fetch'} className={`yl-mode-tab ${mode === 'fetch' ? 'yl-mode-tab-active' : ''}`} onClick={() => setMode('fetch')}>
