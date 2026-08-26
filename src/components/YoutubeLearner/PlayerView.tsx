@@ -1,5 +1,14 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { YtProject, YtTrack, ParsedLine, ProjectConfig, ColSetting, AvailableLang, YoutubeTheme } from './types';
+import {
+  YtProject,
+  YtTrack,
+  ParsedLine,
+  ProjectConfig,
+  ColSetting,
+  AvailableLang,
+  YoutubeTheme,
+  SUBTITLE_SERVICE_INFO,
+} from './types';
 import { buildLines, parseSrt, secondsToHms, colLabel, sleep, dedupeAvailLangs } from './utils';
 import { DEFAULT_TTS_RATE } from './constants';
 import { translate, getTranslationCacheCount } from '../../utils/translate';
@@ -93,6 +102,8 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
   const [translationStatusMessage, setTranslationStatusMessage] = useState('');
   const [alternateYoutubeUrl, setAlternateYoutubeUrl] = useState(project.alternateYoutubeUrl || '');
   const [subtitleProxyUrl, setSubtitleProxyUrl] = useState(project.subtitleProxyUrl || '');
+  const subtitleService = project.subtitleService || 'plus';
+  const subtitleServiceInfo = SUBTITLE_SERVICE_INFO[subtitleService];
 
   const { langOptions, voicesForLang } = useVoices();
 
@@ -356,7 +367,18 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
     setLangsError('');
     try {
       const query = new URLSearchParams({ videoId: projectRef.current.videoId });
-      if (projectRef.current.alternateYoutubeUrl) query.set('instanceUrl', projectRef.current.alternateYoutubeUrl);
+      const service = projectRef.current.subtitleService || 'plus';
+      const serviceInfo = SUBTITLE_SERVICE_INFO[service];
+      if (serviceInfo.supportsAlternate && projectRef.current.alternateYoutubeUrl) {
+        query.set('instanceUrl', projectRef.current.alternateYoutubeUrl);
+      }
+      if (serviceInfo.supportsProxy && projectRef.current.subtitleProxyUrl) {
+        query.set('proxyUrl', projectRef.current.subtitleProxyUrl);
+      }
+      if (service === 'onrender') query.set('service', 'onrender');
+      else if (service !== 'iframe') {
+        query.set('method', service === 'api-js' ? '2' : '1');
+      }
       const res = await fetch(`/api/transcript/languages?${query.toString()}`);
       if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || `HTTP ${res.status}`); }
       const data = await res.json();
@@ -379,13 +401,19 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
       const serviceMethod = projectRef.current.subtitleService === 'api-js'
         ? '2'
         : projectRef.current.subtitleService === 'onrender' ? '3' : '1';
+      const service = projectRef.current.subtitleService || 'plus';
+      const serviceInfo = SUBTITLE_SERVICE_INFO[service];
       const query = new URLSearchParams({
         videoId: projectRef.current.videoId,
         lang: langCode,
         method: serviceMethod,
       });
-      if (projectRef.current.alternateYoutubeUrl) query.set('instanceUrl', projectRef.current.alternateYoutubeUrl);
-      if (projectRef.current.subtitleProxyUrl) query.set('proxyUrl', projectRef.current.subtitleProxyUrl);
+      if (serviceInfo.supportsAlternate && projectRef.current.alternateYoutubeUrl) {
+        query.set('instanceUrl', projectRef.current.alternateYoutubeUrl);
+      }
+      if (serviceInfo.supportsProxy && projectRef.current.subtitleProxyUrl) {
+        query.set('proxyUrl', projectRef.current.subtitleProxyUrl);
+      }
       const res = await fetch(`/api/srt?${query.toString()}`);
       if (!res.ok) { const j = await res.json().catch(() => ({})); throw new Error(j.error || `HTTP ${res.status}`); }
       const srtContent = await res.text();
@@ -952,7 +980,7 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
                 {config.colOrder.includes('translation') ? 'Remove translation' : 'Add translation'}
               </button>
             </div>
-            <label className="yl-setting-field yl-provider-setting">
+            <label className={`yl-setting-field yl-provider-setting ${subtitleServiceInfo.supportsAlternate ? '' : 'yl-provider-setting-disabled'}`}>
               <span>Alternate YouTube / Invidious host</span>
               <input
                 className="yl-input-sm"
@@ -961,9 +989,11 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
                 value={alternateYoutubeUrl}
                 onChange={e => setAlternateYoutubeUrl(e.target.value)}
                 onBlur={() => saveProviderSettings({ alternateYoutubeUrl: alternateYoutubeUrl.trim() || undefined })}
+                disabled={!subtitleServiceInfo.supportsAlternate}
+                title={subtitleServiceInfo.supportsAlternate ? undefined : `Not supported by ${subtitleServiceInfo.library}`}
               />
             </label>
-            <label className="yl-setting-field yl-provider-setting">
+            <label className={`yl-setting-field yl-provider-setting ${subtitleServiceInfo.supportsProxy ? '' : 'yl-provider-setting-disabled'}`}>
               <span>Webshare / HTTP proxy URL</span>
               <input
                 className="yl-input-sm"
@@ -972,6 +1002,8 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
                 value={subtitleProxyUrl}
                 onChange={e => setSubtitleProxyUrl(e.target.value)}
                 onBlur={() => saveProviderSettings({ subtitleProxyUrl: subtitleProxyUrl.trim() || undefined })}
+                disabled={!subtitleServiceInfo.supportsProxy}
+                title={subtitleServiceInfo.supportsProxy ? undefined : `Not supported by ${subtitleServiceInfo.library}`}
               />
             </label>
           </div>

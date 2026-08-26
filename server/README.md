@@ -86,16 +86,18 @@ curl "http://localhost:3001/api/transcript/languages?videoId=dQw4w9WgXcQ"
 ### Optional HTTP proxy
 
 Set `YOUTUBE_HTTP_PROXY` on the server to route method 2 transcript requests
-through an HTTP or HTTPS proxy:
+through an HTTP or HTTPS proxy by default:
 
 ```bash
 YOUTUBE_HTTP_PROXY=http://proxy.example.com:8080
 ```
 
-The proxy URL is read only from the server environment and is never accepted
-from browser query parameters. This setting is supported by
+The client can also pass `proxyUrl` on `/api/transcript/languages` and
+`/api/srt` when the selected provider is `youtube-transcript-api-js`; that
+request value takes precedence over `YOUTUBE_HTTP_PROXY`. This is supported by
 `youtube-transcript-api-js` (method 2); the other providers do not expose the
-same proxy configuration.
+same proxy configuration. Avoid putting proxy credentials in URLs that may be
+recorded in browser history or request logs.
 
 Invidious fallback is enabled by default after the YouTube providers fail.
 Configure it with:

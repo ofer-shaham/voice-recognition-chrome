@@ -1,6 +1,7 @@
 const { fetchTtsAudio } = require("../../server/services/tts-proxy");
 const {
   fetchSrt: fetchServerSrt,
+  fetchLanguagesMethod2,
   fetchInvidiousLanguages: fetchAlternateLanguages,
 } = require("../../server/services/youtube-transcript");
 
@@ -167,7 +168,12 @@ const SWAGGER_SPEC = {
     "/api/transcript/languages": {
       get: {
         summary: "List caption languages", tags: ["Transcripts"],
-        parameters: [{ name: "videoId", in: "query", required: true, schema: { type: "string" } }],
+        parameters: [
+          { name: "videoId", in: "query", required: true, schema: { type: "string" } },
+          { name: "method", in: "query", required: false, schema: { type: "string", enum: ["1", "2", "3"] }, description: "2 uses youtube-transcript-api-js for language discovery" },
+          { name: "instanceUrl", in: "query", required: false, schema: { type: "string" }, description: "Alternate Invidious host(s), supported by the API.js provider" },
+          { name: "proxyUrl", in: "query", required: false, schema: { type: "string", format: "uri" }, description: "HTTP/HTTPS proxy for youtube-transcript-api-js" },
+        ],
         responses: { 200: { description: "Language list" }, 400: { description: "Missing videoId" }, 500: { description: "Error" } },
       },
     },
@@ -177,6 +183,9 @@ const SWAGGER_SPEC = {
         parameters: [
           { name: "videoId", in: "query", required: true, schema: { type: "string" } },
           { name: "lang", in: "query", required: false, schema: { type: "string", default: "en" } },
+          { name: "method", in: "query", required: false, schema: { type: "string", enum: ["1", "2", "3"] } },
+          { name: "instanceUrl", in: "query", required: false, schema: { type: "string" }, description: "Alternate Invidious host(s), supported by the API.js provider" },
+          { name: "proxyUrl", in: "query", required: false, schema: { type: "string", format: "uri" }, description: "HTTP/HTTPS proxy for youtube-transcript-api-js" },
           { name: "targetLang", in: "query", required: false, schema: { type: "string" } },
         ],
         responses: { 200: { description: "SRT text" }, 400: { description: "Missing params" }, 500: { description: "Error" } },
@@ -370,6 +379,9 @@ exports.handler = async (event) => {
     try {
       if (qs.instanceUrl) {
         return json(200, await fetchAlternateLanguages(videoId, String(qs.instanceUrl)));
+      }
+      if (qs.method === "2") {
+        return json(200, await fetchLanguagesMethod2(videoId, qs.proxyUrl));
       }
       const upstream = await fetchYoutube("/api/video-info", { url: buildVideoUrl(videoId) });
       const data = parseJson(upstream.body);

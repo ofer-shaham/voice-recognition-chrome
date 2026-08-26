@@ -2,7 +2,12 @@ const express = require("express");
 const cors = require("cors");
 const swaggerUi = require("swagger-ui-express");
 const path = require("path");
-const { ytPlayerData, fetchSrt, fetchInvidiousLanguages } = require("./services/youtube-transcript");
+const {
+  ytPlayerData,
+  fetchSrt,
+  fetchLanguagesMethod2,
+  fetchInvidiousLanguages,
+} = require("./services/youtube-transcript");
 const { fetchTtsAudio } = require("./services/tts-proxy");
 
 const app = express();
@@ -49,7 +54,12 @@ const swaggerSpec = {
       get: {
         tags: ["Transcripts"],
         summary: "List available caption languages for a video",
-        parameters: [{ name: "videoId", in: "query", required: true, schema: { type: "string" } }],
+        parameters: [
+          { name: "videoId", in: "query", required: true, schema: { type: "string" } },
+          { name: "method", in: "query", required: false, schema: { type: "string", enum: ["1", "2", "3"] }, description: "2 uses youtube-transcript-api-js for language discovery" },
+          { name: "instanceUrl", in: "query", required: false, schema: { type: "string" }, description: "Alternate Invidious host(s), supported by the API.js provider" },
+          { name: "proxyUrl", in: "query", required: false, schema: { type: "string", format: "uri" }, description: "HTTP/HTTPS proxy for youtube-transcript-api-js" },
+        ],
         responses: { 200: { description: "Language list and video metadata" }, 400: { description: "Missing videoId" }, 500: { description: "YouTube fetch error" } },
       },
     },
@@ -240,7 +250,7 @@ app.get("/api/config", (_req, res) => res.json({ serverHasKey: !!ENV_KEY }));
 
 // ── Transcript languages ───────────────────────────────────────────────────────
 app.get("/api/transcript/languages", async (req, res) => {
-  const { videoId, service, instanceUrl } = req.query;
+  const { videoId, service, method, instanceUrl, proxyUrl } = req.query;
   if (!videoId) return res.status(400).json({ error: "videoId is required" });
   try {
     if (service === "onrender") {
@@ -271,6 +281,11 @@ app.get("/api/transcript/languages", async (req, res) => {
       const alternate = await fetchInvidiousLanguages(String(videoId), String(instanceUrl));
       log("info", "alternate transcript/languages OK", { videoId, n: alternate.availableLanguages.length });
       return res.json(alternate);
+    }
+    if (method === "2") {
+      const apiJs = await fetchLanguagesMethod2(String(videoId), proxyUrl);
+      log("info", "youtube-transcript-api-js/languages OK", { videoId, n: apiJs.availableLanguages.length });
+      return res.json(apiJs);
     }
     const data   = await ytPlayerData(String(videoId));
     const tracks = data?.captions?.playerCaptionsTracklistRenderer?.captionTracks || [];

@@ -1,5 +1,13 @@
 import React, { useRef, useState } from 'react';
-import { YtProject, YtTrack, ProjectConfig, AvailableLang, YoutubeTheme } from './types';
+import {
+  YtProject,
+  YtTrack,
+  ProjectConfig,
+  AvailableLang,
+  YoutubeTheme,
+  SubtitleService,
+  SUBTITLE_SERVICE_INFO,
+} from './types';
 import { LANG_OPTIONS, DEFAULT_TTS_RATE, DEFAULT_VISIBLE_LINES } from './constants';
 import { extractVideoId, dedupeAvailLangs } from './utils';
 import { downloadProject, parseProjectFile } from './projectTransfer';
@@ -16,7 +24,6 @@ interface Props {
 }
 
 type Step = 'url' | 'langs';
-type SubtitleService = 'plus' | 'api-js' | 'onrender' | 'iframe';
 type SetupMode = 'fetch' | 'manual';
 
 interface ManualTrack {
@@ -128,6 +135,7 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
   const urlInputRef = useRef<HTMLInputElement | null>(null);
   const projectFileRef = useRef<HTMLInputElement | null>(null);
   const previewVideoId = extractVideoId(url.trim());
+  const subtitleServiceInfo = SUBTITLE_SERVICE_INFO[subtitleService];
 
   const serviceToggle = (
     <div className="yl-service-picker" role="group" aria-label="Subtitle fetch provider">
@@ -142,34 +150,45 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
           <button key={value} type="button"
             className={`yl-service-option ${subtitleService === value ? 'yl-service-option-active' : ''}`}
             onClick={() => setSubtitleService(value)} aria-pressed={subtitleService === value}>
-            {label}{value === 'plus' && <span className="yl-default-badge">default</span>}
+            <span>{label}{value === 'plus' && <span className="yl-default-badge">default</span>}</span>
+            <small>{SUBTITLE_SERVICE_INFO[value].library}</small>
           </button>
         ))}
       </div>
-      <label className="yl-service-extra">
-        <span>Alternate YouTube / Invidious host(s) <span className="yl-optional">(optional)</span></span>
+      <label className={`yl-service-extra ${subtitleServiceInfo.supportsAlternate ? '' : 'yl-service-extra-disabled'}`}>
+        <span>
+          Alternate YouTube / Invidious host(s) <span className="yl-optional">(optional)</span>
+          {!subtitleServiceInfo.supportsAlternate && <small className="yl-service-disabled-note">not supported by this library</small>}
+        </span>
         <input
           className="yl-input"
           type="text"
           placeholder="https://yewtu.be, https://invidious.io"
           value={alternateYoutubeUrl}
           onChange={e => setAlternateYoutubeUrl(e.target.value)}
+          disabled={!subtitleServiceInfo.supportsAlternate}
+          title={subtitleServiceInfo.supportsAlternate ? undefined : `Not supported by ${subtitleServiceInfo.library}`}
         />
       </label>
-      <label className="yl-service-extra">
-        <span>Webshare / HTTP proxy URL <span className="yl-optional">(optional)</span></span>
+      <label className={`yl-service-extra ${subtitleServiceInfo.supportsProxy ? '' : 'yl-service-extra-disabled'}`}>
+        <span>
+          Webshare / HTTP proxy URL <span className="yl-optional">(optional)</span>
+          {!subtitleServiceInfo.supportsProxy && <small className="yl-service-disabled-note">not supported by this library</small>}
+        </span>
         <input
           className="yl-input"
           type="url"
           placeholder="http://proxy.example:8080"
           value={subtitleProxyUrl}
           onChange={e => setSubtitleProxyUrl(e.target.value)}
+          disabled={!subtitleServiceInfo.supportsProxy}
+          title={subtitleServiceInfo.supportsProxy ? undefined : `Not supported by ${subtitleServiceInfo.library}`}
         />
       </label>
       <span className="yl-service-help">
         {subtitleService === 'iframe'
           ? 'Open the player below, turn on CC, and inspect the caption request in DevTools.'
-          : 'Choose the caption source for this project.'}
+          : `${subtitleServiceInfo.library} is selected. Options unavailable for this library are disabled.`}
       </span>
     </div>
   );
@@ -212,9 +231,18 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
     setFindLoading(true);
     try {
       const sourceQuery = new URLSearchParams();
-      if (alternateYoutubeUrl.trim()) sourceQuery.set('instanceUrl', alternateYoutubeUrl.trim());
-      const serviceQuery = subtitleService === 'onrender' ? '&service=onrender' : '';
-      const res = await fetch(`/api/transcript/languages?videoId=${encodeURIComponent(vid)}${serviceQuery}${sourceQuery.toString() ? `&${sourceQuery}` : ''}`);
+      if (subtitleServiceInfo.supportsAlternate && alternateYoutubeUrl.trim()) {
+        sourceQuery.set('instanceUrl', alternateYoutubeUrl.trim());
+      }
+      if (subtitleServiceInfo.supportsProxy && subtitleProxyUrl.trim()) {
+        sourceQuery.set('proxyUrl', subtitleProxyUrl.trim());
+      }
+      if (subtitleService === 'onrender') {
+        sourceQuery.set('service', 'onrender');
+      } else if (subtitleService !== 'iframe') {
+        sourceQuery.set('method', subtitleMethod);
+      }
+      const res = await fetch(`/api/transcript/languages?videoId=${encodeURIComponent(vid)}${sourceQuery.toString() ? `&${sourceQuery}` : ''}`);
       if (!res.ok) {
         const j = await res.json().catch(() => ({}));
         throw new Error(j.error || `HTTP ${res.status}`);
@@ -293,8 +321,12 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
       const chosen = availLangs.filter(l => selectedLangs.has(l.languageCode));
       const tracks: YtTrack[] = [];
       const sourceQuery = new URLSearchParams();
-      if (alternateYoutubeUrl.trim()) sourceQuery.set('instanceUrl', alternateYoutubeUrl.trim());
-      if (subtitleProxyUrl.trim()) sourceQuery.set('proxyUrl', subtitleProxyUrl.trim());
+      if (subtitleServiceInfo.supportsAlternate && alternateYoutubeUrl.trim()) {
+        sourceQuery.set('instanceUrl', alternateYoutubeUrl.trim());
+      }
+      if (subtitleServiceInfo.supportsProxy && subtitleProxyUrl.trim()) {
+        sourceQuery.set('proxyUrl', subtitleProxyUrl.trim());
+      }
       const query = sourceQuery.toString();
       for (const lang of chosen) {
         const langCode = lang.languageCode.split('-')[0];

@@ -274,6 +274,17 @@
   line-height: 1.25;
   cursor: pointer;
   transition: background 0.15s, color 0.15s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.yl-service-option small {
+  color: #64748b;
+  font-size: 0.62rem;
+  font-weight: 400;
+  overflow-wrap: anywhere;
 }
 
 .yl-service-option:last-child {
@@ -291,9 +302,31 @@
   font-weight: 600;
 }
 
+.yl-service-option-active small {
+  color: #dbeafe;
+}
+
+.yl-service-disabled-note {
+  display: block;
+  color: #f59e0b;
+  font-size: 0.68rem;
+  font-weight: 400;
+  margin-top: 0.15rem;
+}
+
 .yl-service-option-active:hover {
   background: #2563eb;
   color: #fff;
+}
+
+.yl-service-extra-disabled,
+.yl-provider-setting-disabled {
+  opacity: 0.55;
+}
+
+.yl-service-extra input:disabled,
+.yl-provider-setting input:disabled {
+  cursor: not-allowed;
 }
 
 .yl-service-help {
