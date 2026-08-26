@@ -5,7 +5,7 @@
 # Use --native to run without Docker (requires node/npm on PATH).
 #
 # Usage:
-#   ./manage.sh [--native] {start|stop|restart|status|build|install|ensure|doctor|fix}
+#   ./manage.sh [--native] {start|stop|restart|status|build|install|ensure|doctor|recover|fix}
 #   ./manage.sh [--native] logs [client|server|openrouter|all]
 #
 # Docker Compose services:
@@ -17,6 +17,7 @@
 #   ./manage.sh --native ensure         # check prereqs, install deps, start & health-check
 #   ./manage.sh install                 # install all client + server npm dependencies
 #   ./manage.sh doctor                  # diagnose Docker + environment issues
+#   ./manage.sh recover                 # inspect the last 30 minutes and repair safe dependency issues
 #   ./manage.sh fix                     # auto-fix detected issues
 #   ./manage.sh start                   # docker compose up (build if needed)
 #   ./manage.sh stop                    # docker compose down
@@ -47,7 +48,7 @@ head_()  { echo -e "${CYAN}── $* ──${NC}"; }
 for arg in "$@"; do
   case "$arg" in
     --native) USE_NATIVE=true ;;
-    start|stop|restart|status|build|install|ensure|doctor|fix) COMMAND="$arg" ;;
+    start|stop|restart|status|build|install|ensure|doctor|recover|fix) COMMAND="$arg" ;;
     logs) COMMAND="logs" ;;
     client|server|openrouter|all)
       if [[ "$COMMAND" == "logs" ]]; then
@@ -63,14 +64,14 @@ for arg in "$@"; do
       ;;
     *)
       error "Unknown argument: $arg"
-      echo "Usage: $0 [--native] {start|stop|restart|status|build|install|ensure|doctor|fix|logs [service]}" >&2
+      echo "Usage: $0 [--native] {start|stop|restart|status|build|install|ensure|doctor|recover|fix|logs [service]}" >&2
       exit 1
       ;;
   esac
 done
 
 if [[ -z "$COMMAND" ]]; then
-  echo "Usage: $0 [--native] {start|stop|restart|status|build|install|ensure|doctor|fix|logs [service]}"
+  echo "Usage: $0 [--native] {start|stop|restart|status|build|install|ensure|doctor|recover|fix|logs [service]}"
   exit 1
 fi
 
@@ -259,6 +260,161 @@ run_doctor() {
     echo -e "  ${FAIL}  Native mode is NOT ready (see issues above)"
   fi
   echo ""
+}
+
+# ── recover recent issues ─────────────────────────────────────────────────────
+# Review fresh logs and repair only safe, mechanically detectable dependency
+# failures. Application errors, port conflicts, and browser/runtime errors are
+# reported with next steps instead of being hidden or force-killed.
+RECOVER_MINUTES=30
+
+recent_log_files() {
+  local roots=() root
+  [[ -d logs ]] && roots+=("logs")
+  [[ -d /tmp/logs ]] && roots+=("/tmp/logs")
+  [[ -d artifacts ]] && roots+=("artifacts")
+  (( ${#roots[@]} > 0 )) || return 0
+
+  for root in "${roots[@]}"; do
+    find "$root" \
+      -path '*/node_modules' -prune -o \
+      -type f -mmin "-${RECOVER_MINUTES}" -print 2>/dev/null
+  done | sort -u
+}
+
+print_recent_log_findings() {
+  local file="$1" matched=0 line
+  while IFS= read -r line; do
+    [[ -n "$line" ]] || continue
+    (( matched++ ))
+    echo "          ${line:0:260}"
+    (( matched >= 4 )) && break
+  done < <(grep -E -i \
+    'ERR_MODULE_NOT_FOUND|cannot find module|failed to load config|error when starting|DIDNT_OPEN_A_PORT|port .*already in use|invalid hook call|syntax error|(^|[^a-z])fail(ed|ure)?([^a-z]|$)|(^|[^a-z])error([^a-z]|$)|missing' \
+    "$file" 2>/dev/null || true)
+  echo "$matched"
+}
+
+manifest_missing_dependencies() {
+  local manifest="$1" base
+  base="$(dirname "$manifest")"
+  [[ -f "$manifest" ]] || return 0
+  [[ -d "$base/node_modules" ]] || {
+    echo "__ALL_DEPENDENCIES__"
+    return 0
+  }
+
+  node -e '
+    const fs = require("fs");
+    const path = require("path");
+    const manifest = path.resolve(process.argv[1]);
+    const packageJson = JSON.parse(fs.readFileSync(manifest, "utf8"));
+    const names = [
+      ...Object.keys(packageJson.dependencies || {}),
+      ...Object.keys(packageJson.devDependencies || {}),
+      ...Object.keys(packageJson.optionalDependencies || {}),
+    ];
+    const nodeModules = path.join(path.dirname(manifest), "node_modules");
+    for (const name of names) {
+      if (!fs.existsSync(path.join(nodeModules, name))) console.log(name);
+    }
+  ' "$manifest" 2>/dev/null || echo "__MANIFEST_READ_FAILED__"
+}
+
+install_manifest_dependencies() {
+  local manifest="$1" base manager
+  base="$(dirname "$manifest")"
+
+  if [[ -f "$base/package-lock.json" ]] && command -v npm &>/dev/null; then
+    manager="npm ci"
+    (cd "$base" && npm ci)
+  elif [[ -f "$base/pnpm-lock.yaml" ]] && command -v pnpm &>/dev/null; then
+    manager="pnpm install --frozen-lockfile"
+    (cd "$base" && pnpm install --frozen-lockfile)
+  elif [[ -f "$base/yarn.lock" ]] && command -v yarn &>/dev/null; then
+    manager="yarn install --frozen-lockfile"
+    (cd "$base" && yarn install --frozen-lockfile)
+  elif command -v npm &>/dev/null; then
+    manager="npm install"
+    (cd "$base" && npm install)
+  else
+    error "No supported Node package manager found for $base."
+    return 1
+  fi
+}
+
+run_recover() {
+  local files=() file findings=0 safe_repairs=0 unresolved=0
+  local manifests=("package.json")
+  local manifest missing base
+
+  while IFS= read -r file; do
+    [[ -n "$file" ]] && files+=("$file")
+  done < <(recent_log_files)
+
+  echo ""
+  head_ "Recent issue recovery (last ${RECOVER_MINUTES} minutes)"
+
+  if (( ${#files[@]} == 0 )); then
+    echo -e "  ${SKIP}  No recently modified logs found."
+  else
+    for file in "${files[@]}"; do
+      local finding_count
+      finding_count="$(print_recent_log_findings "$file" | tail -1)"
+      if [[ "$finding_count" =~ ^[0-9]+$ ]] && (( finding_count > 0 )); then
+        findings=$((findings+finding_count))
+        echo -e "  ${FAIL}  Recent failure signals in ${file}"
+        print_recent_log_findings "$file" | sed '$d' | sed 's/^/          /'
+      fi
+    done
+    (( findings == 0 )) && echo -e "  ${PASS}  No known failure signatures found in recent logs."
+  fi
+
+  for manifest in artifacts/*/package.json; do
+    [[ -f "$manifest" ]] && manifests+=("$manifest")
+  done
+
+  echo ""
+  head_ "Declared dependency check"
+  for manifest in "${manifests[@]}"; do
+    base="$(dirname "$manifest")"
+    missing="$(manifest_missing_dependencies "$manifest" | paste -sd, -)"
+    if [[ -z "$missing" ]]; then
+      echo -e "  ${PASS}  ${base}/node_modules matches ${manifest}"
+      continue
+    fi
+
+    findings=$((findings+1))
+    echo -e "  ${FAIL}  Missing declared dependencies for ${manifest}: ${missing}"
+    echo    "          → Reinstalling from the checked-in lockfile when available."
+    if install_manifest_dependencies "$manifest"; then
+      echo -e "  ${PASS}  Dependencies restored for ${base}."
+      safe_repairs=$((safe_repairs+1))
+    else
+      echo -e "  ${FAIL}  Could not restore dependencies for ${base}."
+      unresolved=$((unresolved+1))
+    fi
+  done
+
+  echo ""
+  head_ "Recovery summary"
+  if (( safe_repairs > 0 )); then
+    info "${safe_repairs} safe dependency repair(s) applied."
+    echo    "          → Restart the affected workflow or service to load them."
+  fi
+  if (( findings > safe_repairs )); then
+    warn "$((findings-safe_repairs)) issue signal(s) still need review."
+    echo    "          → Port/process conflicts are not killed automatically."
+    echo    "          → Application and browser errors need code-level investigation."
+    echo    "          → Run './manage.sh doctor' for the full environment report."
+  elif (( findings == 0 )); then
+    info "No recent issues detected."
+  else
+    info "All detected dependency issues were repaired."
+  fi
+
+  (( unresolved == 0 )) || return 1
+  return 0
 }
 
 # ── fix ───────────────────────────────────────────────────────────────────────
@@ -936,6 +1092,7 @@ native_logs() {
 # install, doctor and fix run regardless of --native flag
 if [[ "$COMMAND" == "install" ]]; then run_install; exit 0; fi
 if [[ "$COMMAND" == "doctor"  ]]; then run_doctor;  exit 0; fi
+if [[ "$COMMAND" == "recover" ]]; then run_recover; exit $?; fi
 if [[ "$COMMAND" == "fix"     ]]; then run_fix;     exit 0; fi
 
 if $USE_NATIVE; then
