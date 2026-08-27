@@ -33,7 +33,7 @@ services:
       server:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:5000"]
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:5000"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -47,14 +47,17 @@ services:
     working_dir: /e2e
     volumes:
       - ./cypress:/e2e/cypress
-      - ./cypress.config.ts:/e2e/cypress.config.ts
+      - ./cypress.config.js:/e2e/cypress.config.js
       - ./package.json:/e2e/package.json
+      - ./tsconfig.json:/e2e/tsconfig.json
+      - ./src:/e2e/src
+      - ./vite.config.ts:/e2e/vite.config.ts
     environment:
       - CYPRESS_baseUrl=http://client:5000
     command: >
       cypress run
+        --config-file /e2e/cypress.config.js
         --browser chrome
         --config baseUrl=http://client:5000,video=true,videosFolder=/e2e/cypress/videos
-        --spec cypress/e2e/debug_mode.cy.js
     profiles:
       - test

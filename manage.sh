@@ -5,7 +5,7 @@
 # Use --native to run without Docker (requires node/npm on PATH).
 #
 # Usage:
-#   ./manage.sh [--native|--codespace] {start|stop|restart|status|build|install|ensure|doctor|recover|fix|e2e}
+#   ./manage.sh [--docker|--native|--codespace] {start|stop|restart|status|build|install|ensure|doctor|recover|fix|e2e}
 #   ./manage.sh [--native|--codespace] logs [client|server|openrouter|all]
 #
 # Docker Compose services:
@@ -29,7 +29,7 @@
 #   ./manage.sh logs client             # follow React client logs
 #   ./manage.sh --native start          # start server + client natively (no Docker)
 #   ./manage.sh --codespace restart     # restart native server + client in GitHub Codespaces
-#   ./manage.sh e2e --record             # run the Invidious E2E and save a video
+#   ./manage.sh --docker e2e --record    # run Docker E2E and save videos
 #   ./manage.sh --native logs server    # tail logs/server.log
 
 set -uo pipefail
@@ -54,6 +54,7 @@ head_()  { echo -e "${CYAN}── $* ──${NC}"; }
 # ── argument parsing ──────────────────────────────────────────────────────────
 for arg in "$@"; do
   case "$arg" in
+    --docker) USE_NATIVE=false ;;
     --native) USE_NATIVE=true ;;
     --codespace) USE_NATIVE=true ;;
     start|stop|restart|status|build|install|ensure|doctor|recover|fix|e2e) COMMAND="$arg" ;;
@@ -73,14 +74,14 @@ for arg in "$@"; do
       ;;
     *)
       error "Unknown argument: $arg"
-      echo "Usage: $0 [--native|--codespace] {start|stop|restart|status|build|install|ensure|doctor|recover|fix|e2e [--record]|logs [service]}" >&2
+      echo "Usage: $0 [--docker|--native|--codespace] {start|stop|restart|status|build|install|ensure|doctor|recover|fix|e2e [--record]|logs [service]}" >&2
       exit 1
       ;;
   esac
 done
 
 if [[ -z "$COMMAND" ]]; then
-  echo "Usage: $0 [--native|--codespace] {start|stop|restart|status|build|install|ensure|doctor|recover|fix|e2e [--record]|logs [service]}"
+  echo "Usage: $0 [--docker|--native|--codespace] {start|stop|restart|status|build|install|ensure|doctor|recover|fix|e2e [--record]|logs [service]}"
   exit 1
 fi
 
@@ -1274,6 +1275,18 @@ native_logs() {
 }
 
 run_e2e() {
+  if ! $USE_NATIVE; then
+    docker_check
+    info "Running Docker E2E suite (recording: true)…"
+    mkdir -p cypress/videos cypress/screenshots
+    local exit_code=0
+    compose_cmd -f docker-compose.test.yml --profile test up \
+      --build --abort-on-container-exit --exit-code-from cypress || exit_code=$?
+    compose_cmd -f docker-compose.test.yml --profile test down \
+      --volumes --remove-orphans || true
+    return "$exit_code"
+  fi
+
   if [[ ! -x node_modules/.bin/cypress ]]; then
     error "Cypress is not installed. Run './manage.sh install' first."
     return 1

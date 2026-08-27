@@ -24,9 +24,9 @@ jobs:
         run: >-
           docker compose -f docker-compose.test.yml run --rm --no-deps cypress
           cypress run
+          --config-file /e2e/cypress.config.js
           --browser chrome
           --config baseUrl=http://client:5000,video=true,videosFolder=/e2e/cypress/videos
-          --spec cypress/e2e/invidious.cy.ts
 
       - name: Upload Cypress recordings
         if: always()

@@ -1,0 +1,9 @@
+node_modules
+build
+dist
+.git
+.github
+cypress/videos
+cypress/screenshots
+cypress/downloads
+*.log
