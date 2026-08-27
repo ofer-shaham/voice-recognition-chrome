@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   YtProject,
   YtTrack,
@@ -9,12 +9,7 @@ import {
   SUBTITLE_SERVICE_INFO,
 } from './types';
 import { LANG_OPTIONS, DEFAULT_TTS_RATE, DEFAULT_VISIBLE_LINES } from './constants';
-import {
-  extractVideoId,
-  dedupeAvailLangs,
-  extractInvidiousCaptionsRequest,
-  buildInvidiousSubtitleUrl,
-} from './utils';
+import { extractVideoId, dedupeAvailLangs } from './utils';
 import { downloadProject, parseProjectFile } from './projectTransfer';
 
 interface Props {
@@ -49,38 +44,6 @@ function toSrtTimedTextUrl(value: string): string {
   }
 }
 
-function getDirectSubtitleInfo(value: string): { label: string; lang: string; isAuto: boolean } {
-  try {
-    const parsed = new URL(value.trim());
-    const label = parsed.searchParams.get('label')?.trim() || '';
-    const requestedLang = parsed.searchParams.get('lang')?.trim() || '';
-    const normalizedLabel = label.toLowerCase();
-    const language = LANG_OPTIONS.find(option =>
-      normalizedLabel.startsWith(option.label.split(' ')[0].toLowerCase()),
-    );
-    const lang = requestedLang || language?.code || 'und';
-    const isAuto = /auto-generated|automatic|\basr\b/i.test(label);
-    return {
-      label: label || `${lang}${isAuto ? ' · auto-generated' : ''}`,
-      lang: `${lang}${isAuto && !lang.endsWith('-auto') ? '-auto' : ''}`,
-      isAuto,
-    };
-  } catch {
-    return { label: 'Imported subtitles', lang: 'und', isAuto: false };
-  }
-}
-
-function getSetupParam(name: string): string {
-  return new URLSearchParams(window.location.search).get(name)?.trim() || '';
-}
-
-function getSetupService(): SubtitleService {
-  const value = getSetupParam('service');
-  return value === 'plus' || value === 'api-js' || value === 'onrender' || value === 'iframe'
-    ? value
-    : 'plus';
-}
-
 function buildProject(
   id: string,
   videoId: string,
@@ -91,7 +54,6 @@ function buildProject(
   subtitleService: SubtitleService,
   alternateYoutubeUrl = '',
   subtitleProxyUrl = '',
-  subtitleIndexUrl = '',
 ): YtProject {
   const colOrder: string[] = [...tracks.map(t => `track:${t.lang}`), 'translation', 'video'];
   const colSettings: ProjectConfig['colSettings'] = {};
@@ -114,7 +76,6 @@ function buildProject(
     tracks, config, lastLine: 0, lastTime: 0, subtitleService,
     alternateYoutubeUrl: alternateYoutubeUrl.trim() || undefined,
     subtitleProxyUrl: subtitleProxyUrl.trim() || undefined,
-    subtitleIndexUrl: subtitleIndexUrl.trim() || undefined,
   };
 }
 
@@ -132,22 +93,20 @@ interface SetupProps {
 }
 
 export default function SetupView({ onProjectReady, recentProject, projects, onLoadRecent, onLoadProject, onDeleteProject, theme, onThemeChange }: SetupProps) {
-  const [mode, setMode] = useState<SetupMode>(() => getSetupParam('mode') === 'manual' ? 'manual' : 'fetch');
+  const [mode, setMode] = useState<SetupMode>('fetch');
   const [step, setStep] = useState<Step>('url');
 
   // ── URL step ──────────────────────────────────────────────────────────────
   const [url, setUrl] = useState(() => {
-    const requestedId = getSetupParam('v') || getSetupParam('video');
+    const requestedId = new URLSearchParams(window.location.search).get('v');
     return requestedId || 'https://www.youtube.com/watch?v=prSfxdmjNzE';
   });
   const [findLoading, setFindLoading] = useState(false);
   const [findError, setFindError] = useState('');
-  const [capturedRequestUrl, setCapturedRequestUrl] = useState(() => getSetupParam('timedtext'));
+  const [capturedRequestUrl, setCapturedRequestUrl] = useState('');
   const [capturedLoading, setCapturedLoading] = useState(false);
   const replacedRequestUrl = toSrtTimedTextUrl(capturedRequestUrl);
-  const [subtitleIndexUrl, setSubtitleIndexUrl] = useState('');
-  const [directSubtitleUrl, setDirectSubtitleUrl] = useState(() => getSetupParam('subtitleUrl') || getSetupParam('subtitle'));
-  const [directSubtitleLoading, setDirectSubtitleLoading] = useState(false);
+  const [invidiousCaptionsUrl, setInvidiousCaptionsUrl] = useState('');
 
   // ── Language selection step ──────────────────────────────────────────────
   const [videoId, setVideoId] = useState('');
@@ -155,16 +114,14 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
   const [videoDescription, setVideoDescription] = useState('');
   const [availLangs, setAvailLangs] = useState<AvailableLang[]>([]);
   const [languageDiscoveryFallback, setLanguageDiscoveryFallback] = useState(false);
-  const [selectedLangs, setSelectedLangs] = useState<Set<string>>(
-    () => new Set(getSetupParam('langs').split(',').filter(Boolean)),
-  );
-  const [targetLang, setTargetLang] = useState(() => getSetupParam('targetLang') || 'he');
+  const [selectedLangs, setSelectedLangs] = useState<Set<string>>(new Set());
+  const [targetLang, setTargetLang] = useState('he');
   const [fetchLoading, setFetchLoading] = useState(false);
   const [fetchError, setFetchError] = useState('');
-  const [subtitleService, setSubtitleService] = useState<SubtitleService>(getSetupService);
+  const [subtitleService, setSubtitleService] = useState<SubtitleService>('plus');
   const subtitleMethod = subtitleService === 'plus' ? '1' : subtitleService === 'api-js' ? '2' : '3';
-  const [alternateYoutubeUrl, setAlternateYoutubeUrl] = useState(() => getSetupParam('instanceUrl') || getSetupParam('alternate'));
-  const [subtitleProxyUrl, setSubtitleProxyUrl] = useState(() => getSetupParam('proxyUrl') || getSetupParam('proxy'));
+  const [alternateYoutubeUrl, setAlternateYoutubeUrl] = useState('');
+  const [subtitleProxyUrl, setSubtitleProxyUrl] = useState('');
   const [manualTitle, setManualTitle] = useState('');
   const [manualDescription, setManualDescription] = useState('');
   const [manualVideoUrl, setManualVideoUrl] = useState('');
@@ -181,45 +138,6 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
   const previewVideoId = extractVideoId(url.trim());
   const subtitleServiceInfo = SUBTITLE_SERVICE_INFO[subtitleService];
 
-  // Keep every fetch option shareable and restorable from the address bar.
-  // replaceState avoids adding one browser-history entry per keystroke.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const setOrDelete = (name: string, value: string) => {
-      if (value.trim()) params.set(name, value.trim());
-      else params.delete(name);
-    };
-
-    setOrDelete('mode', mode);
-    setOrDelete('v', url);
-    setOrDelete('subtitleUrl', directSubtitleUrl);
-    setOrDelete('service', subtitleService);
-    setOrDelete('instanceUrl', alternateYoutubeUrl);
-    setOrDelete('proxyUrl', subtitleProxyUrl);
-    setOrDelete('targetLang', targetLang);
-    setOrDelete('timedtext', capturedRequestUrl);
-
-    const selected = Array.from(selectedLangs);
-    setOrDelete('langs', selected.join(','));
-
-    const query = params.toString();
-    window.history.replaceState(
-      window.history.state,
-      '',
-      `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`,
-    );
-  }, [
-    mode,
-    url,
-    directSubtitleUrl,
-    subtitleService,
-    alternateYoutubeUrl,
-    subtitleProxyUrl,
-    targetLang,
-    capturedRequestUrl,
-    selectedLangs,
-  ]);
-
   const serviceToggle = (
     <div className="yl-service-picker" role="group" aria-label="Subtitle fetch provider">
       <span className="yl-service-label">Fetch captions with</span>
@@ -229,6 +147,7 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
           ['api-js', 'Transcript API.js'],
           ['onrender', 'Hosted captions'],
           ['iframe', 'YouTube player'],
+          ['invidious', 'Invidious'],
         ] as const).map(([value, label]) => (
           <button key={value} type="button"
             className={`yl-service-option ${subtitleService === value ? 'yl-service-option-active' : ''}`}
@@ -238,6 +157,18 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
           </button>
         ))}
       </div>
+      {subtitleService === 'invidious' && (
+        <label className="yl-service-extra">
+          <span>Invidious captions URL</span>
+          <input
+            className="yl-input"
+            type="url"
+            placeholder="https://invidious.nerdvpn.de/companion/api/v1/captions/VIDEO_ID?check=check-id"
+            value={invidiousCaptionsUrl}
+            onChange={e => setInvidiousCaptionsUrl(e.target.value)}
+          />
+        </label>
+      )}
       <label className={`yl-service-extra ${subtitleServiceInfo.supportsAlternate ? '' : 'yl-service-extra-disabled'}`}>
         <span>
           Alternate YouTube / Invidious host(s) <span className="yl-optional">(optional)</span>
@@ -307,156 +238,75 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
     }
   };
 
-  const handleDirectSubtitleFetch = async (sourceUrl = directSubtitleUrl.trim()) => {
-    setFindError('');
-    if (!sourceUrl) {
-      setFindError('Paste a direct subtitle URL first.');
-      return;
-    }
-
-    let parsedUrl: URL;
-    try {
-      parsedUrl = new URL(sourceUrl);
-      if (!['http:', 'https:'].includes(parsedUrl.protocol)) throw new Error();
-    } catch {
-      setFindError('Enter a valid public http:// or https:// subtitle URL.');
-      return;
-    }
-
-    const directVideoId = extractVideoId(url.trim()) || extractVideoId(sourceUrl);
-    if (!directVideoId) {
-      setFindError('Enter a YouTube video URL or ID so the subtitle can be attached to a video.');
-      return;
-    }
-
-    setDirectSubtitleLoading(true);
-    try {
-      const response = await fetch(`/api/srt-url?url=${encodeURIComponent(parsedUrl.toString())}`);
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
-        throw new Error(body.error || `Subtitle fetch failed (HTTP ${response.status})`);
-      }
-      const srtContent = await response.text();
-      if (!srtContent.trim()) throw new Error('The subtitle URL returned an empty file.');
-
-      const info = getDirectSubtitleInfo(parsedUrl.toString());
-      onProjectReady(buildProject(
-        directVideoId,
-        directVideoId,
-        `YouTube video ${directVideoId}`,
-        `Subtitle imported from ${parsedUrl.hostname}`,
-        [{
-          lang: info.lang,
-          label: info.label,
-          isAuto: info.isAuto,
-          srtContent,
-          subtitleUrl: parsedUrl.toString(),
-        }],
-        targetLang.trim(),
-        subtitleService,
-        alternateYoutubeUrl,
-        subtitleProxyUrl,
-      ));
-    } catch (e: any) {
-      setFindError(e.message || 'Could not fetch the subtitle URL.');
-    } finally {
-      setDirectSubtitleLoading(false);
-    }
-  };
-
   const handleFindLanguages = async () => {
     setFindError('');
-    // A signed Invidious URL with a label is already a concrete subtitle
-    // file request. Do not treat it as the captions index endpoint.
-    if (!directSubtitleUrl.trim() && /\/api\/v1\/captions\/[^/?]+/i.test(url.trim())) {
+    if (subtitleService === 'invidious') {
+      setFindLoading(true);
       try {
-        const parsed = new URL(url.trim());
-        if (parsed.searchParams.has('label')) {
-          await handleDirectSubtitleFetch(url.trim());
-          return;
-        }
-      } catch {
-        // Continue with the normal video URL validation below.
+        const response = await fetch(`/api/invidious-caption?url=${encodeURIComponent(invidiousCaptionsUrl.trim())}`);
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
+        const subtitleUrl = String(body.subtitleUrl || '');
+        if (!subtitleUrl) throw new Error('Invidious did not return a subtitle URL.');
+        const parsed = new URL(subtitleUrl);
+        const videoMatch = parsed.pathname.match(/\/captions\/([^/]+)$/);
+        const invidiousVideoId = videoMatch ? decodeURIComponent(videoMatch[1]) : 'invidious';
+        const label = parsed.searchParams.get('label') || 'Invidious captions';
+        setVideoId(invidiousVideoId);
+        setVideoTitle(`Invidious video ${invidiousVideoId}`);
+        setVideoDescription('Subtitle imported from Invidious.');
+        setAvailLangs([{ languageCode: 'und', name: label, isAutoGenerated: false, subtitleUrl }]);
+        setSelectedLangs(new Set(['und']));
+        setStep('langs');
+      } catch (e: any) {
+        setFindError(e.message || 'Could not fetch Invidious captions.');
+      } finally {
+        setFindLoading(false);
       }
+      return;
     }
     const vid = extractVideoId(url.trim());
     if (!vid) { setFindError('Could not extract a video ID from that URL.'); return; }
     setFindLoading(true);
     try {
-      const invidiousRequest = extractInvidiousCaptionsRequest(url.trim());
-      if (invidiousRequest) {
-        // Fetch the captions index through our server proxy so this works
-        // even when the Invidious host does not allow browser CORS requests.
-        const indexResponse = await fetch(`/api/captions-index?url=${encodeURIComponent(invidiousRequest.url)}`);
-        if (!indexResponse.ok) {
-          const j = await indexResponse.json().catch(() => ({}));
-          throw new Error(j.error || `Invidious captions request failed (HTTP ${indexResponse.status})`);
-        }
-        const indexData = await indexResponse.json();
-        const captions = Array.isArray(indexData?.captions) ? indexData.captions : [];
-        const langs = dedupeAvailLangs<AvailableLang>(captions.map((caption: any): AvailableLang => {
-          const label = String(caption.label || caption.name || caption.languageCode || '').trim();
-          return {
-            languageCode: String(caption.languageCode || caption.language_code || '').trim(),
-            name: label || String(caption.languageCode || 'Caption'),
-            isAutoGenerated: !!(caption.autoGenerated || caption.auto_generated || caption.kind === 'asr' || /auto-generated/i.test(label)),
-            subtitleUrl: caption.url
-              ? buildInvidiousSubtitleUrl(invidiousRequest.url, String(caption.url))
-              : undefined,
-          };
-        }).filter((lang: AvailableLang) => lang.languageCode && lang.subtitleUrl));
-        if (!langs.length) throw new Error('The Invidious response did not contain any usable caption URLs.');
-        setVideoId(invidiousRequest.videoId);
-        setVideoTitle(indexData.videoDetails?.title || `Invidious video ${invidiousRequest.videoId}`);
-        setVideoDescription(indexData.videoDetails?.description || `Invidious captions for ${invidiousRequest.videoId}`);
-        setAvailLangs(langs);
-        setLanguageDiscoveryFallback(false);
-         const requestedLangs = getSetupParam('langs').split(',').filter(code => langs.some(lang => lang.languageCode === code));
-         setSelectedLangs(new Set(requestedLangs.length ? requestedLangs : [langs[0].languageCode]));
-        setSubtitleIndexUrl(invidiousRequest.url);
-        setStep('langs');
-      } else {
-        setSubtitleIndexUrl('');
-        const sourceQuery = new URLSearchParams();
-        if (subtitleServiceInfo.supportsAlternate && alternateYoutubeUrl.trim()) {
-          sourceQuery.set('instanceUrl', alternateYoutubeUrl.trim());
-        }
-        if (subtitleServiceInfo.supportsProxy && subtitleProxyUrl.trim()) {
-          sourceQuery.set('proxyUrl', subtitleProxyUrl.trim());
-        }
-        if (subtitleService === 'onrender') {
-          sourceQuery.set('service', 'onrender');
-        } else if (subtitleService !== 'iframe') {
-          sourceQuery.set('method', subtitleMethod);
-        }
-        const res = await fetch(`/api/transcript/languages?videoId=${encodeURIComponent(vid)}${sourceQuery.toString() ? `&${sourceQuery}` : ''}`);
-        if (!res.ok) {
-          const j = await res.json().catch(() => ({}));
-          throw new Error(j.error || `HTTP ${res.status}`);
-        }
-        const data = await res.json();
-        const langs = dedupeAvailLangs<AvailableLang>((data.availableLanguages || []).map((l: any): AvailableLang => ({
-          languageCode: l.languageCode || String(l),
-          name: l.name || l.languageCode || String(l),
-          isAutoGenerated: !!l.isAutoGenerated,
-        })));
-        // Some videos expose metadata through YouTube's player API but omit the
-        // caption list. The transcript providers can still resolve a requested
-        // language, so let the user continue instead of blocking at discovery.
-        const usableLangs = langs.length ? langs : LANG_OPTIONS.map(l => ({
-          languageCode: l.code,
-          name: `${l.label} · language-code request`,
-          isAutoGenerated: false,
-        }));
-        setVideoId(vid);
-        setVideoTitle(data.videoDetails?.title || `YouTube video ${vid}`);
-        setVideoDescription(data.videoDetails?.description || `YouTube video transcript for ${vid}`);
-        setAvailLangs(usableLangs);
-        setLanguageDiscoveryFallback(!langs.length);
-         const requestedLangs = getSetupParam('langs').split(',').filter(code => usableLangs.some(lang => lang.languageCode === code));
-         setSelectedLangs(new Set(requestedLangs.length ? requestedLangs : [usableLangs[0].languageCode]));
-        setStep('langs');
+      const sourceQuery = new URLSearchParams();
+      if (subtitleServiceInfo.supportsAlternate && alternateYoutubeUrl.trim()) {
+        sourceQuery.set('instanceUrl', alternateYoutubeUrl.trim());
       }
+      if (subtitleServiceInfo.supportsProxy && subtitleProxyUrl.trim()) {
+        sourceQuery.set('proxyUrl', subtitleProxyUrl.trim());
+      }
+      if (subtitleService === 'onrender') {
+        sourceQuery.set('service', 'onrender');
+      } else if (subtitleService !== 'iframe') {
+        sourceQuery.set('method', subtitleMethod);
+      }
+      const res = await fetch(`/api/transcript/languages?videoId=${encodeURIComponent(vid)}${sourceQuery.toString() ? `&${sourceQuery}` : ''}`);
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j.error || `HTTP ${res.status}`);
+      }
+      const data = await res.json();
+      const langs = dedupeAvailLangs<AvailableLang>((data.availableLanguages || []).map((l: any): AvailableLang => ({
+        languageCode: l.languageCode || String(l),
+        name: l.name || l.languageCode || String(l),
+        isAutoGenerated: !!l.isAutoGenerated,
+      })));
+      // Some videos expose metadata through YouTube's player API but omit the
+      // caption list. The transcript providers can still resolve a requested
+      // language, so let the user continue instead of blocking at discovery.
+      const usableLangs = langs.length ? langs : LANG_OPTIONS.map(l => ({
+        languageCode: l.code,
+        name: `${l.label} · language-code request`,
+        isAutoGenerated: false,
+      }));
+      setVideoId(vid);
+      setVideoTitle(data.videoDetails?.title || `YouTube video ${vid}`);
+      setVideoDescription(data.videoDetails?.description || `YouTube video transcript for ${vid}`);
+      setAvailLangs(usableLangs);
+      setLanguageDiscoveryFallback(!langs.length);
+      setSelectedLangs(new Set([usableLangs[0].languageCode]));
+      setStep('langs');
     } catch (e: any) {
       setFindError(e.message || 'Failed to fetch available languages');
     }
@@ -529,12 +379,11 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
           throw new Error(j.error || `HTTP ${res.status}`);
         }
         const srtContent = await res.text();
-        if (!srtContent.trim()) throw new Error(`${lang.name} returned an empty subtitle file.`);
-        tracks.push({ lang: lang.languageCode, label: lang.name, isAuto: lang.isAutoGenerated, srtContent, subtitleUrl: lang.subtitleUrl });
+        tracks.push({ lang: lang.languageCode, label: lang.name, isAuto: lang.isAutoGenerated, srtContent });
       }
       // Keep the selected source settings on the project so additional tracks
       // use the same alternate host/proxy from the player settings.
-      onProjectReady(buildProject(videoId, videoId, videoTitle || `YouTube video ${videoId}`, videoDescription || `YouTube video transcript for ${videoId}`, tracks, targetLang.trim(), subtitleService, alternateYoutubeUrl, subtitleProxyUrl, subtitleIndexUrl));
+      onProjectReady(buildProject(videoId, videoId, videoTitle || `YouTube video ${videoId}`, videoDescription || `YouTube video transcript for ${videoId}`, tracks, targetLang.trim(), subtitleService, alternateYoutubeUrl, subtitleProxyUrl));
     } catch (e: any) {
       setFetchError(e.message || 'Error fetching subtitles');
     }
@@ -783,45 +632,17 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
       </div>
 
       {mode === 'fetch' ? <div className="yl-setup-form">
-         <label className="yl-label">YouTube video URL or Video ID</label>
+        <label className="yl-label">YouTube URL or Video ID</label>
         <input
           ref={urlInputRef}
           className="yl-input"
           type="text"
-            placeholder="https://www.youtube.com/watch?v=..."
+          placeholder="https://www.youtube.com/watch?v=..."
           value={url}
           onChange={e => setUrl(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && handleFindLanguages()}
           autoFocus
         />
-
-         <div className="yl-direct-subtitle">
-           <div className="yl-direct-subtitle-heading">Have a subtitle URL?</div>
-           <p className="yl-input-method-hint">
-             Paste a direct .srt, .vtt, or Invidious caption URL. Signed URLs with
-             <code>label=</code> and <code>check=</code> are supported.
-           </p>
-           <label className="yl-label" htmlFor="yl-direct-subtitle-url">
-             Subtitle URL <span className="yl-optional">(optional)</span>
-           </label>
-           <input
-             id="yl-direct-subtitle-url"
-             className="yl-input"
-             type="url"
-             placeholder="https://invidious.example/companion/api/v1/captions/VIDEO_ID?label=English%20(auto-generated)&check=..."
-             value={directSubtitleUrl}
-             onChange={e => setDirectSubtitleUrl(e.target.value)}
-             onKeyDown={e => e.key === 'Enter' && handleDirectSubtitleFetch()}
-           />
-           <button
-             className="yl-btn-secondary yl-btn-full"
-             type="button"
-             onClick={() => handleDirectSubtitleFetch()}
-             disabled={directSubtitleLoading || !directSubtitleUrl.trim()}
-           >
-             {directSubtitleLoading ? 'Fetching subtitles…' : 'Fetch subtitles from URL'}
-           </button>
-         </div>
 
         {serviceToggle}
 

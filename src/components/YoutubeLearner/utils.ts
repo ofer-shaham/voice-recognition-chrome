@@ -8,11 +8,6 @@ export interface SrtSeg {
   text: string;
 }
 
-export interface InvidiousCaptionsRequest {
-  videoId: string;
-  url: string;
-}
-
 export function parseSrt(srt: string): SrtSeg[] {
   const segs: SrtSeg[] = [];
   const blocks = srt.replace(/\r\n/g, '\n').trim().split(/\n\s*\n/);
@@ -54,13 +49,6 @@ export function extractVideoId(input: string): string | null {
   try {
     const url = new URL(clean.startsWith('http') ? clean : 'https://' + clean);
     const host = url.hostname.replace(/^www\./, '');
-    // Invidious companion captions endpoint:
-    // /api/v1/captions/VIDEO_ID or /companion/api/v1/captions/VIDEO_ID
-    const invidiousCaption = url.pathname.match(/\/api\/v1\/captions\/([^/]+)/i);
-    if (invidiousCaption) {
-      const id = decodeURIComponent(invidiousCaption[1]);
-      if (/^[\w-]{11}$/.test(id)) return id;
-    }
     // youtu.be/VIDEO_ID
     if (host === 'youtu.be') {
       const id = url.pathname.slice(1).split('/')[0];
@@ -88,40 +76,6 @@ export function extractVideoId(input: string): string | null {
   const m = clean.match(/(?:\/|v=|vi=|vi\/|v\/|embed\/|shorts\/|live\/)([\w-]{11})/);
   if (m) return m[1].trim();
   return null;
-}
-
-/**
- * Recognize an Invidious captions-index URL supplied by the user.
- * The endpoint returns relative caption URLs and may carry a signed `check`
- * query parameter that must be preserved when fetching the subtitle file.
- */
-export function extractInvidiousCaptionsRequest(input: string): InvidiousCaptionsRequest | null {
-  try {
-    const parsed = new URL(input.trim());
-    if (!['http:', 'https:'].includes(parsed.protocol)) return null;
-    const match = parsed.pathname.match(/\/api\/v1\/captions\/([^/]+)\/?$/i);
-    if (!match) return null;
-    const videoId = decodeURIComponent(match[1]);
-    if (!/^[\w-]{11}$/.test(videoId)) return null;
-    return { videoId, url: parsed.toString() };
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Resolve an Invidious caption URL and carry the signed query from the
- * captions-index request onto it. Invidious commonly returns only
- * `/companion/api/v1/captions/...?...label=...`, while `check` is present
- * only on the index request.
- */
-export function buildInvidiousSubtitleUrl(captionsUrl: string, relativeUrl: string): string {
-  const indexUrl = new URL(captionsUrl);
-  const subtitleUrl = new URL(relativeUrl, indexUrl);
-  for (const check of indexUrl.searchParams.getAll('check')) {
-    if (!subtitleUrl.searchParams.has('check')) subtitleUrl.searchParams.append('check', check);
-  }
-  return subtitleUrl.toString();
 }
 
 export function secondsToHms(sec: number): string {

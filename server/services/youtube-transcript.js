@@ -197,36 +197,59 @@ function invidiousInstances(override) {
 }
 
 function vttToSrt(vtt) {
-  const source = String(vtt).replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
-  if (!/^\s*WEBVTT(?:\s|$)/i.test(source)) return source.trim();
-
-  const blocks = source
-    .replace(/^\s*WEBVTT[^\n]*(?:\n|$)/i, "")
-    .split(/\n{2,}/)
-    .map(block => block.trim())
-    .filter(block => block && !/^(NOTE|STYLE|REGION)(?:\s|$)/i.test(block));
-
+  const lines = String(vtt).replace(/^\uFEFF/, "").split(/\r?\n/);
   const cues = [];
-  for (const block of blocks) {
-    const lines = block.split("\n");
-    const timingIndex = lines.findIndex(line =>
-      /^\s*(?:\d{2}:)?\d{2}:\d{2}[.,]\d{3}\s+-->\s+(?:\d{2}:)?\d{2}:\d{2}[.,]\d{3}/.test(line)
-    );
-    if (timingIndex < 0) continue;
-    const timing = lines[timingIndex].match(
-      /^\s*((?:\d{2}:)?\d{2}:\d{2})[.,](\d{3})\s+-->\s+((?:\d{2}:)?\d{2}:\d{2})[.,](\d{3})/
-    );
-    if (!timing) continue;
-    const toSrtTime = (clock, millis) => {
-      const parts = clock.split(":");
-      const normalized = parts.length === 2 ? ["00", ...parts] : parts;
-      return `${normalized.map(part => part.padStart(2, "0")).join(":")},${millis}`;
-    };
-    const text = lines.slice(timingIndex + 1).join("\n").trim();
-    if (text) cues.push({ start: toSrtTime(timing[1], timing[2]), end: toSrtTime(timing[3], timing[4]), text });
+  let index = 0;
+  while (index < lines.length) {
+    if (!lines[index].trim() || /^(WEBVTT|NOTE|STYLE|REGION)/i.test(lines[index])) {
+      index++;
+      continue;
+    }
+    const timestampIndex = lines[index].includes("-->") ? index : index + 1;
+    if (timestampIndex >= lines.length || !lines[timestampIndex].includes("-->")) {
+      index++;
+      continue;
+    }
+    const timestamp = lines[timestampIndex].trim();
+    const [start, endWithSettings] = timestamp.split(/\s+-->\s+/);
+    const end = endWithSettings?.split(/\s+/)[0];
+    if (!/^((\d{2}:)?\d{2}:\d{2})\.\d{3}$/.test(start) || !/^((\d{2}:)?\d{2}:\d{2})\.\d{3}$/.test(end || "")) {
+      index++;
+      continue;
+    }
+    const text = [];
+    index = timestampIndex + 1;
+    while (index < lines.length && lines[index].trim()) text.push(lines[index++]);
+    const key = `${start}\n${end}\n${text.join("\n")}`;
+    if (!cues.some(cue => cue.key === key)) cues.push({ key, start, end, text });
   }
+  return cues.map((cue, cueIndex) =>
+    `${cueIndex + 1}\n${toSrtTimestamp(cue.start)} --> ${toSrtTimestamp(cue.end)}\n${cue.text.join("\n")}`
+  ).join("\n\n");
+}
 
-  return cues.map((cue, index) => `${index + 1}\n${cue.start} --> ${cue.end}\n${cue.text}`).join("\n\n").trim();
+function toSrtTimestamp(timestamp) {
+  return timestamp.replace(/^(\d{2}:)?(\d{2}:\d{2})\.(\d{3})$/, (_, hours, minutes, millis) =>
+    `${hours || "00:"}${minutes},${millis}`
+  );
+}
+
+async function resolveInvidiousCaptionUrl(sourceUrl) {
+  let parsed;
+  try {
+    parsed = new URL(String(sourceUrl || '').trim());
+    if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.pathname.includes('/captions/')) throw new Error();
+  } catch {
+    throw new Error('url must be a valid Invidious captions URL');
+  }
+  const response = await fetch(parsed.toString());
+  if (!response.ok) throw new Error(`Invidious captions HTTP ${response.status}`);
+  let data;
+  try { data = await response.json(); } catch { throw new Error('Invidious captions response was not valid JSON'); }
+  const label = data?.captions?.[0]?.label;
+  if (typeof label !== 'string' || !label.trim()) throw new Error('Invidious response did not contain captions[0].label');
+  parsed.searchParams.set('label', label);
+  return parsed.toString();
 }
 
 async function fetchSrtFromInvidious(videoId, langCode, originalError, configuredInstances) {
@@ -477,6 +500,7 @@ module.exports = {
   fetchSrtMethod3,
   fetchLanguagesMethod2,
   fetchInvidiousLanguages,
-  vttToSrt,
   segmentsToSrt,
+  vttToSrt,
+  resolveInvidiousCaptionUrl,
 };

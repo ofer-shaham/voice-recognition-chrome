@@ -3,6 +3,7 @@ const {
   fetchSrt: fetchServerSrt,
   fetchLanguagesMethod2,
   fetchInvidiousLanguages: fetchAlternateLanguages,
+  resolveInvidiousCaptionUrl,
   vttToSrt,
 } = require("../../server/services/youtube-transcript");
 
@@ -485,8 +486,9 @@ exports.handler = async (event) => {
       const upstream = await proxyFetch(parsed.toString());
       if (!upstream.ok) return json(502, { error: `Subtitle URL returned HTTP ${upstream.status}` });
       if (!upstream.body.trim()) return json(502, { error: "Subtitle URL returned an empty file" });
-      const srt = vttToSrt(upstream.body);
-      log("info", "SRT URL OK", { host: parsed.hostname, bytes: Buffer.byteLength(srt), convertedVtt: srt !== upstream.body.trim() });
+      log("info", "SRT URL OK", { host: parsed.hostname, bytes: Buffer.byteLength(upstream.body) });
+      const srt = /^\uFEFF?WEBVTT/i.test(upstream.body.trim()) ? vttToSrt(upstream.body) : upstream.body;
+      if (!srt.trim()) return json(502, { error: "Subtitle URL contained no valid cues" });
       return textResp(200, srt);
     } catch (err) {
       log("error", "SRT URL failed", { host: parsed.hostname, error: err.message });
@@ -494,32 +496,12 @@ exports.handler = async (event) => {
     }
   }
 
-  if (method === "GET" && apiPath === "/api/captions-index") {
-    const sourceUrl = String(qs.url || "").trim();
-    let parsed;
+  if (method === "GET" && apiPath === "/api/invidious-caption") {
     try {
-      parsed = new URL(sourceUrl);
-      if (!["http:", "https:"].includes(parsed.protocol)) throw new Error();
-    } catch {
-      return json(400, { error: "url must be a valid http:// or https:// URL" });
-    }
-    try {
-      const upstream = await proxyFetch(parsed.toString());
-      if (!upstream.ok) return json(502, { error: `Captions index returned HTTP ${upstream.status}` });
-      let data;
-      try {
-        data = JSON.parse(upstream.body);
-      } catch {
-        return json(502, { error: "Captions index did not return valid JSON" });
-      }
-      if (!Array.isArray(data?.captions)) {
-        return json(502, { error: "Captions index did not contain a captions array" });
-      }
-      log("info", "Captions index OK", { host: parsed.hostname, count: data.captions.length });
-      return json(200, data);
+      const subtitleUrl = await resolveInvidiousCaptionUrl(qs.url);
+      return json(200, { subtitleUrl });
     } catch (err) {
-      log("error", "Captions index failed", { host: parsed.hostname, error: err.message });
-      return json(502, { error: `Could not fetch captions index: ${err.message}` });
+      return json(502, { error: err.message || "Could not resolve Invidious captions" });
     }
   }
 

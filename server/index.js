@@ -7,6 +7,7 @@ const {
   fetchSrt,
   fetchLanguagesMethod2,
   fetchInvidiousLanguages,
+  resolveInvidiousCaptionUrl,
   vttToSrt,
 } = require("./services/youtube-transcript");
 const { fetchTtsAudio } = require("./services/tts-proxy");
@@ -82,14 +83,6 @@ const swaggerSpec = {
         summary: "Fetch a public subtitle file by URL",
         parameters: [{ name: "url", in: "query", required: true, schema: { type: "string", format: "uri" } }],
         responses: { 200: { description: "Subtitle file text" }, 400: { description: "Invalid URL" }, 502: { description: "Upstream fetch error" } },
-      },
-    },
-    "/api/captions-index": {
-      get: {
-        tags: ["Transcripts"],
-        summary: "Fetch an Invidious captions index by URL",
-        parameters: [{ name: "url", in: "query", required: true, schema: { type: "string", format: "uri" } }],
-        responses: { 200: { description: "Invidious captions JSON" }, 400: { description: "Invalid URL" }, 502: { description: "Upstream fetch error" } },
       },
     },
     "/api/tts": {
@@ -351,8 +344,9 @@ app.get("/api/srt-url", async (req, res) => {
     if (!upstream.ok) return res.status(502).json({ error: `Subtitle URL returned HTTP ${upstream.status}` });
     const text = await upstream.text();
     if (!text.trim()) return res.status(502).json({ error: "Subtitle URL returned an empty file" });
-    const srt = vttToSrt(text);
-    log("info", "SRT URL OK", { host: parsed.hostname, bytes: Buffer.byteLength(srt), convertedVtt: srt !== text.trim() });
+    const srt = /^\uFEFF?WEBVTT/i.test(text.trim()) ? vttToSrt(text) : text;
+    if (!srt.trim()) return res.status(502).json({ error: "Subtitle URL contained no valid cues" });
+    log("info", "SRT URL OK", { host: parsed.hostname, bytes: Buffer.byteLength(srt) });
     res.type("text/plain; charset=utf-8").send(srt);
   } catch (e) {
     log("error", "SRT URL failed", { host: parsed.hostname, error: e.message });
@@ -360,36 +354,12 @@ app.get("/api/srt-url", async (req, res) => {
   }
 });
 
-app.get("/api/captions-index", async (req, res) => {
-  const sourceUrl = String(req.query.url || "").trim();
-  let parsed;
+app.get("/api/invidious-caption", async (req, res) => {
   try {
-    parsed = new URL(sourceUrl);
-    if (!["http:", "https:"].includes(parsed.protocol)) throw new Error();
-  } catch {
-    return res.status(400).json({ error: "url must be a valid http:// or https:// URL" });
-  }
-  try {
-    const upstream = await fetch(parsed.toString(), {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; YouTubeLanguageLearner/1.0)", Accept: "application/json" },
-      redirect: "follow",
-    });
-    if (!upstream.ok) return res.status(502).json({ error: `Captions index returned HTTP ${upstream.status}` });
-    const body = await upstream.text();
-    let data;
-    try {
-      data = JSON.parse(body);
-    } catch {
-      return res.status(502).json({ error: "Captions index did not return valid JSON" });
-    }
-    if (!Array.isArray(data?.captions)) {
-      return res.status(502).json({ error: "Captions index did not contain a captions array" });
-    }
-    log("info", "Captions index OK", { host: parsed.hostname, count: data.captions.length });
-    res.json(data);
+    const subtitleUrl = await resolveInvidiousCaptionUrl(req.query.url);
+    res.json({ subtitleUrl });
   } catch (e) {
-    log("error", "Captions index failed", { host: parsed.hostname, error: e.message });
-    res.status(502).json({ error: `Could not fetch captions index: ${e.message}` });
+    res.status(502).json({ error: e.message || "Could not resolve Invidious captions" });
   }
 });
 
