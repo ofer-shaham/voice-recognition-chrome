@@ -41,6 +41,8 @@ describe('Invidious subtitle import', () => {
         });
         cy.location('pathname').should('equal', '/youtube');
         cy.contains('Subtitles fetched successfully').should('be.visible');
+        cy.wait(1000);
+        cy.location('pathname').should('equal', '/youtube');
         cy.contains('button', 'Continue to view').click();
         cy.url().should('match', /\/youtube\/view\/lXCAHAJR2-Q$/);
         cy.get('.yl-table tbody .yl-row').should('have.length.greaterThan', 0);
