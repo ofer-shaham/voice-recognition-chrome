@@ -47,7 +47,7 @@ function toSrtTimedTextUrl(value: string): string {
 function parseInvidiousCaptionsUrl(value: string): { videoId: string } | null {
   try {
     const parsed = new URL(value.trim());
-    const match = parsed.pathname.match(/\/captions\/([^/]+)$/);
+    const match = parsed.pathname.match(/\/api\/v1\/captions\/([^/]+)$/);
     if (
       !match ||
       !parsed.pathname.includes('/api/v1/') ||

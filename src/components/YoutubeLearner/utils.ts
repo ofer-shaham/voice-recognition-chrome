@@ -54,6 +54,11 @@ export function extractVideoId(input: string): string | null {
       const id = url.pathname.slice(1).split('/')[0];
       if (/^[\w-]{11}$/.test(id)) return id;
     }
+    // Invidious companion captions API
+    const invidiousCaption = url.pathname.match(/\/api\/v1\/captions\/([^/]+)$/);
+    if (invidiousCaption && /^[\w-]{11}$/.test(invidiousCaption[1])) {
+      return invidiousCaption[1];
+    }
     // youtube.com/shorts/VIDEO_ID
     // youtube.com/live/VIDEO_ID
     // youtube.com/embed/VIDEO_ID

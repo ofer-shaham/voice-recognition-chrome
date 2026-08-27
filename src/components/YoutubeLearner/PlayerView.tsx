@@ -506,6 +506,23 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
     } catch { /* ignore cross-origin errors */ }
   }, []);
 
+  const stopMedia = useCallback(() => {
+    cancelRef.current = true;
+    speechSynthesis.cancel();
+    for (const ref of [iframeRef, audioRef]) {
+      try {
+        ref.current?.contentWindow?.postMessage(
+          JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }),
+          '*'
+        );
+      } catch { /* ignore cross-origin errors */ }
+    }
+    releaseWakeLock();
+    setIsPlaying(false);
+  }, []);
+
+  useEffect(() => () => stopMedia(), [stopMedia]);
+
   // ── Sync row to native iframe interaction only ───────────────────────────────
   // Row selection is the source of truth for playback (row → seekTo). This only
   // reacts when the user directly presses play or drags the seek bar on the
@@ -595,26 +612,18 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
   }, [ytCmd]);
 
   const stop = useCallback(() => {
-    cancelRef.current = true;
-    speechSynthesis.cancel();
-    ytCmd('pauseVideo');
-    releaseWakeLock();
-    setIsPlaying(false);
+    stopMedia();
     flushPlaybackPosition();
     setCurrentLine(-1);
-  }, [flushPlaybackPosition, ytCmd]);
+  }, [flushPlaybackPosition, stopMedia]);
 
   const pausePlayback = useCallback(() => {
-    cancelRef.current = true;
-    speechSynthesis.cancel();
-    ytCmd('pauseVideo');
-    releaseWakeLock();
-    setIsPlaying(false);
+    stopMedia();
     const line = currentLineRef.current;
     if (line >= 0) {
       onSave({ ...projectRef.current, lastLine: line, lastTime: playbackTime, updatedAt: Date.now() });
     }
-  }, [onSave, playbackTime, ytCmd]);
+  }, [onSave, playbackTime, stopMedia]);
 
   const playFrom = useCallback(async (startIdx: number) => {
     // Ensure video is paused before starting new playback
@@ -720,8 +729,8 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="yl-header">
         <div className="yl-header-left">
-          <button className="yl-btn-ghost" onClick={onBackHome}>← Home</button>
-          <button className="yl-btn-ghost" onClick={onNewVideo}>＋ New</button>
+          <button className="yl-btn-ghost" onClick={() => { stopMedia(); onBackHome(); }}>← Home</button>
+          <button className="yl-btn-ghost" onClick={() => { stopMedia(); onNewVideo(); }}>＋ New</button>
           <label className="yl-theme-control">
             <span className="yl-sr-only">Theme</span>
             <select className="yl-theme-select" value={theme} onChange={e => onThemeChange(e.target.value as YoutubeTheme)}>
