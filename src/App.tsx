@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from "react";
-import { BrowserRouter as Router, Routes, Route, useLocation } from "react-router-dom";
+import { BrowserRouter as Router, useLocation } from "react-router-dom";
 import Footer from "./components/Footer";
 import DebugPanel from "./components/DebugPanel/DebugPanel";
 import "./styles/App.css";
@@ -21,6 +21,19 @@ const Loading = () => <div>Loading...</div>;
 
 const ROUTES_WITHOUT_FOOTER = ["/ai-conversation"];
 
+function AppRoutes() {
+  const location = useLocation();
+  const path = location.pathname;
+
+  if (path === "/") return <AppHub />;
+  if (path === "/listen") return <Intro />;
+  if (path === "/youtube" || path.startsWith("/youtube/")) return <YoutubeLearner />;
+  if (path === "/proverb") return <ProverbList />;
+  if (path === "/simultanuos_translation") return <SimultaneousTranslation />;
+  if (path === "/ai-conversation") return <AiConversation />;
+  return <AppHub />;
+}
+
 function AppInner() {
   const location = useLocation();
   const showFooter = !ROUTES_WITHOUT_FOOTER.includes(location.pathname);
@@ -29,17 +42,7 @@ function AppInner() {
     <>
       <div className={showFooter ? "App-content" : ""}>
         <Suspense fallback={<Loading />}>
-          <Routes>
-            <Route path="/" element={<AppHub />} />
-            <Route path="/listen" element={<Intro />} />
-            <Route path="/youtube/*" element={<YoutubeLearner />} />
-            <Route path="/proverb" element={<ProverbList />} />
-            <Route
-              path="/simultanuos_translation"
-              element={<SimultaneousTranslation />}
-            />
-            <Route path="/ai-conversation" element={<AiConversation />} />
-          </Routes>
+          <AppRoutes />
         </Suspense>
       </div>
       {showFooter && <Footer />}
