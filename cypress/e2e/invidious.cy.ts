@@ -1,13 +1,9 @@
 describe('Invidious subtitle import', () => {
-    const sourceUrl = 'https://invidious.nerdvpn.de/companion/api/v1/captions/5DW_AopdpqU?check=dKi8-UYLD3E-MjOzTEwPRvuaSUgYbUUtK-bvRNcNHgY=';
-    const subtitleUrl = `${sourceUrl}&label=English%20%28US%29`;
+    const sourceUrl = 'https://invidious.nerdvpn.de/companion/api/v1/captions/lXCAHAJR2-Q?check=X-ce5seVANHkTyqeXaj2WyRAlxP7oYXDK_Hf49yQGLw=';
 
     beforeEach(() => {
         cy.clearLocalStorage();
-        cy.intercept('GET', '/api/invidious-caption*', {
-            statusCode: 200,
-            body: { subtitleUrl },
-        }).as('resolveCaptions');
+        cy.intercept('GET', '/api/invidious-caption*').as('resolveCaptions');
     });
 
     const pasteSourceUrl = () => {
@@ -24,21 +20,25 @@ describe('Invidious subtitle import', () => {
     };
 
     it('resolves and fetches pasted Invidious captions', () => {
-        cy.intercept('GET', '/api/srt-url*', {
-            statusCode: 200,
-            body: '1\n00:00:00,000 --> 00:00:01,000\nactual subtitle response',
-        }).as('fetchSubtitles');
+        cy.intercept('GET', '/api/srt-url*').as('fetchSubtitles');
         cy.visit('/youtube');
         cy.contains('button', 'Invidious').click();
         pasteSourceUrl();
         cy.wait('@resolveCaptions').then(({ request, response }) => {
             expect(new URL(request.url).searchParams.get('url')).to.equal(sourceUrl);
-            expect(response?.body.subtitleUrl).to.equal(subtitleUrl);
+            const resolvedUrl = new URL(response?.body.subtitleUrl);
+            expect(resolvedUrl.searchParams.get('check')).to.equal(new URL(sourceUrl).searchParams.get('check'));
+            expect(resolvedUrl.searchParams.get('label')).to.equal('English (auto-generated)');
         });
-        cy.wait('@fetchSubtitles').then(({ request }) => {
-            expect(new URL(request.url).searchParams.get('url')).to.equal(subtitleUrl);
+        cy.wait('@fetchSubtitles').then(({ request, response }) => {
+            const subtitleRequestUrl = new URL(new URL(request.url).searchParams.get('url'));
+            expect(subtitleRequestUrl.pathname).to.equal('/companion/api/v1/captions/lXCAHAJR2-Q');
+            expect(subtitleRequestUrl.searchParams.get('label')).to.equal('English (auto-generated)');
+            expect(response?.body).to.match(/^1\n\d{2}:\d{2}:\d{2},\d{3} --> \d{2}:\d{2}:\d{2},\d{3}\n\S/);
+            const timestamps = response?.body.match(/\d{2}:\d{2}:\d{2},\d{3} --> \d{2}:\d{2}:\d{2},\d{3}/g) || [];
+            expect(new Set(timestamps).size, 'SRT cue timestamps should be unique').to.equal(timestamps.length);
         });
-        cy.url().should('match', /\/youtube\/view\/5DW_AopdpqU$/);
+        cy.url().should('match', /\/youtube\/view\/lXCAHAJR2-Q$/);
         cy.get('.yl-table tbody .yl-row').should('have.length.greaterThan', 0);
         cy.get('.yl-table tbody .yl-td-text').first().invoke('text').should('not.be.empty');
     });

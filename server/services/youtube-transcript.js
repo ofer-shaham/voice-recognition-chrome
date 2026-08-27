@@ -220,10 +220,24 @@ function vttToSrt(vtt) {
     const text = [];
     index = timestampIndex + 1;
     while (index < lines.length && lines[index].trim()) text.push(lines[index++]);
-    const key = `${start}\n${end}\n${text.join("\n")}`;
-    if (!cues.some(cue => cue.key === key)) cues.push({ key, start, end, text });
+    const cleanText = text.map(line => line
+      .replace(/<\/?(?:c|b|i|u|ruby|rt)(?:\s[^>]*)?>/gi, "")
+      .replace(/<\d{2}:\d{2}:\d{2}\.\d{3}>/g, "")
+      .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+      .trim()
+    );
+    if (!cleanText.some(Boolean)) continue;
+    const key = `${start}\n${end}\n${cleanText.join("\n")}`;
+    if (!cues.some(cue => cue.key === key)) cues.push({ key, start, end, text: cleanText });
   }
-  return cues.map((cue, cueIndex) =>
+  const deduplicated = cues.filter((cue, cueIndex) => {
+    const next = cues[cueIndex + 1];
+    if (!next || cue.end !== next.start) return true;
+    const currentText = cue.text.join(" ").replace(/\s+/g, " ").trim();
+    const nextText = next.text.join(" ").replace(/\s+/g, " ").trim();
+    return !currentText || !nextText.startsWith(currentText) || currentText === nextText;
+  });
+  return deduplicated.map((cue, cueIndex) =>
     `${cueIndex + 1}\n${toSrtTimestamp(cue.start)} --> ${toSrtTimestamp(cue.end)}\n${cue.text.join("\n")}`
   ).join("\n\n");
 }
