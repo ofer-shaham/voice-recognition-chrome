@@ -1,0 +1,41 @@
+name: Invidious E2E
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  invidious-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run Invidious E2E with video recording
+        run: >-
+          docker compose -f docker-compose.test.yml run --rm cypress
+          cypress run
+          --browser chrome
+          --config baseUrl=http://client:5000,video=true,videosFolder=/e2e/cypress/videos
+          --spec cypress/e2e/invidious.cy.ts
+
+      - name: Upload Cypress recordings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: invidious-e2e-recordings-${{ github.run_number }}
+          path: |
+            cypress/videos/**/*.mp4
+            cypress/screenshots/**/*
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Stop test stack
+        if: always()
+        run: docker compose -f docker-compose.test.yml down --volumes --remove-orphans

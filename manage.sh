@@ -5,8 +5,8 @@
 # Use --native to run without Docker (requires node/npm on PATH).
 #
 # Usage:
-#   ./manage.sh [--native] {start|stop|restart|status|build|install|ensure|doctor|recover|fix}
-#   ./manage.sh [--native] logs [client|server|openrouter|all]
+#   ./manage.sh [--native|--codespace] {start|stop|restart|status|build|install|ensure|doctor|recover|fix|e2e}
+#   ./manage.sh [--native|--codespace] logs [client|server|openrouter|all]
 #
 # Docker Compose services:
 #   client      React dev server  → http://localhost:5000
@@ -28,6 +28,8 @@
 #   ./manage.sh logs server             # follow server / OpenRouter logs
 #   ./manage.sh logs client             # follow React client logs
 #   ./manage.sh --native start          # start server + client natively (no Docker)
+#   ./manage.sh --codespace restart     # restart native server + client in GitHub Codespaces
+#   ./manage.sh e2e --record             # run the Invidious E2E and save a video
 #   ./manage.sh --native logs server    # tail logs/server.log
 
 set -uo pipefail
@@ -40,6 +42,7 @@ cd "$PROJECT_ROOT" || exit 1
 USE_NATIVE=false
 COMMAND=""
 LOG_SERVICE="all"
+E2E_RECORD=false
 
 # ── colours ───────────────────────────────────────────────────────────────────
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'; CYAN='\033[0;36m'; NC='\033[0m'
@@ -52,7 +55,9 @@ head_()  { echo -e "${CYAN}── $* ──${NC}"; }
 for arg in "$@"; do
   case "$arg" in
     --native) USE_NATIVE=true ;;
-    start|stop|restart|status|build|install|ensure|doctor|recover|fix) COMMAND="$arg" ;;
+    --codespace) USE_NATIVE=true ;;
+    start|stop|restart|status|build|install|ensure|doctor|recover|fix|e2e) COMMAND="$arg" ;;
+    --record) E2E_RECORD=true ;;
     logs) COMMAND="logs" ;;
     client|server|openrouter|all)
       if [[ "$COMMAND" == "logs" ]]; then
@@ -68,14 +73,14 @@ for arg in "$@"; do
       ;;
     *)
       error "Unknown argument: $arg"
-      echo "Usage: $0 [--native] {start|stop|restart|status|build|install|ensure|doctor|recover|fix|logs [service]}" >&2
+      echo "Usage: $0 [--native|--codespace] {start|stop|restart|status|build|install|ensure|doctor|recover|fix|e2e [--record]|logs [service]}" >&2
       exit 1
       ;;
   esac
 done
 
 if [[ -z "$COMMAND" ]]; then
-  echo "Usage: $0 [--native] {start|stop|restart|status|build|install|ensure|doctor|recover|fix|logs [service]}"
+  echo "Usage: $0 [--native|--codespace] {start|stop|restart|status|build|install|ensure|doctor|recover|fix|e2e [--record]|logs [service]}"
   exit 1
 fi
 
@@ -1268,12 +1273,28 @@ native_logs() {
   esac
 }
 
+run_e2e() {
+  if [[ ! -x node_modules/.bin/cypress ]]; then
+    error "Cypress is not installed. Run './manage.sh install' first."
+    return 1
+  fi
+
+  local base_url="${CYPRESS_baseUrl:-${CYPRESS_BASE_URL:-http://localhost:5000}}"
+  local video_config="video=${E2E_RECORD},videosFolder=cypress/videos"
+  info "Running Invidious E2E against ${base_url} (recording: ${E2E_RECORD})…"
+  pnpm exec cypress run \
+    --browser chrome \
+    --config "baseUrl=${base_url},${video_config}" \
+    --spec cypress/e2e/invidious.cy.ts
+}
+
 # ── dispatch ──────────────────────────────────────────────────────────────────
 # install, doctor and fix run regardless of --native flag
 if [[ "$COMMAND" == "install" ]]; then run_install; exit 0; fi
 if [[ "$COMMAND" == "doctor"  ]]; then run_doctor;  exit 0; fi
 if [[ "$COMMAND" == "recover" ]]; then run_recover; exit $?; fi
 if [[ "$COMMAND" == "fix"     ]]; then run_fix;     exit 0; fi
+if [[ "$COMMAND" == "e2e"     ]]; then run_e2e; exit $?; fi
 
 if $USE_NATIVE; then
   case "$COMMAND" in
