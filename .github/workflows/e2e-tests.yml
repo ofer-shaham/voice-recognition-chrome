@@ -1,4 +1,4 @@
-name: Invidious E2E
+name: E2E tests
 
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  invidious-e2e:
+  e2e:
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -20,13 +20,8 @@ jobs:
       - name: Start application stack
         run: docker compose -f docker-compose.test.yml up -d --wait server client
 
-      - name: Run Invidious E2E with video recording
-        run: >-
-          docker compose -f docker-compose.test.yml run --rm --no-deps cypress
-          cypress run
-          --config-file /e2e/cypress.config.js
-          --browser chrome
-          --config baseUrl=http://client:5000,video=true,videosFolder=/e2e/cypress/videos
+      - name: Run E2E with video recording
+        run: docker compose -f docker-compose.test.yml --profile test run --rm --no-deps cypress
 
       - name: Upload Cypress recordings
         if: always()
@@ -36,7 +31,7 @@ jobs:
           path: |
             cypress/videos/**/*.mp4
             cypress/screenshots/**/*
-          if-no-files-found: warn
+          if-no-files-found: error
           retention-days: 14
 
       - name: Stop test stack
