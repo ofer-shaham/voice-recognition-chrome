@@ -20,7 +20,16 @@ describe('Invidious subtitle import', () => {
     };
 
     it('resolves and fetches pasted Invidious captions', () => {
-        cy.intercept('GET', '/api/srt-url*').as('fetchSubtitles');
+        const resolvedUrl = new URL(sourceUrl);
+        resolvedUrl.searchParams.set('label', 'English (auto-generated)');
+        cy.intercept('GET', '/api/invidious-caption*', {
+            statusCode: 200,
+            body: { subtitleUrl: resolvedUrl.toString() },
+        }).as('resolveCaptions');
+        cy.intercept('GET', '/api/srt-url*', {
+            statusCode: 200,
+            body: '1\n00:00:00,000 --> 00:00:01,000\nTest subtitle',
+        }).as('fetchSubtitles');
         cy.visit('/youtube');
         cy.contains('button', 'Invidious').click();
         pasteSourceUrl();
@@ -47,9 +56,17 @@ describe('Invidious subtitle import', () => {
         cy.url().should('match', /\/youtube\/view\/lXCAHAJR2-Q$/);
         cy.get('.yl-table tbody .yl-row').should('have.length.greaterThan', 0);
         cy.get('.yl-table tbody .yl-td-text').first().invoke('text').should('not.be.empty');
+        cy.contains('button', '← Home').scrollIntoView().click({ force: true });
+        cy.location('pathname').should('equal', '/youtube');
+        cy.wait(1000);
+        cy.location('pathname').should('equal', '/youtube');
     });
 
     it('stays on setup when the final subtitle request fails', () => {
+        cy.intercept('GET', '/api/invidious-caption*', {
+            statusCode: 200,
+            body: { subtitleUrl: `${sourceUrl}&label=English%20(auto-generated)` },
+        }).as('resolveCaptions');
         cy.intercept('GET', '/api/srt-url*', {
             statusCode: 502,
             body: { error: 'Subtitle URL returned HTTP 503' },
