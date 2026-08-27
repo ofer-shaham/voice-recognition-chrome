@@ -34,4 +34,4 @@ logs/server.log
 
 attached_assets
 .replit
-cypress/videos/invidious.cy.ts.mp4
+cypress/videos/
