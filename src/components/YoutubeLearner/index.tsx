@@ -28,15 +28,17 @@ export default function YoutubeLearner() {
     const params = new URLSearchParams(window.location.search);
     const routeId = location.pathname.startsWith('/youtube/project/')
       ? decodeURIComponent(location.pathname.slice('/youtube/project/'.length))
-      : '';
+      : location.pathname.startsWith('/youtube/view/')
+        ? decodeURIComponent(location.pathname.slice('/youtube/view/'.length))
+        : '';
     const urlId = routeId || params.get('v') || params.get('p');
     const fromUrl = urlId ? projects.find(p => p.id === urlId || p.videoId === urlId) : null;
 
     if (fromUrl) {
       setActiveProject(fromUrl);
       setShowSetup(false);
-      if (location.pathname !== `/youtube/project/${encodeURIComponent(fromUrl.id)}`) {
-        navigate(`/youtube/project/${encodeURIComponent(fromUrl.id)}`, { replace: true });
+      if (!location.pathname.startsWith('/youtube/view/') && location.pathname !== `/youtube/project/${encodeURIComponent(fromUrl.id)}`) {
+        navigate(`/youtube/view/${encodeURIComponent(fromUrl.id)}`, { replace: true });
       }
     } else if (location.pathname === '/youtube/setup' || location.pathname === '/youtube') {
       setActiveProject(null);
@@ -51,13 +53,14 @@ export default function YoutubeLearner() {
     upsert(project);
     setActiveProject(project);
     setShowSetup(false);
-    navigate(`/youtube/project/${encodeURIComponent(project.id)}`);
+    navigate(`/youtube/view/${encodeURIComponent(project.id)}`);
   };
 
   const handleSave = (updated: YtProject) => {
     upsert(updated);
     setActiveProject(updated);
-    navigate(`/youtube/project/${encodeURIComponent(updated.id)}`, { replace: true });
+    const route = window.location.pathname.startsWith('/youtube/view/') ? 'view' : 'project';
+    navigate(`/youtube/${route}/${encodeURIComponent(updated.id)}`, { replace: true });
   };
 
   const handleSelectProject = (p: YtProject) => {
@@ -93,18 +96,18 @@ export default function YoutubeLearner() {
           const project = projects.find(p => p.id === id);
           if (!project || !window.confirm(`Delete "${project.title}"?`)) return;
           remove(id);
-           if (recent?.id === id) {
+          if (recent?.id === id) {
             setActiveProject(null);
             setShowSetup(true);
-             navigate('/youtube/setup');
+            navigate('/youtube/setup');
           }
         }}
         onLoadRecent={() => {
-           if (recent) {
-             setActiveProject(recent);
-             setShowSetup(false);
-             navigate(`/youtube/project/${encodeURIComponent(recent.id)}`);
-           }
+          if (recent) {
+            setActiveProject(recent);
+            setShowSetup(false);
+            navigate(`/youtube/project/${encodeURIComponent(recent.id)}`);
+          }
         }}
         onClearHistory={() => {
           clearAll();
@@ -121,7 +124,7 @@ export default function YoutubeLearner() {
       project={activeProject}
       onSave={handleSave}
       onBackHome={() => { setShowSetup(true); setActiveProject(null); navigate('/youtube'); }}
-       onNewVideo={() => { setShowSetup(true); setActiveProject(null); navigate('/youtube/setup'); }}
+      onNewVideo={() => { setShowSetup(true); setActiveProject(null); navigate('/youtube/setup'); }}
       onDelete={handleDelete}
       projects={projects}
       onSelectProject={handleSelectProject}
