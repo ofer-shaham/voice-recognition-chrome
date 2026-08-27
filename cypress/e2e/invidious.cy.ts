@@ -26,7 +26,8 @@ describe('Invidious subtitle import', () => {
         pasteSourceUrl();
         cy.wait('@resolveCaptions').then(({ request, response }) => {
             expect(new URL(request.url).searchParams.get('url')).to.equal(sourceUrl);
-            const resolvedUrl = new URL(response?.body.subtitleUrl);
+            const responseBody = typeof response?.body === 'string' ? JSON.parse(response.body) : response?.body;
+            const resolvedUrl = new URL(responseBody.subtitleUrl);
             expect(resolvedUrl.searchParams.get('check')).to.equal(new URL(sourceUrl).searchParams.get('check'));
             expect(resolvedUrl.searchParams.get('label')).to.equal('English (auto-generated)');
         });
@@ -38,6 +39,9 @@ describe('Invidious subtitle import', () => {
             const timestamps = response?.body.match(/\d{2}:\d{2}:\d{2},\d{3} --> \d{2}:\d{2}:\d{2},\d{3}/g) || [];
             expect(new Set(timestamps).size, 'SRT cue timestamps should be unique').to.equal(timestamps.length);
         });
+        cy.location('pathname').should('equal', '/youtube');
+        cy.contains('Subtitles fetched successfully').should('be.visible');
+        cy.contains('button', 'Continue to view').click();
         cy.url().should('match', /\/youtube\/view\/lXCAHAJR2-Q$/);
         cy.get('.yl-table tbody .yl-row').should('have.length.greaterThan', 0);
         cy.get('.yl-table tbody .yl-td-text').first().invoke('text').should('not.be.empty');

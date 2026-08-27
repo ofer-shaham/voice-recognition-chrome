@@ -14,6 +14,7 @@ import { downloadProject, parseProjectFile } from './projectTransfer';
 
 interface Props {
   onProjectReady: (project: YtProject) => void;
+  onProjectFetched?: (project: YtProject) => void;
   recentProject: YtProject | null;
   projects: YtProject[];
   hasHistory?: boolean;
@@ -97,6 +98,7 @@ function buildProject(
 
 interface SetupProps {
   onProjectReady: (project: YtProject) => void;
+  onProjectFetched?: (project: YtProject) => void;
   recentProject: YtProject | null;
   projects: YtProject[];
   hasHistory?: boolean;
@@ -108,7 +110,7 @@ interface SetupProps {
   onThemeChange: (theme: YoutubeTheme) => void;
 }
 
-export default function SetupView({ onProjectReady, recentProject, projects, onLoadRecent, onLoadProject, onDeleteProject, theme, onThemeChange }: SetupProps) {
+export default function SetupView({ onProjectReady, onProjectFetched, recentProject, projects, onLoadRecent, onLoadProject, onDeleteProject, theme, onThemeChange }: SetupProps) {
   const [mode, setMode] = useState<SetupMode>('fetch');
   const [step, setStep] = useState<Step>('url');
 
@@ -134,6 +136,7 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
   const [targetLang, setTargetLang] = useState('he');
   const [fetchLoading, setFetchLoading] = useState(false);
   const [fetchError, setFetchError] = useState('');
+  const [fetchedProject, setFetchedProject] = useState<YtProject | null>(null);
   const [subtitleService, setSubtitleService] = useState<SubtitleService>('plus');
   const subtitleMethod = subtitleService === 'plus' ? '1' : subtitleService === 'api-js' ? '2' : '3';
   const [alternateYoutubeUrl, setAlternateYoutubeUrl] = useState('');
@@ -256,6 +259,7 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
 
   const handleFindLanguages = async (inputUrl = url) => {
     setFindError('');
+    setFetchedProject(null);
     const inputInvidiousUrl = parseInvidiousCaptionsUrl(inputUrl);
     if (inputInvidiousUrl || subtitleService === 'invidious') {
       const sourceUrl = inputInvidiousUrl ? inputUrl.trim() : invidiousCaptionsUrl.trim();
@@ -277,7 +281,7 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
         const parsed = new URL(subtitleUrl);
         const invidiousVideoId = inputInvidiousUrl?.videoId || 'invidious';
         const label = parsed.searchParams.get('label') || 'Invidious captions';
-        onProjectReady(buildProject(
+        const project = buildProject(
           invidiousVideoId,
           invidiousVideoId,
           `Invidious video ${invidiousVideoId}`,
@@ -285,7 +289,10 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
           [{ lang: 'und', label, isAuto: false, srtContent: subtitleText }],
           targetLang.trim(),
           'invidious',
-        ));
+        );
+        setFetchedProject(project);
+        onProjectFetched?.(project);
+        onProjectFetched?.(project);
       } catch (e: any) {
         setFindError(e.message || 'Could not fetch Invidious captions.');
       } finally {
@@ -732,10 +739,13 @@ export default function SetupView({ onProjectReady, recentProject, projects, onL
           </div>
         )}
 
+        {fetchedProject && !findError && (
+          <p className="yl-success">Subtitles fetched successfully. Ready to view.</p>
+        )}
         {findError && <p className="yl-error">{findError}</p>}
 
-        <button className="yl-btn-primary yl-btn-full" onClick={handleFindLanguages} disabled={findLoading || !url.trim()}>
-          {findLoading ? 'Finding caption tracks…' : 'Continue →'}
+         <button className="yl-btn-primary yl-btn-full" onClick={() => fetchedProject ? onProjectReady(fetchedProject) : handleFindLanguages()} disabled={findLoading || !url.trim()}>
+           {findLoading ? 'Finding caption tracks…' : fetchedProject ? 'Continue to view →' : 'Continue →'}
         </button>
         <p className="yl-input-method-hint">
           We’ll find the available YouTube captions next. You can add more languages or change translation settings later.

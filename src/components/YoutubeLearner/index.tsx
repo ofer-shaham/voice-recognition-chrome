@@ -88,6 +88,7 @@ export default function YoutubeLearner() {
     return (
       <SetupView
         onProjectReady={handleProjectReady}
+        onProjectFetched={upsert}
         recentProject={recent}
         projects={projects}
         hasHistory={projects.length > 0}
