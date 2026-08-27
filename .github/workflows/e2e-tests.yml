@@ -17,9 +17,12 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Start application stack
+        run: docker compose -f docker-compose.test.yml up -d --wait server client
+
       - name: Run Invidious E2E with video recording
         run: >-
-          docker compose -f docker-compose.test.yml run --rm cypress
+          docker compose -f docker-compose.test.yml run --rm --no-deps cypress
           cypress run
           --browser chrome
           --config baseUrl=http://client:5000,video=true,videosFolder=/e2e/cypress/videos

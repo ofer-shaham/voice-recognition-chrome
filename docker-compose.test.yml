@@ -27,6 +27,7 @@ services:
     environment:
       - HOST=0.0.0.0
       - PORT=5000
+      - API_PROXY_TARGET=http://server:3001
       - DANGEROUSLY_DISABLE_HOST_CHECK=true
     depends_on:
       server:

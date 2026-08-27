@@ -219,7 +219,11 @@ function vttToSrt(vtt) {
     }
     const text = [];
     index = timestampIndex + 1;
-    while (index < lines.length && lines[index].trim()) text.push(lines[index++]);
+    while (index < lines.length) {
+      if (lines[index].trim()) text.push(lines[index++]);
+      else if (text.length) break;
+      else index++;
+    }
     const cleanText = text.map(line => line
       .replace(/<\/?(?:c|b|i|u|ruby|rt)(?:\s[^>]*)?>/gi, "")
       .replace(/<\d{2}:\d{2}:\d{2}\.\d{3}>/g, "")

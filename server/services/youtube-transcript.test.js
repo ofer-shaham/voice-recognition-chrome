@@ -36,6 +36,7 @@ test('validates VTT cues and converts them to deduplicated SRT', () => {
         '',
         'cue-1',
         '00:00:01.000 --> 00:00:02.000',
+        ' ',
         'first line',
         'second line',
         '',
