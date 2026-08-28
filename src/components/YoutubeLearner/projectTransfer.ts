@@ -82,13 +82,22 @@ export function parseProjectFile(text: string): YtProject {
       voiceName: rawSettings.video?.voiceName,
     };
   }
+  const importedVisibleLines = rawConfig.visibleLines;
+  const visibleLines = typeof importedVisibleLines === 'number' && Number.isFinite(importedVisibleLines) && importedVisibleLines >= 3
+    ? importedVisibleLines
+    : 30;
   const config: ProjectConfig = {
     ...rawConfig,
-    targetLang: String(rawConfig.targetLang || value.targetLang || value.translationLanguage || 'he'),
+    targetLang: String(rawConfig.targetLang || value.targetLang || value.translationLanguage || ''),
+    translationTargets: Array.isArray(rawConfig.translationTargets)
+      ? rawConfig.translationTargets.filter((lang: any) => typeof lang === 'string' && lang.trim())
+      : rawConfig.colOrder?.includes('translation') && String(rawConfig.targetLang || value.targetLang || '').trim()
+        ? [String(rawConfig.targetLang || value.targetLang).trim()]
+        : [],
     translationSource: tracks.some(track => `track:${track.lang}` === source) ? source : `track:${tracks[0].lang}`,
     colOrder,
     colSettings,
-    visibleLines: Number.isFinite(rawConfig.visibleLines) && rawConfig.visibleLines >= 3 ? rawConfig.visibleLines : 30,
+    visibleLines,
   };
   const createId = () => typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()

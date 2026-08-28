@@ -63,7 +63,24 @@ interface Props {
 
 // Encode colId for URL: track:en → en, translation → t
 const shortCol = (id: string) => id === 'translation' ? 't' : id.replace('track:', '');
+const translationCol = (lang: string) => `translation:${lang}`;
+const isTranslationCol = (id: string) => id === 'translation' || id.startsWith('translation:');
+const translationLang = (id: string, config: ProjectConfig) => id.startsWith('translation:') ? id.slice('translation:'.length) : config.targetLang;
 const TRANSLATION_AHEAD = 7;
+
+const normalizeConfig = (source: ProjectConfig): ProjectConfig => {
+  const targets = source.translationTargets?.length
+    ? source.translationTargets
+    : source.colOrder.includes('translation') && source.targetLang.trim() ? [source.targetLang.trim()] : [];
+  const legacyTranslation = source.colOrder.includes('translation');
+  const colOrder = source.colOrder.map(id => legacyTranslation && id === 'translation' ? translationCol(targets[0]) : id);
+  const colSettings = { ...source.colSettings };
+  if (legacyTranslation && targets[0] && colSettings.translation && !colSettings[translationCol(targets[0])]) {
+    colSettings[translationCol(targets[0])] = colSettings.translation;
+  }
+  delete colSettings.translation;
+  return { ...source, targetLang: targets[0] || source.targetLang || '', translationTargets: targets, colOrder, colSettings };
+};
 
 export default function PlayerView({ project, onSave, onBackHome, onNewVideo, onDelete, projects, onSelectProject, theme, onThemeChange }: Props) {
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
@@ -76,7 +93,7 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
 
   const [lines, setLines]               = useState<ParsedLine[]>([]);
   const [config, setConfig]             = useState<ProjectConfig>(() => ({
-    ...project.config,
+    ...normalizeConfig(project.config),
     visibleLines: defaultVisibleLines(),
   }));
   const [isPlaying, setIsPlaying]       = useState(false);
@@ -100,6 +117,7 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
   const [translatingIndices, setTranslatingIndices] = useState<Set<number>>(new Set());
   const [translationStatus, setTranslationStatus] = useState<'idle' | 'translating' | 'ready' | 'rate-limited'>('idle');
   const [translationStatusMessage, setTranslationStatusMessage] = useState('');
+  const [newTranslationLang, setNewTranslationLang] = useState('');
   const [alternateYoutubeUrl, setAlternateYoutubeUrl] = useState(project.alternateYoutubeUrl || '');
   const [subtitleProxyUrl, setSubtitleProxyUrl] = useState(project.subtitleProxyUrl || '');
   const subtitleService = project.subtitleService || 'plus';
@@ -204,7 +222,7 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
     const params = new URLSearchParams(window.location.search);
     const urlVl = parseInt(params.get('vl') || '', 10);
     const visibleLines = !isNaN(urlVl) && urlVl >= 3 ? urlVl : configRef.current.visibleLines;
-    setConfig({ ...project.config, visibleLines });
+    setConfig({ ...normalizeConfig(project.config), visibleLines });
     // Read line number from URL if present
     const urlLine = parseInt(params.get('l') || '', 10);
     const startLine = !isNaN(urlLine) && urlLine >= 0 && urlLine < parsed.length ? urlLine : project.lastLine;
@@ -227,13 +245,14 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
     let cancelled = false;
     const run = async () => {
       if (lines.length === 0) return; // Wait for lines to be populated
-      if (!configRef.current.targetLang.trim()) {
+      const targets = (configRef.current.translationTargets || []).filter(Boolean);
+      if (!targets.length) {
         pendingSet.current.clear();
         translatingSet.current.clear();
         setTranslatingIndices(new Set());
         setTranslationStatus('idle');
         setTranslationStatusMessage('Choose a target language to translate');
-        setLines(prev => prev.map(line => ({ ...line, translation: '', translated: true })));
+        setLines(prev => prev.map(line => ({ ...line, translation: '', translated: true, translations: {}, translatedTargets: {} })));
         return;
       }
       const rangeEnd = Math.min(lines.length, windowStart + configRef.current.visibleLines + TRANSLATION_AHEAD);
@@ -251,37 +270,41 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
       for (const i of indices) {
         if (cancelled) break;
         const line = linesRef.current[i];
-        if (!line || line.translated) { pendingSet.current.delete(i); continue; }
+        if (!line) { pendingSet.current.delete(i); continue; }
         const cfg = configRef.current;
         const srcText = line.texts[cfg.translationSource] || '';
         if (!srcText.trim()) {
           pendingSet.current.delete(i);
-          setLines(prev => prev.map((l, idx) => idx === i ? { ...l, translation: '', translated: true } : l));
+          setLines(prev => prev.map((l, idx) => idx === i ? { ...l, translation: '', translated: true, translations: {}, translatedTargets: Object.fromEntries(targets.map(target => [target, true])) } : l));
           continue;
         }
         translatingSet.current.add(i);
         setTranslatingIndices(new Set(translatingSet.current));
-        try {
-          const fromLang = cfg.translationSource.replace('track:', '').split('-')[0];
-          const result = await translate({ finalTranscriptProxy: srcText, fromLang, toLang: cfg.targetLang });
-          if (result === 'translation error') {
+        const fromLang = cfg.translationSource.replace('track:', '').split('-')[0];
+        for (const target of targets) {
+          if (line.translatedTargets?.[target]) continue;
+          try {
+            const result = await translate({ finalTranscriptProxy: srcText, fromLang, toLang: target });
+            if (result === 'translation error') throw new Error('translation error');
+            setLines(prev => prev.map((l, idx) => idx === i ? {
+              ...l,
+              translation: target === cfg.targetLang ? result : l.translation,
+              translated: target === cfg.targetLang,
+              translations: { ...(l.translations || {}), [target]: result },
+              translatedTargets: { ...(l.translatedTargets || {}), [target]: true },
+            } : l));
+            setCachedCount(getTranslationCacheCount());
+          } catch {
             wasRateLimited = true;
             setTranslationStatus('rate-limited');
-            setTranslationStatusMessage('Translation API is rate limited · retrying when you navigate');
+            setTranslationStatusMessage('Translation unavailable · retrying when you navigate');
             break;
           }
-          pendingSet.current.delete(i);
-          setLines(prev => prev.map((l, idx) => idx === i ? { ...l, translation: result, translated: true } : l));
-          setCachedCount(getTranslationCacheCount());
-        } catch {
-          wasRateLimited = true;
-          setTranslationStatus('rate-limited');
-          setTranslationStatusMessage('Translation unavailable · retrying when you navigate');
-          break;
-        } finally {
-          translatingSet.current.delete(i);
-          setTranslatingIndices(new Set(translatingSet.current));
         }
+        if (targets.every(target => line.translatedTargets?.[target])) pendingSet.current.delete(i);
+        translatingSet.current.delete(i);
+        setTranslatingIndices(new Set(translatingSet.current));
+        if (wasRateLimited) break;
         // Space requests out to avoid bursting a rate-limited provider.
         await sleep(250);
       }
@@ -338,7 +361,7 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
   const retranslate = useCallback(() => {
     setLines(prev => {
       pendingSet.current = new Set(prev.map((_, i) => i));
-      return prev.map(l => ({ ...l, translation: '', translated: false }));
+      return prev.map(l => ({ ...l, translation: '', translated: false, translations: {}, translatedTargets: {} }));
     });
     setTranslationStatus('idle');
     setTranslationStatusMessage('Translation queued for the visible window');
@@ -453,25 +476,46 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
     rebuildLines(newTracks, newConfig);
   }, [onSave, rebuildLines]);
 
-  const toggleTranslation = useCallback(() => {
+  const toggleTranslation = useCallback((language = configRef.current.targetLang.trim()) => {
     const p = projectRef.current;
-    const hasTranslation = p.config.colOrder.includes('translation');
-    const trackCols = p.config.colOrder.filter(id => id !== 'translation' && id !== 'video');
-    const colOrder = hasTranslation
-      ? [...trackCols, 'video']
-      : [...trackCols, 'translation', 'video'];
+    if (!language) return;
+    const id = translationCol(language);
+    const targets = Array.from(new Set([...(p.config.translationTargets || []), language]));
+    const colOrder = p.config.colOrder.includes(id)
+      ? p.config.colOrder
+      : [...p.config.colOrder.filter(colId => colId !== 'video'), id, ...(p.config.colOrder.includes('video') ? ['video'] : [])];
     const colSettings = { ...p.config.colSettings };
-    if (!hasTranslation) {
-      colSettings.translation = {
+    if (!colSettings[id]) {
+      colSettings[id] = {
         visible: true,
-        playOrder: trackCols.length + 1,
+        playOrder: trackCols.length + targets.length,
         ttsRate: 0.9,
       };
     }
-    const updatedConfig = { ...p.config, colOrder, colSettings };
+    const updatedConfig = { ...p.config, targetLang: targets[0], translationTargets: targets, colOrder, colSettings };
+    configRef.current = updatedConfig;
     onSave({ ...p, config: updatedConfig, updatedAt: Date.now() });
     setConfig(updatedConfig);
   }, [onSave]);
+
+  const removeTranslation = useCallback((language: string) => {
+    const p = projectRef.current;
+    const id = translationCol(language);
+    const targets = (p.config.translationTargets || []).filter(target => target !== language);
+    const colSettings = { ...p.config.colSettings };
+    delete colSettings[id];
+    const updatedConfig = {
+      ...p.config,
+      targetLang: targets[0] || '',
+      translationTargets: targets,
+      colOrder: p.config.colOrder.filter(colId => colId !== id),
+      colSettings,
+    };
+    configRef.current = updatedConfig;
+    onSave({ ...p, config: updatedConfig, updatedAt: Date.now() });
+    setConfig(updatedConfig);
+    retranslate();
+  }, [onSave, retranslate]);
 
   const saveProviderSettings = useCallback((patch: Pick<YtProject, 'alternateYoutubeUrl' | 'subtitleProxyUrl'>) => {
     onSave({ ...projectRef.current, ...patch, updatedAt: Date.now() });
@@ -518,6 +562,7 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
       } catch { /* ignore cross-origin errors */ }
     }
     releaseWakeLock();
+    isPlayingRef.current = false;
     setIsPlaying(false);
   }, []);
 
@@ -535,6 +580,13 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
       let data: any;
       try { data = JSON.parse(event.data); } catch { return; }
       if (data?.event !== 'infoDelivery' || !data.info) return;
+      if (!isPlayingRef.current && typeof data.info.playerState === 'number') {
+        if (data.info.playerState === 1) {
+          ytCmd('pauseVideo');
+          setIsPlaying(false);
+        }
+        if (data.info.playerState === 2 || data.info.playerState === 0) setIsPlaying(false);
+      }
       const t = data.info.currentTime;
       if (typeof t !== 'number') return;
       setPlaybackTime(t);
@@ -553,7 +605,7 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [savePlaybackPosition]);
+  }, [savePlaybackPosition, ytCmd]);
 
   // ── Playback ─────────────────────────────────────────────────────────────────
   const playLine = useCallback(async (lineIdx: number) => {
@@ -587,11 +639,11 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
           await sleep(Math.max(1000, (line.endSec - line.startSec) * 1000 + 800));
         }
       } else {
-        const text = colId === 'translation'
-          ? (linesRef.current[lineIdx]?.translation || '')
+        const text = isTranslationCol(colId)
+          ? (linesRef.current[lineIdx]?.translations?.[translationLang(colId, cfg)] || '')
           : (line.texts[colId] || '');
-        const lang = colId === 'translation'
-          ? cfg.targetLang
+        const lang = isTranslationCol(colId)
+          ? translationLang(colId, cfg)
           : colId.replace('track:', '');
         if (text.trim()) {
           setCurrentWord(null); // Reset before new speech
@@ -629,6 +681,7 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
     // Ensure video is paused before starting new playback
     ytCmd('pauseVideo');
     cancelRef.current = false;
+    isPlayingRef.current = true;
     setIsPlaying(true);
     await requestWakeLock();
     for (let i = startIdx; i < linesRef.current.length; i++) {
@@ -641,6 +694,7 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
     if (!cancelRef.current) {
       ytCmd('pauseVideo');
       releaseWakeLock();
+      isPlayingRef.current = false;
       setIsPlaying(false);
       setCurrentLine(-1);
     }
@@ -985,9 +1039,12 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
             </div>
             <div className="yl-setting-field">
               <span>Translation column</span>
-              <button className="yl-btn-secondary yl-btn-sm" type="button" onClick={toggleTranslation}>
-                {config.colOrder.includes('translation') ? 'Remove translation' : 'Add translation'}
-              </button>
+                <input className="yl-input-sm" value={newTranslationLang} placeholder="Language code"
+                  onChange={e => setNewTranslationLang(e.target.value)} aria-label="New translation language" />
+                <button className="yl-btn-secondary yl-btn-sm" type="button" onClick={() => {
+                  toggleTranslation(newTranslationLang.trim());
+                  setNewTranslationLang('');
+                }}>Add translation</button>
             </div>
             <label className={`yl-setting-field yl-provider-setting ${subtitleServiceInfo.supportsAlternate ? '' : 'yl-provider-setting-disabled'}`}>
               <span>Alternate YouTube / Invidious host</span>
@@ -1025,6 +1082,11 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
                 <div key={colId} className={`yl-col-card ${s.visible ? '' : 'yl-col-card-hidden'}`}>
                   <div className="yl-col-card-header">
                     <span className="yl-col-card-name">{colLabel(colId, project)}</span>
+                    {isTranslationCol(colId) && (
+                      <button className="yl-btn-ghost yl-btn-sm" type="button"
+                        onClick={() => removeTranslation(translationLang(colId, config))}
+                        title="Remove translation">Remove</button>
+                    )}
                     <label className="yl-toggle">
                       <input type="checkbox" checked={s.visible}
                         onChange={e => updateColSetting(colId, { visible: e.target.checked })} />
@@ -1040,8 +1102,8 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
                       />
                     </label>
                     {colId !== 'video' && (() => {
-                      const colLang = colId === 'translation'
-                        ? config.targetLang
+                      const colLang = isTranslationCol(colId)
+                        ? translationLang(colId, config)
                         : colId.replace('track:', '');
                       const colVoices = voicesForLang(colLang);
                       return (
@@ -1194,7 +1256,7 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
                 <th className="yl-th-time">Time</th>
                 {visibleCols.map(colId => (
                   <th key={colId} className="yl-th-text"
-                    dir={colId === 'translation' ? (isRtl(config.targetLang) ? 'rtl' : 'ltr') : undefined}>
+                    dir={isTranslationCol(colId) ? (isRtl(translationLang(colId, config)) ? 'rtl' : 'ltr') : undefined}>
                     {colLabel(colId, project)}
                   </th>
                 ))}
@@ -1210,12 +1272,13 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
                 >
                   <td className="yl-td-time">{secondsToHms(line.startSec)}</td>
                   {visibleCols.map(colId => {
-                    const isTrans = colId === 'translation';
+                    const isTrans = isTranslationCol(colId);
+                    const transLang = translationLang(colId, config);
                     const text = isTrans
-                      ? (line.translated ? line.translation : '')
+                      ? (line.translatedTargets?.[transLang] ? (line.translations?.[transLang] || '') : '')
                       : (line.texts[colId] || '');
                     const rtl = isTrans
-                      ? isRtl(config.targetLang)
+                      ? isRtl(transLang)
                       : isRtl(colId.replace('track:', ''));
                     const isLoading = isTrans && translatingIndices.has(line.index);
                     return (

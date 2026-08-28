@@ -14,6 +14,8 @@ export interface ColSetting {
 
 export interface ProjectConfig {
   targetLang: string;
+  /** Translation languages enabled for this project. Empty means no translation. */
+  translationTargets?: string[];
   translationSource: string;
   colOrder: string[];
   colSettings: Record<string, ColSetting>;
@@ -89,6 +91,8 @@ export interface ParsedLine {
   texts: Record<string, string>;
   translation: string;
   translated: boolean;
+  translations?: Record<string, string>;
+  translatedTargets?: Record<string, boolean>;
 }
 
 export interface AvailableLang {

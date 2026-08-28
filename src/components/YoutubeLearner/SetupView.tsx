@@ -72,16 +72,16 @@ function buildProject(
   alternateYoutubeUrl = '',
   subtitleProxyUrl = '',
 ): YtProject {
-  const colOrder: string[] = [...tracks.map(t => `track:${t.lang}`), 'translation', 'video'];
+  const colOrder: string[] = [...tracks.map(t => `track:${t.lang}`), 'video'];
   const colSettings: ProjectConfig['colSettings'] = {};
   tracks.forEach((t, i) => {
     colSettings[`track:${t.lang}`] = { visible: true, playOrder: i + 1, ttsRate: DEFAULT_TTS_RATE };
   });
-  colSettings['translation'] = { visible: true, playOrder: tracks.length + 1, ttsRate: 0.9 };
-  colSettings['video'] = { visible: !!videoId, playOrder: tracks.length + 2, ttsRate: DEFAULT_TTS_RATE };
+  colSettings['video'] = { visible: !!videoId, playOrder: tracks.length + 1, ttsRate: DEFAULT_TTS_RATE };
 
   const config: ProjectConfig = {
-    targetLang,
+    targetLang: '',
+    translationTargets: [],
     translationSource: `track:${tracks[0].lang}`,
     colOrder,
     colSettings,

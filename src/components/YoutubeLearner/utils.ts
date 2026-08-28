@@ -38,7 +38,7 @@ export function buildLines(
       const over = segs.filter(s => s.startSec < p.endSec && s.endSec > p.startSec);
       texts[colId] = over.map(s => s.text).join(' ').trim();
     }
-    return { index, startSec: p.startSec, endSec: p.endSec, texts, translation: '', translated: false };
+    return { index, startSec: p.startSec, endSec: p.endSec, texts, translation: '', translated: false, translations: {}, translatedTargets: {} };
   });
 }
 
@@ -93,9 +93,10 @@ export function secondsToHms(sec: number): string {
 
 export function colLabel(colId: string, project: YtProject): string {
   if (colId === 'video') return '🎬 Video';
-  if (colId === 'translation') {
-    const lang = LANG_OPTIONS.find(l => l.code === project.config.targetLang);
-    return `🔤 ${lang?.label ?? project.config.targetLang}`;
+  if (colId === 'translation' || colId.startsWith('translation:')) {
+    const code = colId.startsWith('translation:') ? colId.slice('translation:'.length) : project.config.targetLang;
+    const lang = LANG_OPTIONS.find(l => l.code === code);
+    return `🔤 ${lang?.label ?? code}`;
   }
   if (colId.startsWith('track:')) {
     const lang = colId.replace('track:', '');
