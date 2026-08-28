@@ -1274,6 +1274,23 @@ native_logs() {
   esac
 }
 
+ensure_cypress_linux_deps() {
+  local packages=(
+    xvfb xauth libgtk2.0-0 libgtk-3-0 libgbm-dev libnotify-dev libnss3
+    libxss1 libasound2t64 libxtst6 libatk1.0-0 libatk-bridge2.0-0
+  )
+  if command -v Xvfb &>/dev/null && ldconfig -p 2>/dev/null | grep -q 'libatk-1.0.so.0'; then
+    return 0
+  fi
+  if ! command -v sudo &>/dev/null || ! sudo -n true &>/dev/null 2>&1; then
+    error "Cypress Linux dependencies are missing and cannot be installed automatically."
+    echo "          → Install them manually: sudo apt-get update && sudo apt-get install -y xvfb libgtk2.0-0 libgtk-3-0 libgbm-dev libnotify-dev libnss3 libxss1 libasound2t64 libxtst6 libatk1.0-0 libatk-bridge2.0-0"
+    return 1
+  fi
+  info "Cypress Linux dependencies are missing; installing them…"
+  sudo apt-get update -qq && sudo apt-get install -y -qq "${packages[@]}"
+}
+
 run_e2e() {
   if ! $USE_NATIVE; then
     docker_check
@@ -1292,11 +1309,18 @@ run_e2e() {
     return 1
   fi
 
+  ensure_cypress_linux_deps || return 1
   local base_url="${CYPRESS_baseUrl:-${CYPRESS_BASE_URL:-http://localhost:5000}}"
+  local browser="${CYPRESS_BROWSER:-chrome}"
+  if [[ "$browser" == "chrome" ]] && ! command -v google-chrome &>/dev/null && ! command -v chromium &>/dev/null && ! command -v chromium-browser &>/dev/null; then
+    warn "Chrome is unavailable; using Cypress Electron instead."
+    browser="electron"
+  fi
   local video_config="video=${E2E_RECORD},videosFolder=cypress/videos"
-  info "Running Invidious E2E against ${base_url} (recording: ${E2E_RECORD})…"
+  info "Running Invidious E2E against ${base_url} with ${browser} (recording: ${E2E_RECORD})…"
   pnpm exec cypress run \
-    --browser chrome \
+    --browser "$browser" \
+    --config-file cypress.config.ts \
     --config "baseUrl=${base_url},${video_config}" \
     --spec cypress/e2e/invidious.cy.ts
 }
