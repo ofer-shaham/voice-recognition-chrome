@@ -1664,12 +1664,52 @@ input[type="range"] {
 .yl-theme-dark .yl-caption-preview-copy strong {
   color: var(--yl-ink);
 }
+.yl-theme-dark .yl-setup {
+  background:
+    radial-gradient(circle at 12% 8%, rgba(113, 183, 255, .12), transparent 28rem),
+    linear-gradient(135deg, var(--yl-paper) 0%, #111923 100%);
+}
+.yl-theme-dark .yl-setup::before { background-image: linear-gradient(rgba(113, 183, 255, .06) 1px, transparent 1px), linear-gradient(90deg, rgba(113, 183, 255, .06) 1px, transparent 1px); }
 .yl-theme-blue .yl-player,
 .yl-theme-blue .yl-setup {
   background: var(--yl-paper);
 }
 .yl-provider-setting { min-width: min(100%, 260px); }
 .yl-provider-setting .yl-input-sm { width: min(100%, 300px); }
+.yl-proxy-note {
+  color: var(--yl-muted);
+  font-size: .72rem;
+  line-height: 1.4;
+  max-width: 34rem;
+}
+
+/* Setup is a focused launcher: one strong starting action, with saved work kept secondary. */
+.yl-setup {
+  position: relative;
+  isolation: isolate;
+  overflow-x: hidden;
+  background:
+    radial-gradient(circle at 12% 8%, rgba(47, 118, 88, .12), transparent 28rem),
+    linear-gradient(135deg, var(--yl-paper) 0%, #edf3ee 100%);
+}
+.yl-setup::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: .35;
+  background-image: linear-gradient(rgba(47, 118, 88, .06) 1px, transparent 1px), linear-gradient(90deg, rgba(47, 118, 88, .06) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(to bottom, black, transparent 70%);
+}
+.yl-setup-hero { width: 100%; }
+.yl-setup-title { font-weight: 800; letter-spacing: -.03em; }
+.yl-setup-form { box-shadow: 0 20px 50px rgba(28, 55, 39, .1); }
+.yl-setup-form > .yl-input:first-of-type { min-height: 3.2rem; font-size: 1rem; }
+.yl-setup-form > .yl-btn-primary { min-height: 3rem; font-weight: 700; }
+.yl-projects-card, .yl-recent-card { box-shadow: 0 10px 30px rgba(28, 55, 39, .06); }
+.yl-mode-tabs { box-shadow: 0 8px 22px rgba(28, 55, 39, .05); }
+.yl-service-toggle { flex-wrap: wrap; }
 
 .yl-player { background: var(--yl-paper); color: var(--yl-ink); }
 .yl-header { background: var(--yl-surface); border-bottom-color: var(--yl-line); min-height: 60px; }

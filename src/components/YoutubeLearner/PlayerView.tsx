@@ -120,6 +120,7 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
   const [newTranslationLang, setNewTranslationLang] = useState('');
   const [alternateYoutubeUrl, setAlternateYoutubeUrl] = useState(project.alternateYoutubeUrl || '');
   const [subtitleProxyUrl, setSubtitleProxyUrl] = useState(project.subtitleProxyUrl || '');
+  const [proxyMode, setProxyMode] = useState<'direct' | 'http' | 'tor'>(project.subtitleProxyUrl ? 'http' : 'direct');
   const subtitleService = project.subtitleService || 'plus';
   const subtitleServiceInfo = SUBTITLE_SERVICE_INFO[subtitleService];
 
@@ -149,6 +150,7 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
   useEffect(() => {
     setAlternateYoutubeUrl(project.alternateYoutubeUrl || '');
     setSubtitleProxyUrl(project.subtitleProxyUrl || '');
+    setProxyMode(project.subtitleProxyUrl ? 'http' : 'direct');
   }, [project.id]);
   useEffect(() => { seamlessRef.current = true; }, []);
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
@@ -1060,17 +1062,29 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
               />
             </label>
             <label className={`yl-setting-field yl-provider-setting ${subtitleServiceInfo.supportsProxy ? '' : 'yl-provider-setting-disabled'}`}>
-              <span>Webshare / HTTP proxy URL</span>
+              <span>Network route</span>
+              <select className="yl-select-sm" value={proxyMode}
+                onChange={e => {
+                  const next = e.target.value as typeof proxyMode;
+                  setProxyMode(next);
+                  saveProviderSettings({ subtitleProxyUrl: next === 'tor' ? (subtitleProxyUrl || 'http://127.0.0.1:8118') : next === 'direct' ? undefined : subtitleProxyUrl || undefined });
+                }}
+                disabled={!subtitleServiceInfo.supportsProxy}>
+                <option value="direct">Direct connection</option>
+                <option value="http">HTTP / HTTPS proxy</option>
+                <option value="tor">Tor via local HTTP bridge</option>
+              </select>
               <input
                 className="yl-input-sm"
                 type="url"
-                placeholder="http://proxy.example:8080"
+                placeholder={proxyMode === 'tor' ? 'http://127.0.0.1:8118' : 'http://proxy.example:8080'}
                 value={subtitleProxyUrl}
                 onChange={e => setSubtitleProxyUrl(e.target.value)}
-                onBlur={() => saveProviderSettings({ subtitleProxyUrl: subtitleProxyUrl.trim() || undefined })}
+                onBlur={() => saveProviderSettings({ subtitleProxyUrl: proxyMode === 'direct' ? undefined : subtitleProxyUrl.trim() || undefined })}
                 disabled={!subtitleServiceInfo.supportsProxy}
                 title={subtitleServiceInfo.supportsProxy ? undefined : `Not supported by ${subtitleServiceInfo.library}`}
               />
+              {subtitleServiceInfo.supportsProxy && proxyMode === 'tor' && <small className="yl-proxy-note">Tor must expose an HTTP bridge, commonly Privoxy at 127.0.0.1:8118.</small>}
             </label>
           </div>
 

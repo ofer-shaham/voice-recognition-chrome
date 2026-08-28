@@ -26,6 +26,7 @@ interface Props {
 
 type Step = 'url' | 'langs';
 type SetupMode = 'fetch' | 'manual';
+type ProxyMode = 'direct' | 'http' | 'tor';
 
 interface ManualTrack {
   label: string;
@@ -135,7 +136,7 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
   const [availLangs, setAvailLangs] = useState<AvailableLang[]>([]);
   const [languageDiscoveryFallback, setLanguageDiscoveryFallback] = useState(false);
   const [selectedLangs, setSelectedLangs] = useState<Set<string>>(new Set());
-  const [targetLang, setTargetLang] = useState('he');
+  const [targetLang, setTargetLang] = useState('');
   const [fetchLoading, setFetchLoading] = useState(false);
   const [fetchError, setFetchError] = useState('');
   const [fetchedProject, setFetchedProject] = useState<YtProject | null>(null);
@@ -143,12 +144,13 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
   const subtitleMethod = subtitleService === 'plus' ? '1' : subtitleService === 'api-js' ? '2' : '3';
   const [alternateYoutubeUrl, setAlternateYoutubeUrl] = useState('');
   const [subtitleProxyUrl, setSubtitleProxyUrl] = useState('');
+  const [proxyMode, setProxyMode] = useState<ProxyMode>('direct');
   const [manualTitle, setManualTitle] = useState('');
   const [manualDescription, setManualDescription] = useState('');
   const [manualVideoUrl, setManualVideoUrl] = useState('');
   const [manualMetadataLoading, setManualMetadataLoading] = useState(false);
   const [manualMetadataId, setManualMetadataId] = useState('');
-  const [manualTargetLang, setManualTargetLang] = useState('he');
+  const [manualTargetLang, setManualTargetLang] = useState('');
   const [manualTracks, setManualTracks] = useState<ManualTrack[]>([{ label: '', lang: 'en', srt: '', url: '' }]);
   const [manualInputMode, setManualInputMode] = useState<'url' | 'paste' | 'upload'>('url');
   const [manualError, setManualError] = useState('');
@@ -207,18 +209,36 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
       </label>
       <label className={`yl-service-extra ${subtitleServiceInfo.supportsProxy ? '' : 'yl-service-extra-disabled'}`}>
         <span>
-          Webshare / HTTP proxy URL <span className="yl-optional">(optional)</span>
+          Network route <span className="yl-optional">(optional)</span>
           {!subtitleServiceInfo.supportsProxy && <small className="yl-service-disabled-note">not supported by this library</small>}
         </span>
+        <select
+          className="yl-input"
+          value={proxyMode}
+          onChange={e => {
+            const next = e.target.value as ProxyMode;
+            setProxyMode(next);
+            if (next === 'tor' && !subtitleProxyUrl) setSubtitleProxyUrl('http://127.0.0.1:8118');
+            if (next === 'direct') setSubtitleProxyUrl('');
+          }}
+          disabled={!subtitleServiceInfo.supportsProxy}
+        >
+          <option value="direct">Direct connection</option>
+          <option value="http">HTTP / HTTPS proxy</option>
+          <option value="tor">Tor via local HTTP bridge</option>
+        </select>
         <input
           className="yl-input"
           type="url"
-          placeholder="http://proxy.example:8080"
+          placeholder={proxyMode === 'tor' ? 'http://127.0.0.1:8118' : 'http://proxy.example:8080'}
           value={subtitleProxyUrl}
           onChange={e => setSubtitleProxyUrl(e.target.value)}
           disabled={!subtitleServiceInfo.supportsProxy}
           title={subtitleServiceInfo.supportsProxy ? undefined : `Not supported by ${subtitleServiceInfo.library}`}
         />
+        {subtitleServiceInfo.supportsProxy && proxyMode === 'tor' && (
+          <small className="yl-proxy-note">Requires Tor plus an HTTP bridge such as Privoxy on port 8118. The app does not provide a public proxy.</small>
+        )}
       </label>
       <span className="yl-service-help">
         {subtitleService === 'iframe'
@@ -293,7 +313,6 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
           'invidious',
         );
         setFetchedProject(project);
-        onProjectFetched?.(project);
         onProjectFetched?.(project);
       } catch (e: any) {
         setFindError(e.message || 'Could not fetch Invidious captions.');
