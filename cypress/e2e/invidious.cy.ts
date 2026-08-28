@@ -28,7 +28,12 @@ describe('Invidious subtitle import', () => {
         }).as('resolveCaptions');
         cy.intercept('GET', '/api/srt-url*', {
             statusCode: 200,
-            body: '1\n00:00:00,000 --> 00:00:01,000\nTest subtitle',
+            body: Array.from({ length: 11 }, (_, index) => {
+                const cueNumber = index + 1;
+                const startSecond = String(index).padStart(2, '0');
+                const endSecond = String(index + 1).padStart(2, '0');
+                return `${cueNumber}\n00:00:${startSecond},000 --> 00:00:${endSecond},000\nTest subtitle ${cueNumber}`;
+            }).join('\n'),
         }).as('fetchSubtitles');
         cy.visit('/youtube');
         cy.contains('button', 'Invidious').click();
@@ -54,7 +59,7 @@ describe('Invidious subtitle import', () => {
         cy.location('pathname').should('equal', '/youtube');
         cy.contains('button', 'Continue to view').click();
         cy.url().should('match', /\/youtube\/view\/lXCAHAJR2-Q$/);
-        cy.get('.yl-table tbody .yl-row').should('have.length.greaterThan', 0);
+        cy.get('.yl-table tbody .yl-row').should('have.length.greaterThan', 10);
         cy.get('.yl-table tbody .yl-td-text').first().invoke('text').should('not.be.empty');
         cy.contains('button', '← Home').scrollIntoView().click({ force: true });
         cy.location('pathname').should('equal', '/youtube');
