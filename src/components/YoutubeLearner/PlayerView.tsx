@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   YtProject,
   YtTrack,
@@ -16,6 +17,17 @@ import { freeSpeak } from '../../utils/freeSpeak';
 import isRtl from '../../utils/isRtl';
 import { useVoices } from './useVoices';
 import { downloadProject } from './projectTransfer';
+import type { AppDispatch, RootState } from '../../store';
+import {
+  currentLineChanged,
+  playbackEnded,
+  playbackPaused,
+  playbackStarted,
+  playbackStopped,
+  playbackTimeUpdated,
+  projectLoaded,
+  youtubeStateChanged,
+} from '../../store/youtubePlaybackSlice';
 
 // Wake Lock for background playback on mobile
 let wakeLock: any = null;
@@ -83,6 +95,8 @@ const normalizeConfig = (source: ProjectConfig): ProjectConfig => {
 };
 
 export default function PlayerView({ project, onSave, onBackHome, onNewVideo, onDelete, projects, onSelectProject, theme, onThemeChange }: Props) {
+  const dispatch = useDispatch<AppDispatch>();
+  const playback = useSelector((state: RootState) => state.youtubePlayback);
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   const defaultVisibleLines = () => {
     const params = new URLSearchParams(window.location.search);
@@ -96,12 +110,13 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
     ...normalizeConfig(project.config),
     visibleLines: defaultVisibleLines(),
   }));
-  const [isPlaying, setIsPlaying]       = useState(false);
-  const [currentLine, setCurrentLine]   = useState(-1);
-  const [playbackTime, setPlaybackTime] = useState(project.lastTime ?? 0);
+  const isPlaying = playback.status === 'playing' || playback.status === 'starting';
+  const currentLine = playback.currentLine;
+  const playbackTime = playback.currentTime;
   const [windowStart, setWindowStart]   = useState(0);
   const [iframeSeg, setIframeSeg]       = useState({ startSec: 0, endSec: 0 });
   const [iframeKey, setIframeKey]       = useState(0);
+  const [playerReady, setPlayerReady]   = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [translationVer, setTranslationVer] = useState(0);
   const [currentWord, setCurrentWord]       = useState<{ lineIdx: number; charIndex: number; charLength: number } | null>(null);
@@ -144,6 +159,10 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
   const playbackSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingPlayback = useRef({ time: project.lastTime ?? 0, line: project.lastLine ?? 0 });
   const playbackRunRef = useRef(0);
+  const playbackTimeRef = useRef(project.lastTime ?? 0);
+  const playerReadyRef = useRef(false);
+  const autoStartedProjectRef = useRef<string | null>(null);
+  const suppressPlayerEventsUntilRef = useRef(0);
 
   useEffect(() => { linesRef.current = lines; }, [lines]);
   useEffect(() => { configRef.current = config; }, [config]);
@@ -156,6 +175,7 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
   useEffect(() => { seamlessRef.current = true; }, []);
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
   useEffect(() => { currentLineRef.current = currentLine; }, [currentLine]);
+  useEffect(() => { playbackTimeRef.current = playbackTime; }, [playbackTime]);
 
   const savePlaybackPosition = useCallback((time: number, line: number) => {
     pendingPlayback.current = { time, line };
@@ -193,12 +213,15 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
 
   // ── URL sync: reflect project + config in address bar ───────────────────────
   useEffect(() => {
+    // Position is deliberately committed only when playback is not active.
+    // Rebuilding the URL every media tick causes needless history/route churn.
+    if (isPlaying) return;
     const p = new URLSearchParams();
     if (project.videoId) p.set('v', project.videoId);
     else p.set('p', project.id);
     p.set('tl', config.targetLang);
     p.set('l', String(project.lastLine));
-    p.set('t', String(Math.floor(playbackTime)));
+    p.set('t', String(Math.floor(playbackTimeRef.current)));
     p.set('vl', String(config.visibleLines));
     for (const [colId, s] of Object.entries(config.colSettings)) {
       if (colId === 'video') continue;
@@ -207,7 +230,7 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
       if (s.voiceName) p.set(`vn_${sid}`, s.voiceName);
     }
     window.history.replaceState(null, '', `${window.location.pathname}?${p.toString()}`);
-  }, [project.id, project.videoId, project.lastLine, config, playbackTime, seamlessMode]);
+  }, [project.id, project.videoId, project.lastLine, config, isPlaying, seamlessMode]);
 
   // ── Parse SRT on project change ─────────────────────────────────────────────
   useEffect(() => {
@@ -234,12 +257,12 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
       ? urlTime
       : (project.lastTime ?? parsed[startLine]?.startSec ?? 0);
     initialSeekRef.current = initialTime;
-    setPlaybackTime(initialTime);
-    setCurrentLine(startLine);
+    dispatch(projectLoaded({ projectId: project.id, time: initialTime, line: startLine }));
     setWindowStart(Math.max(0, startLine - 3));
     setTranslationVer(v => v + 1);
+    setPlayerReady(false);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project.id]);
+  }, [project.id, dispatch]);
 
   // ── On-demand translation ─────────────────────────────────────────────────────
   // Translate only what the learner can see, plus a small lookahead. This keeps
@@ -559,12 +582,15 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
         );
         initialSeekRef.current = null;
       }
+      playerReadyRef.current = true;
+      setPlayerReady(true);
     } catch { /* ignore cross-origin errors */ }
   }, []);
 
   const stopMedia = useCallback(() => {
     playbackRunRef.current += 1;
     cancelRef.current = true;
+    suppressPlayerEventsUntilRef.current = Date.now() + 1000;
     speechSynthesis.cancel();
     for (const ref of [iframeRef, audioRef]) {
       try {
@@ -576,10 +602,12 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
     }
     releaseWakeLock();
     isPlayingRef.current = false;
-    setIsPlaying(false);
   }, []);
 
-  useEffect(() => () => stopMedia(), [stopMedia]);
+  useEffect(() => () => {
+    stopMedia();
+    dispatch(playbackStopped());
+  }, [dispatch, stopMedia]);
 
   // ── Sync row to native iframe interaction only ───────────────────────────────
   // Row selection is the source of truth for playback (row → seekTo). This only
@@ -588,21 +616,44 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
   // (isPlaying) is NOT running, so it never fights with row → video sync.
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
-      if (isPlayingRef.current) return; // our own loop is driving playback — ignore
+      const sourceWindow = event.source;
+      if (
+        sourceWindow &&
+        sourceWindow !== iframeRef.current?.contentWindow &&
+        sourceWindow !== audioRef.current?.contentWindow
+      ) return;
       if (typeof event.data !== 'string') return;
       let data: any;
       try { data = JSON.parse(event.data); } catch { return; }
       if (data?.event !== 'infoDelivery' || !data.info) return;
-      if (!isPlayingRef.current && typeof data.info.playerState === 'number') {
-        if (data.info.playerState === 1) {
-          ytCmd('pauseVideo');
-          setIsPlaying(false);
+      const playerState = data.info.playerState;
+      const youtubeState = playerState === 1
+        ? 'playing'
+        : playerState === 2
+          ? 'paused'
+          : playerState === 3
+            ? 'buffering'
+            : playerState === 0
+              ? 'ended'
+              : playerState === 5
+                ? 'cued'
+                : playerState === -1
+                  ? 'unstarted'
+                  : 'unknown';
+      const t = typeof data.info.currentTime === 'number' ? data.info.currentTime : undefined;
+      dispatch(youtubeStateChanged({ state: youtubeState, time: t }));
+
+      if (!isPlayingRef.current && typeof playerState === 'number') {
+        if (Date.now() >= suppressPlayerEventsUntilRef.current && playerState === 1) {
+          dispatch(playbackStarted({ line: currentLineRef.current >= 0 ? currentLineRef.current : 0, reason: 'youtube:play' }));
+        } else if (Date.now() >= suppressPlayerEventsUntilRef.current && playerState === 2) {
+          dispatch(playbackPaused());
+        } else if (Date.now() >= suppressPlayerEventsUntilRef.current && playerState === 0) {
+          dispatch(playbackEnded());
         }
-        if (data.info.playerState === 2 || data.info.playerState === 0) setIsPlaying(false);
       }
-      const t = data.info.currentTime;
       if (typeof t !== 'number') return;
-      setPlaybackTime(t);
+      dispatch(playbackTimeUpdated(t));
       const ls = linesRef.current;
       if (!ls.length) return;
       let idx = -1;
@@ -612,13 +663,13 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
       if (idx === -1) idx = t <= ls[0].startSec ? 0 : ls.length - 1;
       if (idx !== currentLineRef.current) {
         currentLineRef.current = idx;
-        setCurrentLine(idx);
+        dispatch(currentLineChanged(idx));
       }
       savePlaybackPosition(t, idx);
     };
     window.addEventListener('message', handleMessage);
     return () => window.removeEventListener('message', handleMessage);
-  }, [savePlaybackPosition, ytCmd]);
+  }, [dispatch, savePlaybackPosition]);
 
   // ── Playback ─────────────────────────────────────────────────────────────────
   const playLine = useCallback(async (lineIdx: number) => {
@@ -679,16 +730,18 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
   const stop = useCallback(() => {
     stopMedia();
     flushPlaybackPosition();
-    setCurrentLine(-1);
-  }, [flushPlaybackPosition, stopMedia]);
+    dispatch(playbackStopped());
+    dispatch(currentLineChanged(-1));
+  }, [dispatch, flushPlaybackPosition, stopMedia]);
 
   const pausePlayback = useCallback(() => {
     stopMedia();
+    dispatch(playbackPaused());
     const line = currentLineRef.current;
     if (line >= 0) {
       onSave({ ...projectRef.current, lastLine: line, lastTime: playbackTime, updatedAt: Date.now() });
     }
-  }, [onSave, playbackTime, stopMedia]);
+  }, [dispatch, onSave, playbackTime, stopMedia]);
 
   const playFrom = useCallback(async (startIdx: number) => {
     const runId = playbackRunRef.current + 1;
@@ -697,32 +750,33 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
     ytCmd('pauseVideo');
     cancelRef.current = false;
     isPlayingRef.current = true;
-    setIsPlaying(true);
+    dispatch(playbackStarted({ line: startIdx, reason: 'sequence:start' }));
     await requestWakeLock();
     for (let i = startIdx; i < linesRef.current.length; i++) {
       if (cancelRef.current || playbackRunRef.current !== runId) break;
-      setCurrentLine(i);
-      setPlaybackTime(linesRef.current[i]?.startSec ?? 0);
+      dispatch(currentLineChanged(i));
+      dispatch(playbackTimeUpdated(linesRef.current[i]?.startSec ?? 0));
       onSave({ ...projectRef.current, lastLine: i, lastTime: linesRef.current[i]?.startSec ?? 0, updatedAt: Date.now() });
       await playLine(i);
     }
     if (!cancelRef.current && playbackRunRef.current === runId) {
+      suppressPlayerEventsUntilRef.current = Date.now() + 1000;
       ytCmd('pauseVideo');
       releaseWakeLock();
       isPlayingRef.current = false;
-      setIsPlaying(false);
-      setCurrentLine(-1);
+      dispatch(playbackEnded());
+      dispatch(currentLineChanged(-1));
     }
-  }, [playLine, onSave, ytCmd]);
+  }, [dispatch, playLine, onSave, ytCmd]);
 
   // Reset the active row back to the very first line
   const resetToStart = useCallback(() => {
     if (isPlaying) stop();
     ytCmd('seekTo', [0, true]);
-    setCurrentLine(-1);
+    dispatch(currentLineChanged(-1));
     setWindowStart(0);
     onSave({ ...projectRef.current, lastLine: 0, updatedAt: Date.now() });
-  }, [isPlaying, stop, ytCmd, onSave]);
+  }, [dispatch, isPlaying, stop, ytCmd, onSave]);
 
   // ── Derived ──────────────────────────────────────────────────────────────────
   const visibleCols = useMemo(
@@ -773,7 +827,10 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
     const idx = lines.reduce((best, line, i) =>
       Math.abs(line.startSec - sec) < Math.abs(lines[best].startSec - sec) ? i : best, 0);
     if (isPlaying) { stop(); setTimeout(() => playFrom(idx), 150); }
-    else { setCurrentLine(idx); }
+    else {
+      currentLineRef.current = idx;
+      dispatch(currentLineChanged(idx));
+    }
   };
 
   // ── SRT download ─────────────────────────────────────────────────────────────
