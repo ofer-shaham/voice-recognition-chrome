@@ -6,7 +6,11 @@ import SetupView from './SetupView';
 import PlayerView from './PlayerView';
 import './YoutubeLearner.css';
 
-export default function YoutubeLearner() {
+interface YoutubeLearnerProps {
+  routeBase?: '/youtube' | '/youtube2';
+}
+
+export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearnerProps) {
   const { projects, upsert, remove, clearAll, getLastId } = useProject();
   const navigate = useNavigate();
   const location = useLocation();
@@ -26,10 +30,10 @@ export default function YoutubeLearner() {
   // /youtube/project/:projectId. Query links remain supported for sharing.
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const routeId = location.pathname.startsWith('/youtube/project/')
-      ? decodeURIComponent(location.pathname.slice('/youtube/project/'.length))
-      : location.pathname.startsWith('/youtube/view/')
-        ? decodeURIComponent(location.pathname.slice('/youtube/view/'.length))
+    const routeId = location.pathname.startsWith(`${routeBase}/project/`)
+      ? decodeURIComponent(location.pathname.slice(`${routeBase}/project/`.length))
+      : location.pathname.startsWith(`${routeBase}/view/`)
+        ? decodeURIComponent(location.pathname.slice(`${routeBase}/view/`.length))
         : '';
     const urlId = routeId || params.get('v') || params.get('p');
     const fromUrl = urlId ? projects.find(p => p.id === urlId || p.videoId === urlId) : null;
@@ -37,36 +41,36 @@ export default function YoutubeLearner() {
     if (fromUrl) {
       setActiveProject(fromUrl);
       setShowSetup(false);
-      if (!location.pathname.startsWith('/youtube/view/') && location.pathname !== `/youtube/project/${encodeURIComponent(fromUrl.id)}`) {
-        navigate(`/youtube/view/${encodeURIComponent(fromUrl.id)}`, { replace: true });
+      if (!location.pathname.startsWith(`${routeBase}/view/`) && location.pathname !== `${routeBase}/project/${encodeURIComponent(fromUrl.id)}`) {
+        navigate(`${routeBase}/view/${encodeURIComponent(fromUrl.id)}`, { replace: true });
       }
-    } else if (location.pathname === '/youtube/setup' || location.pathname === '/youtube') {
+    } else if (location.pathname === `${routeBase}/setup` || location.pathname === routeBase) {
       setActiveProject(null);
       setShowSetup(true);
     } else {
       setActiveProject(null);
       setShowSetup(true);
     }
-  }, [projects, location.pathname]);
+  }, [projects, location.pathname, routeBase, navigate]);
 
   const handleProjectReady = (project: YtProject) => {
     upsert(project);
     setActiveProject(project);
     setShowSetup(false);
-    navigate(`/youtube/view/${encodeURIComponent(project.id)}`);
+    navigate(`${routeBase}/view/${encodeURIComponent(project.id)}`);
   };
 
   const handleSave = (updated: YtProject) => {
     upsert(updated);
     setActiveProject(updated);
-    const route = window.location.pathname.startsWith('/youtube/view/') ? 'view' : 'project';
-    navigate(`/youtube/${route}/${encodeURIComponent(updated.id)}`, { replace: true });
+    const route = window.location.pathname.startsWith(`${routeBase}/view/`) ? 'view' : 'project';
+    navigate(`${routeBase}/${route}/${encodeURIComponent(updated.id)}`, { replace: true });
   };
 
   const handleSelectProject = (p: YtProject) => {
     setActiveProject(p);
     setShowSetup(false);
-    navigate(`/youtube/project/${encodeURIComponent(p.id)}`);
+    navigate(`${routeBase}/project/${encodeURIComponent(p.id)}`);
   };
 
   const handleDelete = (id: string) => {
@@ -74,11 +78,11 @@ export default function YoutubeLearner() {
     const remaining = projects.filter(p => p.id !== id);
     if (remaining.length > 0) {
       setActiveProject(remaining[0]);
-      navigate(`/youtube/project/${encodeURIComponent(remaining[0].id)}`);
+      navigate(`${routeBase}/project/${encodeURIComponent(remaining[0].id)}`);
     } else {
       setActiveProject(null);
       setShowSetup(true);
-      navigate('/youtube/setup');
+      navigate(`${routeBase}/setup`);
     }
   };
 
@@ -100,14 +104,14 @@ export default function YoutubeLearner() {
           if (recent?.id === id) {
             setActiveProject(null);
             setShowSetup(true);
-            navigate('/youtube/setup');
+            navigate(`${routeBase}/setup`);
           }
         }}
         onLoadRecent={() => {
           if (recent) {
             setActiveProject(recent);
             setShowSetup(false);
-            navigate(`/youtube/project/${encodeURIComponent(recent.id)}`);
+            navigate(`${routeBase}/project/${encodeURIComponent(recent.id)}`);
           }
         }}
         onClearHistory={() => {
@@ -122,10 +126,11 @@ export default function YoutubeLearner() {
 
   return (
     <PlayerView
+      routeBase={routeBase}
       project={activeProject}
       onSave={handleSave}
-      onBackHome={() => { setShowSetup(true); setActiveProject(null); navigate('/youtube'); }}
-      onNewVideo={() => { setShowSetup(true); setActiveProject(null); navigate('/youtube/setup'); }}
+      onBackHome={() => { setShowSetup(true); setActiveProject(null); navigate(routeBase); }}
+      onNewVideo={() => { setShowSetup(true); setActiveProject(null); navigate(`${routeBase}/setup`); }}
       onDelete={handleDelete}
       projects={projects}
       onSelectProject={handleSelectProject}

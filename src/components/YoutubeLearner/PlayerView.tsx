@@ -62,6 +62,7 @@ if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
 }
 
 interface Props {
+  routeBase?: '/youtube' | '/youtube2';
   project: YtProject;
   onSave: (p: YtProject) => void;
   onBackHome: () => void;
@@ -94,7 +95,7 @@ const normalizeConfig = (source: ProjectConfig): ProjectConfig => {
   return { ...source, targetLang: targets[0] || source.targetLang || '', translationTargets: targets, colOrder, colSettings };
 };
 
-export default function PlayerView({ project, onSave, onBackHome, onNewVideo, onDelete, projects, onSelectProject, theme, onThemeChange }: Props) {
+export default function PlayerView({ routeBase = '/youtube', project, onSave, onBackHome, onNewVideo, onDelete, projects, onSelectProject, theme, onThemeChange }: Props) {
   const dispatch = useDispatch<AppDispatch>();
   const playback = useSelector((state: RootState) => state.youtubePlayback);
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
@@ -1004,7 +1005,7 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
                     if (s.ttsRate !== DEFAULT_TTS_RATE) p.set(`r_${sid}`, s.ttsRate.toFixed(1));
                     if (s.voiceName) p.set(`vn_${sid}`, s.voiceName);
                   }
-                  const sharePath = `/youtube/project/${encodeURIComponent(project.id)}`;
+                  const sharePath = `${routeBase}/project/${encodeURIComponent(project.id)}`;
                   const shareUrl = `${window.location.origin}${sharePath}?${p.toString()}`;
                   try {
                     await navigator.clipboard.writeText(shareUrl);

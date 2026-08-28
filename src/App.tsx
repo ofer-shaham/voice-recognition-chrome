@@ -27,6 +27,7 @@ function AppRoutes() {
 
   if (path === "/") return <AppHub />;
   if (path === "/listen") return <Intro />;
+  if (path === "/youtube2" || path.startsWith("/youtube2/")) return <YoutubeLearner routeBase="/youtube2" />;
   if (path === "/youtube" || path.startsWith("/youtube/")) return <YoutubeLearner />;
   if (path === "/proverb") return <ProverbList />;
   if (path === "/simultanuos_translation") return <SimultaneousTranslation />;
