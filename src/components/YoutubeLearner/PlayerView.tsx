@@ -143,6 +143,7 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
   const initialSeekRef = useRef<number | null>(null);
   const playbackSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingPlayback = useRef({ time: project.lastTime ?? 0, line: project.lastLine ?? 0 });
+  const playbackRunRef = useRef(0);
 
   useEffect(() => { linesRef.current = lines; }, [lines]);
   useEffect(() => { configRef.current = config; }, [config]);
@@ -547,6 +548,10 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
         JSON.stringify({ event: 'listening', id: 'yl-sync' }),
         '*'
       );
+      ref.current?.contentWindow?.postMessage(
+        JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }),
+        '*'
+      );
       if (initialSeekRef.current !== null) {
         ref.current?.contentWindow?.postMessage(
           JSON.stringify({ event: 'command', func: 'seekTo', args: [initialSeekRef.current, true] }),
@@ -558,6 +563,7 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
   }, []);
 
   const stopMedia = useCallback(() => {
+    playbackRunRef.current += 1;
     cancelRef.current = true;
     speechSynthesis.cancel();
     for (const ref of [iframeRef, audioRef]) {
@@ -685,6 +691,8 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
   }, [onSave, playbackTime, stopMedia]);
 
   const playFrom = useCallback(async (startIdx: number) => {
+    const runId = playbackRunRef.current + 1;
+    playbackRunRef.current = runId;
     // Ensure video is paused before starting new playback
     ytCmd('pauseVideo');
     cancelRef.current = false;
@@ -692,13 +700,13 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
     setIsPlaying(true);
     await requestWakeLock();
     for (let i = startIdx; i < linesRef.current.length; i++) {
-      if (cancelRef.current) break;
+      if (cancelRef.current || playbackRunRef.current !== runId) break;
       setCurrentLine(i);
       setPlaybackTime(linesRef.current[i]?.startSec ?? 0);
       onSave({ ...projectRef.current, lastLine: i, lastTime: linesRef.current[i]?.startSec ?? 0, updatedAt: Date.now() });
       await playLine(i);
     }
-    if (!cancelRef.current) {
+    if (!cancelRef.current && playbackRunRef.current === runId) {
       ytCmd('pauseVideo');
       releaseWakeLock();
       isPlayingRef.current = false;
