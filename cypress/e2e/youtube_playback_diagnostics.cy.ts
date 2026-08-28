@@ -44,7 +44,7 @@ describe('YouTube playback diagnostics', () => {
         cy.visit('/youtube', { onBeforeLoad: seedProject });
         cy.contains('button', 'Resume →').click();
         cy.wait(1000);
-        cy.url().should('match', /\/youtube\/(?:project|view)\/playback-diagnostic-project$/);
+        cy.url().should('match', /\/youtube\/(?:project|view)\/playback-diagnostic-project(?:\?.*)?$/);
         cy.contains('button', '▶ Resume').should('be.visible');
         cy.contains('button', '⏸ Pause').should('not.exist');
 
@@ -59,6 +59,13 @@ describe('YouTube playback diagnostics', () => {
         cy.contains('button', 'Resume →').should('be.visible');
 
         cy.contains('button', 'Resume →').click();
+        cy.wait(1000);
+        cy.contains('button', '▶ Resume').should('be.visible');
+        cy.contains('button', '⏸ Pause').should('not.exist');
+    });
+
+    it('opens a shared resume URL paused until the user clicks Resume', () => {
+        cy.visit('/youtube/view/playback-diagnostic-project?v=lXCAHAJR2-Q&tl=ar&l=5&t=9&vl=30', { onBeforeLoad: seedProject });
         cy.wait(1000);
         cy.contains('button', '▶ Resume').should('be.visible');
         cy.contains('button', '⏸ Pause').should('not.exist');
