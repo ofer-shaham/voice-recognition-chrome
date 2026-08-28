@@ -446,14 +446,18 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
       const p = projectRef.current;
       const newTracks = [...p.tracks, newTrack];
       const colId = `track:${lang.languageCode}`;
-      const trackCols = p.config.colOrder.filter(id => id !== 'translation' && id !== 'video');
-      const newColOrder = [...trackCols, colId, 'translation', 'video'];
+      const newColOrder = [
+        ...p.config.colOrder.filter(id => id !== 'video'),
+        colId,
+        ...(p.config.colOrder.includes('video') ? ['video'] : []),
+      ];
       const newColSettings = {
         ...p.config.colSettings,
         [colId]: { visible: true, playOrder: newTracks.length, ttsRate: DEFAULT_TTS_RATE },
       };
       const newConfig = { ...p.config, colOrder: newColOrder, colSettings: newColSettings };
       const updatedProject = { ...p, tracks: newTracks, config: newConfig, updatedAt: Date.now() };
+      projectRef.current = updatedProject;
       onSave(updatedProject);
       rebuildLines(newTracks, newConfig);
     } catch (e: any) {
@@ -490,7 +494,7 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
     if (!colSettings[id]) {
       colSettings[id] = {
         visible: true,
-        playOrder: trackCols.length + targets.length,
+        playOrder: p.config.colOrder.filter(colId => !isTranslationCol(colId) && colId !== 'video').length + targets.length,
         ttsRate: 0.9,
       };
     }
@@ -498,7 +502,8 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
     configRef.current = updatedConfig;
     onSave({ ...p, config: updatedConfig, updatedAt: Date.now() });
     setConfig(updatedConfig);
-  }, [onSave]);
+    retranslate();
+  }, [onSave, retranslate]);
 
   const removeTranslation = useCallback((language: string) => {
     const p = projectRef.current;
@@ -1093,7 +1098,7 @@ export default function PlayerView({ project, onSave, onBackHome, onNewVideo, on
               const s = config.colSettings[colId];
               if (!s) return null;
               return (
-                <div key={colId} className={`yl-col-card ${s.visible ? '' : 'yl-col-card-hidden'}`}>
+                <div key={colId} data-col-id={colId} className={`yl-col-card ${s.visible ? '' : 'yl-col-card-hidden'}`}>
                   <div className="yl-col-card-header">
                     <span className="yl-col-card-name">{colLabel(colId, project)}</span>
                     {isTranslationCol(colId) && (
