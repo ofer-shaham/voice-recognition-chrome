@@ -34,6 +34,8 @@ interface ManualTrack {
   url: string;
 }
 
+const INVIDIOUS_DEMO_URL = 'https://invidious.nerdvpn.de/companion/api/v1/captions/lXCAHAJR2-Q?check=X-ce5seVANHkTyqeXaj2WyRAlxP7oYXDK_Hf49yQGLw=';
+
 function toSrtTimedTextUrl(value: string): string {
   try {
     const parsed = new URL(value.trim());
@@ -686,6 +688,19 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
           onKeyDown={e => e.key === 'Enter' && handleFindLanguages()}
           autoFocus
         />
+        <button
+          type="button"
+          className="yl-btn-secondary"
+          onClick={() => {
+            setUrl(INVIDIOUS_DEMO_URL);
+            setSubtitleService('invidious');
+            setFindError('');
+            setFetchedProject(null);
+            urlInputRef.current?.focus();
+          }}
+        >
+          Fill Invidious demo URL
+        </button>
 
         {serviceToggle}
 
