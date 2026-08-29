@@ -171,10 +171,9 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
     const sharedUrl = getSharedSetupUrl();
     if (!sharedUrl) return;
 
-    const invidiousUrl = parseInvidiousCaptionsUrl(sharedUrl);
-    if (invidiousUrl) {
+    if (parseInvidiousCaptionsUrl(sharedUrl)) {
       setSubtitleService('invidious');
-      setInvidiousCaptionsUrl(sharedUrl);
+      setInvidiousCaptionsUrl('');
     }
 
     setUrl(sharedUrl);
