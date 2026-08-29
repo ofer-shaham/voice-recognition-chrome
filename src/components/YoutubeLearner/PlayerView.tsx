@@ -56,10 +56,10 @@ if (typeof document !== 'undefined' && 'wakeLock' in navigator) {
 
 // Media Session API for background playback
 if (typeof navigator !== 'undefined' && 'mediaSession' in navigator) {
-  navigator.mediaSession.setActionHandler('play', () => {});
-  navigator.mediaSession.setActionHandler('pause', () => {});
-  navigator.mediaSession.setActionHandler('nexttrack', () => {});
-  navigator.mediaSession.setActionHandler('previoustrack', () => {});
+  navigator.mediaSession.setActionHandler('play', () => { });
+  navigator.mediaSession.setActionHandler('pause', () => { });
+  navigator.mediaSession.setActionHandler('nexttrack', () => { });
+  navigator.mediaSession.setActionHandler('previoustrack', () => { });
 }
 
 interface Props {
@@ -139,18 +139,18 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     return isMobile ? 3 : 30; // Mobile: 1 before + current + 1 after
   };
 
-  const [lines, setLines]               = useState<ParsedLine[]>([]);
-  const [config, setConfig]             = useState<ProjectConfig>(() => {
+  const [lines, setLines] = useState<ParsedLine[]>([]);
+  const [config, setConfig] = useState<ProjectConfig>(() => {
     const base = normalizeConfig(project.config);
     return hydrateConfigFromUrl({ ...base, visibleLines: defaultVisibleLines() });
   });
   const isPlaying = playback.status === 'playing' || playback.status === 'starting';
   const currentLine = playback.currentLine;
   const playbackTime = playback.currentTime;
-  const [windowStart, setWindowStart]   = useState(0);
-  const [iframeSeg, setIframeSeg]       = useState({ startSec: 0, endSec: 0 });
-  const [iframeKey, setIframeKey]       = useState(0);
-  const [playerReady, setPlayerReady]   = useState(false);
+  const [windowStart, setWindowStart] = useState(0);
+  const [iframeSeg, setIframeSeg] = useState({ startSec: 0, endSec: 0 });
+  const [iframeKey, setIframeKey] = useState(0);
+  const [playerReady, setPlayerReady] = useState(false);
   const [showSettings, setShowSettings] = useState(initialShowSettings);
 
   useEffect(() => {
@@ -166,16 +166,16 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     }
   }, [onSave, project]);
   const [translationVer, setTranslationVer] = useState(0);
-  const [currentWord, setCurrentWord]       = useState<{ lineIdx: number; charIndex: number; charLength: number } | null>(null);
+  const [currentWord, setCurrentWord] = useState<{ lineIdx: number; charIndex: number; charLength: number } | null>(null);
   // Keep one persistent iframe so row playback can seek without reloading.
   const seamlessMode = true;
-  const [confirmDelete, setConfirmDelete]     = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [showManageLangs, setShowManageLangs] = useState(false);
-  const [availLangs, setAvailLangs]           = useState<AvailableLang[]>([]);
-  const [langsLoading, setLangsLoading]       = useState(false);
-  const [langsError, setLangsError]           = useState('');
-  const [addingLang, setAddingLang]           = useState<string | null>(null);
-  const [cachedCount, setCachedCount]         = useState(() => getTranslationCacheCount());
+  const [availLangs, setAvailLangs] = useState<AvailableLang[]>([]);
+  const [langsLoading, setLangsLoading] = useState(false);
+  const [langsError, setLangsError] = useState('');
+  const [addingLang, setAddingLang] = useState<string | null>(null);
+  const [cachedCount, setCachedCount] = useState(() => getTranslationCacheCount());
   const [translatingIndices, setTranslatingIndices] = useState<Set<number>>(new Set());
   const [translationStatus, setTranslationStatus] = useState<'idle' | 'translating' | 'ready' | 'rate-limited'>('idle');
   const [translationStatusMessage, setTranslationStatusMessage] = useState('');
@@ -203,19 +203,19 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
 
   const { langOptions, voicesForLang } = useVoices();
 
-  const cancelRef      = useRef(false);
-  const linesRef       = useRef<ParsedLine[]>([]);
-  const configRef      = useRef<ProjectConfig>(project.config);
-  const projectRef     = useRef<YtProject>(project);
-  const pendingSet     = useRef<Set<number>>(new Set());
+  const cancelRef = useRef(false);
+  const linesRef = useRef<ParsedLine[]>([]);
+  const configRef = useRef<ProjectConfig>(project.config);
+  const projectRef = useRef<YtProject>(project);
+  const pendingSet = useRef<Set<number>>(new Set());
   const translatingSet = useRef<Set<number>>(new Set());
-  const rowRefs        = useRef<Record<number, HTMLTableRowElement | null>>({});
-  const iframeRef      = useRef<HTMLIFrameElement>(null);  // seamless visible iframe
-  const audioRef       = useRef<HTMLIFrameElement>(null);  // always-present background audio iframe
-  const seamlessRef    = useRef(false);
-  const showVideoRef   = useRef(true);
-  const audioOnlyRef   = useRef(false);
-  const isPlayingRef   = useRef(false);
+  const rowRefs = useRef<Record<number, HTMLTableRowElement | null>>({});
+  const iframeRef = useRef<HTMLIFrameElement>(null);  // seamless visible iframe
+  const audioRef = useRef<HTMLIFrameElement>(null);  // always-present background audio iframe
+  const seamlessRef = useRef(false);
+  const showVideoRef = useRef(true);
+  const audioOnlyRef = useRef(false);
+  const isPlayingRef = useRef(false);
   const currentLineRef = useRef(-1);
   const initialSeekRef = useRef<number | null>(null);
   const playbackSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -264,15 +264,15 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
   }, [onSave, playbackTime]);
 
   // ── Derived: video visible? audio-only mode? ─────────────────────────────────
-  const showVideo      = config.colSettings['video']?.visible && !!project.videoId;
-  const audioOnlyMode  = !showVideo && !!project.videoId;
-  const totalDuration  = lines.length > 0 ? lines[lines.length - 1].endSec : 0;
+  const showVideo = config.colSettings['video']?.visible && !!project.videoId;
+  const audioOnlyMode = !showVideo && !!project.videoId;
+  const totalDuration = lines.length > 0 ? lines[lines.length - 1].endSec : 0;
   const currentTimeSec = playbackTime > 0
     ? playbackTime
     : (currentLine >= 0 ? (lines[currentLine]?.startSec ?? 0) : 0);
 
-  useEffect(() => { showVideoRef.current  = showVideo;     }, [showVideo]);
-  useEffect(() => { audioOnlyRef.current  = audioOnlyMode; }, [audioOnlyMode]);
+  useEffect(() => { showVideoRef.current = showVideo; }, [showVideo]);
+  useEffect(() => { audioOnlyRef.current = audioOnlyMode; }, [audioOnlyMode]);
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.localStorage.setItem('yt_ai_level', String(aiTranslationLevel));
@@ -337,7 +337,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     setWindowStart(Math.max(0, startLine - 3));
     setTranslationVer(v => v + 1);
     setPlayerReady(false);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.id, dispatch]);
 
   // ── On-demand translation ─────────────────────────────────────────────────────
@@ -417,7 +417,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     };
     run();
     return () => { cancelled = true; };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [translationVer, lines.length, windowStart, config.visibleLines, aiTranslationLevel, aiTranslationMode, aiTranslationRows]);
 
   // ── Slide window to follow current line ─────────────────────────────────────
@@ -781,7 +781,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
   // ── Playback ─────────────────────────────────────────────────────────────────
   const playLine = useCallback(async (lineIdx: number) => {
     const line = linesRef.current[lineIdx];
-    const cfg  = configRef.current;
+    const cfg = configRef.current;
     if (!line) return;
 
     const isSeamless = seamlessRef.current;
@@ -941,9 +941,9 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
   const downloadSrt = useCallback((track: { label: string; srtContent: string }) => {
     const safe = (project.title + '-' + track.label).replace(/[^a-z0-9_-]/gi, '_').slice(0, 80);
     const blob = new Blob([track.srtContent], { type: 'text/plain;charset=utf-8' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
     a.download = `${safe}.srt`;
     a.click();
     URL.revokeObjectURL(url);
