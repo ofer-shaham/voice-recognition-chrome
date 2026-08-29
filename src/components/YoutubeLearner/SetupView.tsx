@@ -117,10 +117,16 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
   const [mode, setMode] = useState<SetupMode>('fetch');
   const [step, setStep] = useState<Step>('url');
 
+  const getSharedSetupUrl = () => {
+    if (typeof window === 'undefined') return '';
+    const params = new URLSearchParams(window.location.search);
+    return params.get('url') || params.get('u') || params.get('videoUrl') || params.get('v') || '';
+  };
+
   // ── URL step ──────────────────────────────────────────────────────────────
   const [url, setUrl] = useState(() => {
-    const requestedId = new URLSearchParams(window.location.search).get('v');
-    return requestedId || 'https://www.youtube.com/watch?v=prSfxdmjNzE';
+    const sharedUrl = getSharedSetupUrl();
+    return sharedUrl || 'https://www.youtube.com/watch?v=prSfxdmjNzE';
   });
   const [findLoading, setFindLoading] = useState(false);
   const [findError, setFindError] = useState('');
@@ -160,6 +166,22 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
   const projectFileRef = useRef<HTMLInputElement | null>(null);
   const previewVideoId = extractVideoId(url.trim());
   const subtitleServiceInfo = SUBTITLE_SERVICE_INFO[subtitleService];
+
+  React.useEffect(() => {
+    const sharedUrl = getSharedSetupUrl();
+    if (!sharedUrl) return;
+
+    const invidiousUrl = parseInvidiousCaptionsUrl(sharedUrl);
+    if (invidiousUrl) {
+      setSubtitleService('invidious');
+      setInvidiousCaptionsUrl(sharedUrl);
+    }
+
+    setUrl(sharedUrl);
+    if (sharedUrl.trim()) {
+      handleFindLanguages(sharedUrl);
+    }
+  }, []);
 
   const serviceToggle = (
     <div className="yl-service-picker" role="group" aria-label="Subtitle fetch provider">

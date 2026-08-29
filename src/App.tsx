@@ -28,10 +28,10 @@ function AppRoutes() {
   if (path === "/") return <AppHub />;
   if (path === "/listen") return <Intro />;
 
-  if (path === "/youtube2") return <Navigate to="/youtube2/setup" replace />;
+  if (path === "/youtube2") return <Navigate to={`/youtube2/setup${location.search}`} replace />;
   if (path.startsWith("/youtube2/")) return <YoutubeLearner routeBase="/youtube2" />;
 
-  if (path === "/youtube") return <Navigate to="/youtube/setup" replace />;
+  if (path === "/youtube") return <Navigate to={`/youtube/setup${location.search}`} replace />;
   if (["/youtube/setup", "/youtube/home", "/youtube/settings"].includes(path)) return <YoutubeLearner />;
   if (path.startsWith("/youtube/view/") || path.startsWith("/youtube/project/")) return <YoutubeLearner />;
 
