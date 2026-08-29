@@ -34,23 +34,22 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
     localStorage.setItem('youtube-learner-theme', next);
   };
 
-  // Keep the two real views addressable: /youtube/setup and
-  // /youtube/project/:projectId. Query links remain supported for sharing.
+  const isSetupRoute = [routeBase, `${routeBase}/setup`, `${routeBase}/home`].includes(location.pathname);
+  const isSettingsRoute = location.pathname === `${routeBase}/settings`;
+  const isProjectRoute = location.pathname.startsWith(`${routeBase}/view/`) || location.pathname.startsWith(`${routeBase}/project/`);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const resolvedProjects = projects.length > 0 ? projects : loadPersistedProjects();
-    const routeId = location.pathname.startsWith(`${routeBase}/project/`)
-      ? decodeURIComponent(location.pathname.slice(`${routeBase}/project/`.length))
-      : location.pathname.startsWith(`${routeBase}/view/`)
-        ? decodeURIComponent(location.pathname.slice(`${routeBase}/view/`.length))
-        : '';
+    const routeId = isProjectRoute
+      ? decodeURIComponent(location.pathname.slice(`${routeBase}/view/`.length).slice(`${routeBase}/project/`.length))
+      : '';
     const urlId = routeId || params.get('v') || params.get('p');
     const fromUrl = urlId ? resolvedProjects.find(p => p.id === urlId || p.videoId === urlId) : null;
     const lastId = getLastId();
     const lastProject = lastId ? resolvedProjects.find(p => p.id === lastId) : resolvedProjects[0] ?? null;
-    const isSetupRoute = location.pathname === routeBase || location.pathname === `${routeBase}/setup` || location.pathname === `${routeBase}/home`;
 
-    if (location.pathname === `${routeBase}/settings`) {
+    if (isSettingsRoute) {
       const targetProject = fromUrl ?? lastProject;
       setActiveProject(targetProject);
       setShowSetup(!targetProject);
@@ -66,13 +65,13 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
     if (fromUrl) {
       setActiveProject(fromUrl);
       setShowSetup(false);
-      if (!location.pathname.startsWith(`${routeBase}/view/`) && !location.pathname.startsWith(`${routeBase}/project/`)) {
+      if (!isProjectRoute) {
         navigate(`${routeBase}/view/${encodeURIComponent(fromUrl.id)}`, { replace: true });
       }
       return;
     }
 
-    if (location.pathname.startsWith(`${routeBase}/view/`) || location.pathname.startsWith(`${routeBase}/project/`)) {
+    if (isProjectRoute) {
       setActiveProject(lastProject);
       setShowSetup(!lastProject);
       return;
@@ -80,7 +79,7 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
 
     setActiveProject(null);
     setShowSetup(true);
-  }, [projects, location.pathname, routeBase, navigate, getLastId]);
+  }, [projects, location.pathname, routeBase, navigate, getLastId, isProjectRoute, isSettingsRoute, isSetupRoute]);
 
   const handleProjectReady = (project: YtProject) => {
     upsert(project);
