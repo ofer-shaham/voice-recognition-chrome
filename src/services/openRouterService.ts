@@ -34,6 +34,22 @@ export const DEFAULT_MODEL = OPENROUTER_MODELS[0].id;
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
+const getUrlApiKey = (): string | undefined => {
+  if (typeof window === 'undefined') return undefined;
+
+  try {
+    const params = new URLSearchParams(window.location.search);
+    for (const name of ['apiKey', 'openrouter_api_key', 'openrouterKey', 'openrouterApiKey', 'key', 'orKey']) {
+      const value = params.get(name)?.trim();
+      if (value) return value;
+    }
+  } catch {
+    // ignore malformed query strings
+  }
+
+  return undefined;
+};
+
 export const checkServerKey = async (): Promise<boolean> => {
   for (let attempt = 0; attempt < 4; attempt++) {
     try {
@@ -66,7 +82,9 @@ export const chatWithAI = async (
   maxRetries = 3,
 ): Promise<ChatResponse> => {
   const body: Record<string, unknown> = { messages, model };
-  if (apiKey) body.apiKey = apiKey;
+  const urlApiKey = getUrlApiKey();
+  const effectiveKey = apiKey || urlApiKey;
+  if (effectiveKey) body.apiKey = effectiveKey;
   if (maxTokens) body.maxTokens = maxTokens;
 
   let lastError: Error = new Error('Unknown error');

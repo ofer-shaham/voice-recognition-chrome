@@ -425,7 +425,8 @@ app.get("/api/free-models", async (_req, res) => {
 
 // ── AI health check ───────────────────────────────────────────────────────────
 app.post("/api/health_ai", async (req, res) => {
-  const key = (req.body || {}).apiKey || ENV_KEY;
+  const queryKey = req.query && (req.query.apiKey || req.query.openrouter_api_key || req.query.openrouterKey || req.query.key || req.query.orKey);
+  const key = (req.body || {}).apiKey || queryKey || ENV_KEY;
   if (!key) return res.status(401).json({ ok: false, error: "No API key available." });
   const t0 = Date.now();
   try {
@@ -450,10 +451,11 @@ app.post("/api/health_ai", async (req, res) => {
 // ── Chat proxy ────────────────────────────────────────────────────────────────
 app.post("/api/chat", async (req, res) => {
   const { messages, model, apiKey, maxTokens } = req.body || {};
+  const queryKey = req.query && (req.query.apiKey || req.query.openrouter_api_key || req.query.openrouterKey || req.query.key || req.query.orKey);
   if (!Array.isArray(messages) || !model) {
     return res.status(400).json({ error: "messages (array) and model (string) are required" });
   }
-  const key = apiKey || ENV_KEY;
+  const key = apiKey || queryKey || ENV_KEY;
   if (!key) return res.status(401).json({ error: "No API key available. Set OPENROUTER_API_KEY, or enter one in the UI." });
 
   const orBody = { model, messages };

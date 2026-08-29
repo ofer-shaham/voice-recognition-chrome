@@ -13,7 +13,7 @@ import {
 } from './types';
 import { buildLines, parseSrt, secondsToHms, colLabel, sleep, dedupeAvailLangs } from './utils';
 import { DEFAULT_TTS_RATE } from './constants';
-import { translate, getTranslationCacheCount } from '../../utils/translate';
+import { translate, getTranslationCacheCount, DEFAULT_OPENROUTER_MODEL } from '../../utils/translate';
 import { freeSpeak } from '../../utils/freeSpeak';
 import isRtl from '../../utils/isRtl';
 import { useVoices } from './useVoices';
@@ -179,6 +179,21 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
   const [translatingIndices, setTranslatingIndices] = useState<Set<number>>(new Set());
   const [translationStatus, setTranslationStatus] = useState<'idle' | 'translating' | 'ready' | 'rate-limited'>('idle');
   const [translationStatusMessage, setTranslationStatusMessage] = useState('');
+  const [aiTranslationLevel, setAiTranslationLevel] = useState<number>(() => {
+    if (typeof window === 'undefined') return 3;
+    const raw = Number(window.localStorage.getItem('yt_ai_level') || '3');
+    return Number.isFinite(raw) ? Math.min(5, Math.max(1, Math.round(raw))) : 3;
+  });
+  const [aiTranslationMode, setAiTranslationMode] = useState<'full' | 'rows'>(() => {
+    if (typeof window === 'undefined') return 'rows';
+    const raw = window.localStorage.getItem('yt_ai_mode');
+    return raw === 'full' || raw === 'rows' ? raw : 'rows';
+  });
+  const [aiTranslationRows, setAiTranslationRows] = useState<number>(() => {
+    if (typeof window === 'undefined') return 12;
+    const raw = Number(window.localStorage.getItem('yt_ai_rows') || '12');
+    return Number.isFinite(raw) ? Math.max(1, Math.round(raw)) : 12;
+  });
   const [newTranslationLang, setNewTranslationLang] = useState('');
   const [alternateYoutubeUrl, setAlternateYoutubeUrl] = useState(project.alternateYoutubeUrl || '');
   const [subtitleProxyUrl, setSubtitleProxyUrl] = useState(project.subtitleProxyUrl || '');
@@ -258,6 +273,14 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
 
   useEffect(() => { showVideoRef.current  = showVideo;     }, [showVideo]);
   useEffect(() => { audioOnlyRef.current  = audioOnlyMode; }, [audioOnlyMode]);
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('yt_ai_level', String(aiTranslationLevel));
+      window.localStorage.setItem('yt_ai_mode', aiTranslationMode);
+      window.localStorage.setItem('yt_ai_rows', String(aiTranslationRows));
+      window.localStorage.setItem('yt_ai_model', DEFAULT_OPENROUTER_MODEL);
+    }
+  }, [aiTranslationLevel, aiTranslationMode, aiTranslationRows]);
 
   // ── URL sync: reflect project + config in address bar ───────────────────────
   useEffect(() => {
@@ -395,7 +418,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     run();
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [translationVer, lines.length, windowStart, config.visibleLines]);
+  }, [translationVer, lines.length, windowStart, config.visibleLines, aiTranslationLevel, aiTranslationMode, aiTranslationRows]);
 
   // ── Slide window to follow current line ─────────────────────────────────────
   useEffect(() => {
@@ -793,7 +816,8 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
         const lang = isTranslationCol(colId)
           ? translationLang(colId, cfg)
           : colId.replace('track:', '');
-        if (text.trim()) {
+        const shouldReadAloud = (s?.playOrder ?? 0) > 0;
+        if (text.trim() && shouldReadAloud) {
           setCurrentWord(null); // Reset before new speech
           try {
             await freeSpeak(
@@ -985,6 +1009,46 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
                   </datalist>
                 </div>
               </label>
+              <label className="yl-setting-field">
+                <span>AI translation model</span>
+                <span className="yl-setting-info">OpenRouter auto (free)</span>
+              </label>
+              <label className="yl-setting-field">
+                <span>AI clarity level</span>
+                <input
+                  type="range"
+                  min={1}
+                  max={5}
+                  step={1}
+                  value={aiTranslationLevel}
+                  onChange={e => setAiTranslationLevel(Number(e.target.value))}
+                />
+                <span className="yl-setting-info">Level {aiTranslationLevel}/5</span>
+              </label>
+              <label className="yl-setting-field">
+                <span>AI translation scope</span>
+                <select
+                  className="yl-select-sm"
+                  value={aiTranslationMode}
+                  onChange={e => setAiTranslationMode(e.target.value as 'full' | 'rows')}
+                >
+                  <option value="rows">Next X rows</option>
+                  <option value="full">Entire SRT file</option>
+                </select>
+              </label>
+              {aiTranslationMode === 'rows' && (
+                <label className="yl-setting-field">
+                  <span>Rows to translate</span>
+                  <input
+                    type="number"
+                    className="yl-input-sm"
+                    min={1}
+                    max={200}
+                    value={aiTranslationRows}
+                    onChange={e => setAiTranslationRows(Math.max(1, Math.min(200, Number(e.target.value) || 1)))}
+                  />
+                </label>
+              )}
               <label className="yl-setting-field">
                 <span>Source column</span>
                 <select className="yl-select-sm" value={config.translationSource}
@@ -1401,6 +1465,46 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
               </div>
             </label>
             <label className="yl-setting-field">
+              <span>AI translation model</span>
+              <span className="yl-setting-info">OpenRouter auto (free)</span>
+            </label>
+            <label className="yl-setting-field">
+              <span>AI clarity level</span>
+              <input
+                type="range"
+                min={1}
+                max={5}
+                step={1}
+                value={aiTranslationLevel}
+                onChange={e => setAiTranslationLevel(Number(e.target.value))}
+              />
+              <span className="yl-setting-info">Level {aiTranslationLevel}/5</span>
+            </label>
+            <label className="yl-setting-field">
+              <span>AI translation scope</span>
+              <select
+                className="yl-select-sm"
+                value={aiTranslationMode}
+                onChange={e => setAiTranslationMode(e.target.value as 'full' | 'rows')}
+              >
+                <option value="rows">Next X rows</option>
+                <option value="full">Entire SRT file</option>
+              </select>
+            </label>
+            {aiTranslationMode === 'rows' && (
+              <label className="yl-setting-field">
+                <span>Rows to translate</span>
+                <input
+                  type="number"
+                  className="yl-input-sm"
+                  min={1}
+                  max={200}
+                  value={aiTranslationRows}
+                  onChange={e => setAiTranslationRows(Math.max(1, Math.min(200, Number(e.target.value) || 1)))}
+                />
+              </label>
+            )}
+            <label className="yl-setting-field">
               <span>Source column</span>
               <select className="yl-select-sm" value={config.translationSource}
                 onChange={e => { updateConfig({ translationSource: e.target.value }); retranslate(); }}>
@@ -1487,6 +1591,16 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
                         onChange={e => updateColSetting(colId, { playOrder: Math.max(0, parseInt(e.target.value) || 0) })}
                       />
                     </label>
+                    {colId !== 'video' && (
+                      <label className="yl-setting-field">
+                        <span>Sound</span>
+                        <input
+                          type="checkbox"
+                          checked={s.playOrder > 0}
+                          onChange={e => updateColSetting(colId, { playOrder: e.target.checked ? Math.max(1, s.playOrder || 1) : 0 })}
+                        />
+                      </label>
+                    )}
                     {colId !== 'video' && (() => {
                       const colLang = isTranslationCol(colId)
                         ? translationLang(colId, config)
