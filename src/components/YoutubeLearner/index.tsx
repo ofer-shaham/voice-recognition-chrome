@@ -122,6 +122,44 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
     }
   };
 
+  if (location.pathname === `${routeBase}/settings`) {
+    const projectToEdit = activeProject ?? (projects[0] ?? null);
+    if (!projectToEdit) {
+      return (
+        <SetupView
+          onProjectReady={handleProjectReady}
+          onProjectFetched={upsert}
+          recentProject={null}
+          projects={projects}
+          hasHistory={projects.length > 0}
+          onLoadProject={handleSelectProject}
+          onDeleteProject={() => {}}
+          onLoadRecent={() => {}}
+          onClearHistory={() => { clearAll(); setActiveProject(null); }}
+          theme={theme}
+          onThemeChange={handleThemeChange}
+        />
+      );
+    }
+
+    return (
+      <PlayerView
+        routeBase={routeBase}
+        project={projectToEdit}
+        onSave={handleSave}
+        onBackHome={() => { setShowSetup(true); setActiveProject(null); navigate(`${routeBase}/setup`); }}
+        onNewVideo={() => { setShowSetup(true); setActiveProject(null); navigate(`${routeBase}/setup`); }}
+        onDelete={handleDelete}
+        projects={projects}
+        onSelectProject={handleSelectProject}
+        theme={theme}
+        onThemeChange={handleThemeChange}
+        initialShowSettings={true}
+        settingsOnly={true}
+      />
+    );
+  }
+
   if (showSetup || !activeProject) {
     const lastId = getLastId();
     const recent = (lastId ? projects.find(p => p.id === lastId) : projects[0]) ?? null;
@@ -172,7 +210,7 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
       onSelectProject={handleSelectProject}
       theme={theme}
       onThemeChange={handleThemeChange}
-      initialShowSettings={location.pathname === `${routeBase}/settings`}
+      initialShowSettings={false}
     />
   );
 }

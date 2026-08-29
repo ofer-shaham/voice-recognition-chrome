@@ -74,6 +74,7 @@ interface Props {
   theme: YoutubeTheme;
   onThemeChange: (theme: YoutubeTheme) => void;
   initialShowSettings?: boolean;
+  settingsOnly?: boolean;
 }
 
 // Encode colId for URL: track:en → en, translation → t
@@ -125,7 +126,7 @@ const hydrateConfigFromUrl = (source: ProjectConfig): ProjectConfig => {
   };
 };
 
-export default function PlayerView({ routeBase = '/youtube', project, onSave, onBackHome, onNewVideo, onDelete, projects, onSelectProject, theme, onThemeChange, initialShowSettings = false }: Props) {
+export default function PlayerView({ routeBase = '/youtube', project, onSave, onBackHome, onNewVideo, onDelete, projects, onSelectProject, theme, onThemeChange, initialShowSettings = false, settingsOnly = false }: Props) {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const playback = useSelector((state: RootState) => state.youtubePlayback);
@@ -908,6 +909,158 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     setShowDownload(false);
   }, [project.title]);
 
+  if (settingsOnly) {
+    return (
+      <div className={`yl-player yl-theme-${theme}`}>
+        <div className="yl-header">
+          <div className="yl-header-left">
+            <button className="yl-btn-ghost" onClick={() => { stopMedia(); onBackHome(); }}>← Home</button>
+            <button className="yl-btn-ghost" onClick={() => { stopMedia(); onNewVideo(); }}>＋ New</button>
+            <label className="yl-theme-control">
+              <span className="yl-sr-only">Theme</span>
+              <select className="yl-theme-select" value={theme} onChange={e => onThemeChange(e.target.value as YoutubeTheme)}>
+                <option value="light">Light</option>
+                <option value="blue">Blue</option>
+                <option value="dark">Dark</option>
+              </select>
+            </label>
+            <span className="yl-video-title" title={project.title}>{project.title}</span>
+          </div>
+        </div>
+
+        {showSettings && lines.length > 0 && (
+          <div className="yl-settings">
+            <div className="yl-settings-heading">
+              <div>
+                <strong>Project settings</strong>
+                <span>Choose what is shown and how captions are read.</span>
+              </div>
+              <button className="yl-btn-ghost yl-btn-sm" onClick={() => setShowSettings(false)}>Close</button>
+            </div>
+            <div className="yl-settings-global">
+              <label className="yl-setting-field yl-translation-setting">
+                <span>Add language</span>
+                <div className="yl-translation-setting-control">
+                  <input
+                    className="yl-input-sm yl-target-input"
+                    type="text"
+                    list="yl-settings-lang-suggestions"
+                    value={newTranslationLang}
+                    onChange={e => setNewTranslationLang(e.target.value)}
+                    aria-label="New translation language"
+                    placeholder="ar, ru, he…"
+                  />
+                  <button
+                    className="yl-btn-secondary yl-btn-sm"
+                    type="button"
+                    onClick={() => {
+                      const next = newTranslationLang.trim();
+                      if (!next) return;
+                      toggleTranslation(next);
+                      setNewTranslationLang('');
+                    }}
+                  >
+                    Add language
+                  </button>
+                  <datalist id="yl-settings-lang-suggestions">
+                    {langOptions.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
+                  </datalist>
+                </div>
+              </label>
+              <label className="yl-setting-field">
+                <span>Source column</span>
+                <select className="yl-select-sm" value={config.translationSource}
+                  onChange={e => { updateConfig({ translationSource: e.target.value }); retranslate(); }}>
+                  {config.colOrder.filter(id => id.startsWith('track:')).map(id => (
+                    <option key={id} value={id}>{colLabel(id, project)}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="yl-setting-field">
+                <span>Visible lines</span>
+                <input type="number" className="yl-input-sm" min={3} max={500}
+                  value={config.visibleLines}
+                  onChange={e => updateConfig({ visibleLines: Math.max(3, parseInt(e.target.value) || 30) })}
+                />
+              </label>
+              <div className="yl-setting-field">
+                <span>Cached translations</span>
+                <span className="yl-setting-info">{cachedCount} line{cachedCount === 1 ? '' : 's'}</span>
+              </div>
+            </div>
+
+            <div className="yl-settings-cols">
+              {config.colOrder.map(colId => {
+                const s = config.colSettings[colId];
+                if (!s) return null;
+                return (
+                  <div key={colId} data-col-id={colId} className={`yl-col-card ${s.visible ? '' : 'yl-col-card-hidden'}`}>
+                    <div className="yl-col-card-header">
+                      <span className="yl-col-card-name">{colLabel(colId, project)}</span>
+                      {isTranslationCol(colId) && (
+                        <button className="yl-btn-ghost yl-btn-sm" type="button"
+                          onClick={() => removeTranslation(translationLang(colId, config))}
+                          title="Remove translation">Remove</button>
+                      )}
+                      <label className="yl-toggle">
+                        <input type="checkbox" checked={s.visible}
+                          onChange={e => updateColSetting(colId, { visible: e.target.checked })} />
+                        <span className="yl-toggle-track" />
+                      </label>
+                    </div>
+                    <div className="yl-col-card-body">
+                      <label className="yl-setting-field">
+                        <span title="Play order (0 = skip)">Order</span>
+                        <input type="number" className="yl-input-sm" min={0} max={10}
+                          value={s.playOrder}
+                          onChange={e => updateColSetting(colId, { playOrder: Math.max(0, parseInt(e.target.value) || 0) })}
+                        />
+                      </label>
+                      {colId !== 'video' && (() => {
+                        const colLang = isTranslationCol(colId)
+                          ? translationLang(colId, config)
+                          : colId.replace('track:', '');
+                        const colVoices = voicesForLang(colLang);
+                        return (
+                          <>
+                            <label className="yl-setting-field">
+                              <span>Speed {s.ttsRate.toFixed(1)}×</span>
+                              <input type="range" min={0.5} max={2} step={0.1}
+                                value={s.ttsRate}
+                                onChange={e => updateColSetting(colId, { ttsRate: parseFloat(e.target.value) })}
+                              />
+                            </label>
+                            {colVoices.length > 0 && (
+                              <label className="yl-setting-field yl-voice-field">
+                                <span>Voice</span>
+                                <select
+                                  className="yl-select-sm yl-voice-select"
+                                  value={s.voiceName ?? ''}
+                                  onChange={e => updateColSetting(colId, { voiceName: e.target.value || undefined })}
+                                >
+                                  <option value="">Auto</option>
+                                  {colVoices.map(v => (
+                                    <option key={v.name} value={v.name}>
+                                      {v.name}{v.localService ? '' : ' ☁'}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className={`yl-player yl-theme-${theme}`}>
 
@@ -1056,6 +1209,9 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
           <button
             className={`yl-btn-ghost ${showSettings ? 'yl-active' : ''}`}
             onClick={() => {
+              if (isPlayingRef.current || playback.status === 'playing' || playback.status === 'starting') {
+                stop();
+              }
               if (typeof navigate === 'function') {
                 navigate(`${routeBase}/settings`);
                 return;
