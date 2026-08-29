@@ -21,9 +21,18 @@ const Loading = () => <div>Loading...</div>;
 
 const ROUTES_WITHOUT_FOOTER = ["/ai-conversation"];
 
+const normalizeRoutePath = (path: string) => {
+  const normalized = path.replace(/\/+/g, "/");
+  return normalized === "" ? "/" : normalized;
+};
+
 function AppRoutes() {
   const location = useLocation();
-  const path = location.pathname;
+  const path = normalizeRoutePath(location.pathname);
+
+  if (path !== location.pathname) {
+    return <Navigate to={`${path}${location.search}`} replace />;
+  }
 
   if (path === "/") return <AppHub />;
   if (path === "/listen") return <Intro />;

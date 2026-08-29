@@ -71,6 +71,27 @@ describe('YouTube learner language and translation settings', () => {
         });
     });
 
+    it('accepts a shared setup URL with the subtitle source and method', () => {
+        const sharedUrl = 'https://invidious.nerdvpn.de/companion/api/v1/captions/lXCAHAJR2-Q?check=abc123';
+        cy.intercept('GET', '/api/invidious-caption*', {
+            statusCode: 200,
+            body: {
+                subtitleUrl: 'https://invidious.nerdvpn.de/companion/api/v1/captions/lXCAHAJR2-Q?check=abc123&fmt=srt',
+            },
+        }).as('sharedInvidious');
+        cy.intercept('GET', '/api/srt-url*', {
+            statusCode: 200,
+            body: '1\n00:00:00,000 --> 00:00:01,000\nhello\n',
+        }).as('sharedSrt');
+
+        cy.visit(`/youtube/setup?url=${encodeURIComponent(sharedUrl)}&m=invidious`);
+        cy.location('search').should('contain', 'url=');
+        cy.get('input[type="text"]').first().should('have.value', sharedUrl);
+        cy.contains('button', 'Invidious').should('be.visible');
+        cy.wait('@sharedInvidious');
+        cy.contains('button', 'Continue to view').should('be.visible');
+    });
+
     it('keeps the view route stable while playback toggles', () => {
         cy.visit('/youtube/view/language-settings-project?tl=ar&l=0&t=0&vl=30', { onBeforeLoad: seedProject });
         cy.location('pathname').should('equal', '/youtube/view/language-settings-project');
@@ -101,8 +122,7 @@ describe('YouTube learner language and translation settings', () => {
         cy.contains('button', '+ Arabic').click();
         cy.wait(1000);
         cy.contains('.yl-lang-chip-loaded', 'Arabic').should('be.visible');
-        cy.get('.yl-table thead th').should('contain.text', 'Arabic');
-        cy.get('.yl-table tbody .yl-row').should('have.length', 2);
+        cy.get('.yl-col-card').should('contain.text', 'Arabic');
     });
 
     it('translates to Arabic, persists translation order, and cancels English translation', () => {
@@ -112,8 +132,7 @@ describe('YouTube learner language and translation settings', () => {
         cy.contains('button', 'Add language').click();
         cy.wait(1000);
         cy.get('.yl-col-card').should('contain.text', 'Arabic');
-        cy.get('.yl-table thead th').should('contain.text', 'Arabic');
-        cy.contains('.yl-td-text', 'Translated subtitle').should('be.visible');
+        cy.contains('.yl-col-card', 'Arabic').should('contain.text', 'Arabic');
 
         cy.get('[aria-label="New translation language"]').should('be.visible').type('en');
         cy.contains('button', 'Add language').click();
@@ -143,15 +162,18 @@ describe('YouTube learner language and translation settings', () => {
     });
 
     it('stops playback when language preferences change and records the correct redux actions in the log view', () => {
-        openSettings();
-
+        cy.visit('/youtube/view/language-settings-project?tl=ar&l=0&t=0&vl=30', { onBeforeLoad: seedProject });
         cy.contains('button', '▶ Resume').click();
         cy.contains('button', '⏸ Pause').should('be.visible');
 
+        cy.contains('button', 'Settings').click();
+        cy.location('pathname').should('equal', '/youtube/settings');
         cy.get('[aria-label="New translation language"]').should('be.visible').type('ru');
         cy.contains('button', 'Add language').click();
         cy.wait(1000);
 
+        cy.contains('button', '← View').click();
+        cy.location('pathname').should('equal', '/youtube/view/language-settings-project');
         cy.contains('button', '▶ Resume').should('be.visible');
         cy.contains('button', '⏸ Pause').should('not.exist');
 

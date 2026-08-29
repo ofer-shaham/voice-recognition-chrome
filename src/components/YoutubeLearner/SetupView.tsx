@@ -176,6 +176,17 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
   const previewVideoId = extractVideoId(url.trim());
   const subtitleServiceInfo = SUBTITLE_SERVICE_INFO[subtitleService];
 
+  const buildSetupShareUrl = () => {
+    const params = new URLSearchParams();
+    if (url.trim()) params.set('url', url.trim());
+    params.set('m', subtitleService);
+
+    const sharePath = window.location.pathname.startsWith('/youtube2/') ? '/youtube2/setup' : '/youtube/setup';
+    const shareUrl = new URL(sharePath, window.location.origin);
+    shareUrl.search = params.toString();
+    return shareUrl.toString();
+  };
+
   React.useEffect(() => {
     const sharedUrl = getSharedSetupUrl();
     const sharedMethod = getSharedSetupMethod();
@@ -759,6 +770,20 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
           }}
         >
           Fill Invidious demo URL
+        </button>
+        <button
+          type="button"
+          className="yl-btn-ghost"
+          onClick={async () => {
+            const shareUrl = buildSetupShareUrl();
+            try {
+              await navigator.clipboard.writeText(shareUrl);
+            } catch {
+              window.prompt('Copy this URL:', shareUrl);
+            }
+          }}
+        >
+          Share setup URL
         </button>
 
         {serviceToggle}
