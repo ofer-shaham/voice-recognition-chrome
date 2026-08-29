@@ -67,6 +67,7 @@ interface Props {
   project: YtProject;
   onSave: (p: YtProject) => void;
   onBackHome: () => void;
+  onBackToView?: () => void;
   onNewVideo: () => void;
   onDelete: (id: string) => void;
   projects: YtProject[];
@@ -126,7 +127,7 @@ const hydrateConfigFromUrl = (source: ProjectConfig): ProjectConfig => {
   };
 };
 
-export default function PlayerView({ routeBase = '/youtube', project, onSave, onBackHome, onNewVideo, onDelete, projects, onSelectProject, theme, onThemeChange, initialShowSettings = false, settingsOnly = false }: Props) {
+export default function PlayerView({ routeBase = '/youtube', project, onSave, onBackHome, onBackToView, onNewVideo, onDelete, projects, onSelectProject, theme, onThemeChange, initialShowSettings = false, settingsOnly = false }: Props) {
   const dispatch = useDispatch<AppDispatch>();
   const navigate = useNavigate();
   const playback = useSelector((state: RootState) => state.youtubePlayback);
@@ -914,6 +915,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
       <div className={`yl-player yl-theme-${theme}`}>
         <div className="yl-header">
           <div className="yl-header-left">
+            <button className="yl-btn-ghost" onClick={() => { stopMedia(); if (onBackToView) { onBackToView(); } else { onBackHome(); } }}>← View</button>
             <button className="yl-btn-ghost" onClick={() => { stopMedia(); onBackHome(); }}>← Home</button>
             <button className="yl-btn-ghost" onClick={() => { stopMedia(); onNewVideo(); }}>＋ New</button>
             <label className="yl-theme-control">

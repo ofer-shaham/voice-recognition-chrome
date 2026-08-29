@@ -147,6 +147,14 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
         project={projectToEdit}
         onSave={handleSave}
         onBackHome={() => { setShowSetup(true); setActiveProject(null); navigate(`${routeBase}/setup`); }}
+        onBackToView={() => {
+          setShowSetup(false);
+          if (projectToEdit) {
+            navigate(`${routeBase}/view/${encodeURIComponent(projectToEdit.id)}`);
+          } else {
+            navigate(`${routeBase}/setup`);
+          }
+        }}
         onNewVideo={() => { setShowSetup(true); setActiveProject(null); navigate(`${routeBase}/setup`); }}
         onDelete={handleDelete}
         projects={projects}
