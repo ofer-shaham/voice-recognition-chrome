@@ -68,4 +68,22 @@ describe('translate', () => {
             expect.anything(),
         );
     });
+
+    it('falls back to Google auto-detect when source language is unknown', async () => {
+        globalThis.fetch = vi.fn().mockResolvedValue({
+            ok: true,
+            json: async () => ({ translatedText: 'مرحبا' }),
+        }) as unknown as typeof fetch;
+
+        const result = await translate({
+            finalTranscriptProxy: 'Hello',
+            fromLang: 'und',
+            toLang: 'ar',
+        });
+
+        expect(result).toBe('مرحبا');
+        expect(globalThis.fetch).toHaveBeenCalledWith(
+            expect.stringContaining('sl=auto'),
+        );
+    });
 });

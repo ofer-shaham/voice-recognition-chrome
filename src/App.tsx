@@ -1,5 +1,5 @@
 import React, { lazy, Suspense } from "react";
-import { BrowserRouter as Router, useLocation } from "react-router-dom";
+import { BrowserRouter as Router, Navigate, useLocation } from "react-router-dom";
 import Footer from "./components/Footer";
 import DebugPanel from "./components/DebugPanel/DebugPanel";
 import "./styles/App.css";
@@ -27,8 +27,10 @@ function AppRoutes() {
 
   if (path === "/") return <AppHub />;
   if (path === "/listen") return <Intro />;
-  if (path === "/youtube2" || path.startsWith("/youtube2/")) return <YoutubeLearner routeBase="/youtube2" />;
-  if (path === "/youtube" || path.startsWith("/youtube/")) return <YoutubeLearner />;
+  if (path === "/youtube2") return <Navigate to="/youtube2/setup" replace />;
+  if (path.startsWith("/youtube2/")) return <YoutubeLearner routeBase="/youtube2" />;
+  if (path === "/youtube") return <Navigate to="/youtube/setup" replace />;
+  if (path === "/youtube/setup" || path === "/youtube/home" || path.startsWith("/youtube/")) return <YoutubeLearner />;
   if (path === "/proverb") return <ProverbList />;
   if (path === "/simultanuos_translation") return <SimultaneousTranslation />;
   if (path === "/ai-conversation") return <AiConversation />;

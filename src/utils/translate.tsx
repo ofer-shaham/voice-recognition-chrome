@@ -7,7 +7,7 @@ type TranslationMethod = 'openapi' | 'google';
 
 const normalizeLanguage = (value: string): string => {
     const normalized = (value || '').trim().toLowerCase();
-    if (!normalized || normalized === 'auto' || normalized.endsWith('_auto') || normalized.endsWith('-auto')) {
+    if (!normalized || normalized === 'auto' || normalized === 'und' || normalized === 'unknown' || normalized.endsWith('_auto') || normalized.endsWith('-auto')) {
         return 'auto';
     }
     return normalized.replace(/_/g, '-');

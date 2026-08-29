@@ -57,6 +57,44 @@ describe('YouTube learner language and translation settings', () => {
         cy.contains('button', 'Settings').click();
     };
 
+    it('hydrates the translation column from a shared view URL', () => {
+        cy.visit('/youtube/view/language-settings-project?tl=ar&l=0&t=0&vl=30', { onBeforeLoad: seedProject });
+        cy.contains('button', 'Settings').click();
+        cy.location('pathname').should('equal', '/youtube/settings');
+        cy.get('.yl-col-card').should('contain.text', 'Arabic');
+        cy.get('[data-col-id="translation:ar"]').should('exist');
+        cy.window().then(win => {
+            const projects = JSON.parse(win.localStorage.getItem('yt-learner-projects') || '[]');
+            const saved = projects.find((item: typeof project) => item.id === project.id);
+            expect(saved.config.targetLang).to.equal('ar');
+            expect(saved.config.translationTargets).to.include('ar');
+        });
+    });
+
+    it('keeps the view route stable while playback toggles', () => {
+        cy.visit('/youtube/view/language-settings-project?tl=ar&l=0&t=0&vl=30', { onBeforeLoad: seedProject });
+        cy.location('pathname').should('equal', '/youtube/view/language-settings-project');
+
+        const assertStableUrl = () => {
+            cy.location('pathname').then((pathname) => {
+                cy.location('search').then((search) => {
+                    cy.wait(1000);
+                    cy.location('pathname').should('equal', pathname);
+                    cy.location('search').should('equal', search);
+                });
+            });
+        };
+
+        cy.contains('button', '▶ Resume').click();
+        assertStableUrl();
+
+        cy.contains('button', '⏸ Pause').click();
+        assertStableUrl();
+
+        cy.contains('button', '▶ Resume').click();
+        assertStableUrl();
+    });
+
     it('loads Arabic through Manage languages and renders the added track', () => {
         openSettings();
         cy.contains('button', 'Manage languages').click();
@@ -70,15 +108,15 @@ describe('YouTube learner language and translation settings', () => {
     it('translates to Arabic, persists translation order, and cancels English translation', () => {
         openSettings();
 
-        cy.get('[aria-label="New translation language"]').type('ar');
-        cy.contains('button', 'Add translation').click();
+        cy.get('[aria-label="New translation language"]').should('be.visible').type('ar');
+        cy.contains('button', 'Add language').click();
         cy.wait(1000);
         cy.get('.yl-col-card').should('contain.text', 'Arabic');
         cy.get('.yl-table thead th').should('contain.text', 'Arabic');
         cy.contains('.yl-td-text', 'Translated subtitle').should('be.visible');
 
-        cy.get('[aria-label="New translation language"]').type('en');
-        cy.contains('button', 'Add translation').click();
+        cy.get('[aria-label="New translation language"]').should('be.visible').type('en');
+        cy.contains('button', 'Add language').click();
         cy.wait(1000);
         cy.get('.yl-col-card').should('contain.text', 'English');
 
@@ -102,5 +140,25 @@ describe('YouTube learner language and translation settings', () => {
             expect(saved.config.translationTargets).to.not.include('en');
             expect(saved.config.colOrder).to.not.include('translation:en');
         });
+    });
+
+    it('stops playback when language preferences change and records the correct redux actions in the log view', () => {
+        openSettings();
+
+        cy.contains('button', '▶ Resume').click();
+        cy.contains('button', '⏸ Pause').should('be.visible');
+
+        cy.get('[aria-label="New translation language"]').should('be.visible').type('ru');
+        cy.contains('button', 'Add language').click();
+        cy.wait(1000);
+
+        cy.contains('button', '▶ Resume').should('be.visible');
+        cy.contains('button', '⏸ Pause').should('not.exist');
+
+        cy.contains('button', '🐛').click();
+        cy.get('.dbg-filter-btn').contains('Client').click();
+        cy.contains('.dbg-entry-label', 'playbackStopped').should('exist');
+        cy.contains('.dbg-entry-label', 'currentLineChanged').should('exist');
+        cy.contains('.dbg-entry-label', 'youtubePlayback/projectLoaded').should('exist');
     });
 });

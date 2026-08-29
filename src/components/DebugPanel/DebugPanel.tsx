@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { getReduxLogs, subscribeReduxLogs, ReduxLogEntry as ReduxLogEntryType } from '../../store/reduxLog';
 import './DebugPanel.css';
 
 interface LogEntry {
   id: number;
   ts: string;
-  kind: 'fetch-ok' | 'fetch-err' | 'js-error' | 'unhandled' | 'console-error' | 'console-warn';
+  kind: 'fetch-ok' | 'fetch-err' | 'js-error' | 'unhandled' | 'console-error' | 'console-warn' | 'redux';
   label: string;
   detail: string;
 }
@@ -91,12 +92,39 @@ function installInterceptors() {
 
 function useLogEntries() {
   const [entries, setEntries] = useState<LogEntry[]>([...globalEntries]);
+  const [reduxEntries, setReduxEntries] = useState<ReduxLogEntryType[]>(getReduxLogs());
+
   useEffect(() => {
     listeners.push(setEntries);
     setEntries([...globalEntries]);
     return () => { listeners = listeners.filter(fn => fn !== setEntries); };
   }, []);
-  return entries;
+
+  useEffect(() => {
+    const unsubscribe = subscribeReduxLogs(next => {
+      setReduxEntries(next);
+    });
+    return unsubscribe;
+  }, []);
+
+  const merged = [
+    ...reduxEntries.map(entry => ({
+      id: -entry.id,
+      ts: entry.ts,
+      kind: 'redux' as const,
+      label: entry.action,
+      detail: JSON.stringify({
+        payload: entry.payload,
+        status: entry.status,
+        line: entry.line,
+        time: entry.time,
+        youtubeState: entry.youtubeState,
+      }).slice(0, 400),
+    })),
+    ...entries,
+  ].sort((a, b) => a.ts.localeCompare(b.ts));
+
+  return merged;
 }
 
 function useServerLogs(enabled: boolean) {
@@ -134,6 +162,7 @@ const ICONS: Record<LogEntry['kind'], string> = {
   'unhandled':     '⚠️',
   'console-error': '🔴',
   'console-warn':  '🟡',
+  redux:           '🧠',
 };
 
 const SERVER_LEVEL_ICON: Record<string, string> = {

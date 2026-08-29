@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigate } from 'react-router-dom';
 import {
   YtProject,
   YtTrack,
@@ -72,6 +73,7 @@ interface Props {
   onSelectProject: (p: YtProject) => void;
   theme: YoutubeTheme;
   onThemeChange: (theme: YoutubeTheme) => void;
+  initialShowSettings?: boolean;
 }
 
 // Encode colId for URL: track:en → en, translation → t
@@ -95,8 +97,37 @@ const normalizeConfig = (source: ProjectConfig): ProjectConfig => {
   return { ...source, targetLang: targets[0] || source.targetLang || '', translationTargets: targets, colOrder, colSettings };
 };
 
-export default function PlayerView({ routeBase = '/youtube', project, onSave, onBackHome, onNewVideo, onDelete, projects, onSelectProject, theme, onThemeChange }: Props) {
+const hydrateConfigFromUrl = (source: ProjectConfig): ProjectConfig => {
+  if (typeof window === 'undefined') return source;
+  const urlTarget = new URLSearchParams(window.location.search).get('tl')?.trim();
+  if (!urlTarget) return source;
+
+  const targets = Array.from(new Set([...(source.translationTargets || []), urlTarget]));
+  const id = translationCol(urlTarget);
+  const colOrder = source.colOrder.includes(id)
+    ? source.colOrder
+    : [...source.colOrder.filter(colId => colId !== 'video'), id, ...(source.colOrder.includes('video') ? ['video'] : [])];
+  const colSettings = { ...source.colSettings };
+  if (!colSettings[id]) {
+    colSettings[id] = {
+      visible: true,
+      playOrder: source.colOrder.filter(colId => !isTranslationCol(colId) && colId !== 'video').length + targets.length,
+      ttsRate: DEFAULT_TTS_RATE,
+    };
+  }
+
+  return {
+    ...source,
+    targetLang: urlTarget,
+    translationTargets: targets,
+    colOrder,
+    colSettings,
+  };
+};
+
+export default function PlayerView({ routeBase = '/youtube', project, onSave, onBackHome, onNewVideo, onDelete, projects, onSelectProject, theme, onThemeChange, initialShowSettings = false }: Props) {
   const dispatch = useDispatch<AppDispatch>();
+  const navigate = useNavigate();
   const playback = useSelector((state: RootState) => state.youtubePlayback);
   const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
   const defaultVisibleLines = () => {
@@ -107,10 +138,10 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
   };
 
   const [lines, setLines]               = useState<ParsedLine[]>([]);
-  const [config, setConfig]             = useState<ProjectConfig>(() => ({
-    ...normalizeConfig(project.config),
-    visibleLines: defaultVisibleLines(),
-  }));
+  const [config, setConfig]             = useState<ProjectConfig>(() => {
+    const base = normalizeConfig(project.config);
+    return hydrateConfigFromUrl({ ...base, visibleLines: defaultVisibleLines() });
+  });
   const isPlaying = playback.status === 'playing' || playback.status === 'starting';
   const currentLine = playback.currentLine;
   const playbackTime = playback.currentTime;
@@ -118,7 +149,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
   const [iframeSeg, setIframeSeg]       = useState({ startSec: 0, endSec: 0 });
   const [iframeKey, setIframeKey]       = useState(0);
   const [playerReady, setPlayerReady]   = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
+  const [showSettings, setShowSettings] = useState(initialShowSettings);
   const [translationVer, setTranslationVer] = useState(0);
   const [currentWord, setCurrentWord]       = useState<{ lineIdx: number; charIndex: number; charLength: number } | null>(null);
   // Keep one persistent iframe so row playback can seek without reloading.
@@ -165,6 +196,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
   const autoStartedProjectRef = useRef<string | null>(null);
   const suppressPlayerEventsUntilRef = useRef(0);
 
+  useEffect(() => { setShowSettings(initialShowSettings); }, [initialShowSettings]);
   useEffect(() => { linesRef.current = lines; }, [lines]);
   useEffect(() => { configRef.current = config; }, [config]);
   useEffect(() => { projectRef.current = project; }, [project]);
@@ -249,7 +281,9 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     const params = new URLSearchParams(window.location.search);
     const urlVl = parseInt(params.get('vl') || '', 10);
     const visibleLines = !isNaN(urlVl) && urlVl >= 3 ? urlVl : configRef.current.visibleLines;
-    setConfig({ ...normalizeConfig(project.config), visibleLines });
+    const hydratedConfig = hydrateConfigFromUrl({ ...normalizeConfig(project.config), visibleLines });
+    configRef.current = hydratedConfig;
+    setConfig(hydratedConfig);
     // Read line number from URL if present
     const urlLine = parseInt(params.get('l') || '', 10);
     const startLine = !isNaN(urlLine) && urlLine >= 0 && urlLine < parsed.length ? urlLine : project.lastLine;
@@ -361,22 +395,57 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
   }, [currentLine]);
 
   // ── Config helpers ───────────────────────────────────────────────────────────
+  const stopMedia = useCallback(() => {
+    playbackRunRef.current += 1;
+    cancelRef.current = true;
+    suppressPlayerEventsUntilRef.current = Date.now() + 1000;
+    speechSynthesis.cancel();
+    for (const ref of [iframeRef, audioRef]) {
+      try {
+        ref.current?.contentWindow?.postMessage(
+          JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }),
+          '*'
+        );
+      } catch { /* ignore cross-origin errors */ }
+    }
+    releaseWakeLock();
+    isPlayingRef.current = false;
+  }, []);
+
+  const stop = useCallback(() => {
+    stopMedia();
+    flushPlaybackPosition();
+    dispatch(playbackStopped());
+    dispatch(currentLineChanged(-1));
+  }, [dispatch, flushPlaybackPosition, stopMedia]);
+
+  const stopPlaybackForSettingsChange = useCallback(() => {
+    if (isPlayingRef.current || playback.status === 'playing' || playback.status === 'starting') {
+      stop();
+    }
+  }, [playback.status, stop]);
+
   const updateConfig = useCallback((patch: Partial<ProjectConfig>) => {
-    setConfig(prev => {
-      const next = { ...prev, ...patch };
-      configRef.current = next;
-      onSave({ ...projectRef.current, config: next, updatedAt: Date.now() });
-      return next;
-    });
-  }, [onSave]);
+    if (patch.targetLang !== undefined || patch.translationSource !== undefined || patch.translationTargets !== undefined) {
+      stopPlaybackForSettingsChange();
+    }
+    const next = { ...configRef.current, ...patch };
+    configRef.current = next;
+    setConfig(next);
+    onSave({ ...projectRef.current, config: next, updatedAt: Date.now() });
+  }, [onSave, stopPlaybackForSettingsChange]);
 
   const updateColSetting = useCallback((colId: string, patch: Partial<ColSetting>) => {
-    setConfig(prev => {
-      const next = { ...prev, colSettings: { ...prev.colSettings, [colId]: { ...prev.colSettings[colId], ...patch } } };
-      configRef.current = next;
-      onSave({ ...projectRef.current, config: next, updatedAt: Date.now() });
-      return next;
-    });
+    const next = {
+      ...configRef.current,
+      colSettings: {
+        ...configRef.current.colSettings,
+        [colId]: { ...configRef.current.colSettings[colId], ...patch },
+      },
+    };
+    configRef.current = next;
+    setConfig(next);
+    onSave({ ...projectRef.current, config: next, updatedAt: Date.now() });
   }, [onSave]);
 
   const updateProjectSource = useCallback((patch: Pick<YtProject, 'alternateYoutubeUrl' | 'subtitleProxyUrl'>) => {
@@ -508,46 +577,59 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
   }, [onSave, rebuildLines]);
 
   const toggleTranslation = useCallback((language = configRef.current.targetLang.trim()) => {
+    const nextLanguage = language.trim();
+    if (!nextLanguage) return;
+
+    stopPlaybackForSettingsChange();
+
     const p = projectRef.current;
-    if (!language) return;
-    const id = translationCol(language);
-    const targets = Array.from(new Set([...(p.config.translationTargets || []), language]));
-    const colOrder = p.config.colOrder.includes(id)
-      ? p.config.colOrder
-      : [...p.config.colOrder.filter(colId => colId !== 'video'), id, ...(p.config.colOrder.includes('video') ? ['video'] : [])];
-    const colSettings = { ...p.config.colSettings };
+    const currentConfig = configRef.current;
+    const id = translationCol(nextLanguage);
+    const targets = Array.from(new Set([...(currentConfig.translationTargets || p.config.translationTargets || []), nextLanguage]));
+    const colOrder = currentConfig.colOrder.includes(id)
+      ? currentConfig.colOrder
+      : [...currentConfig.colOrder.filter(colId => colId !== 'video'), id, ...(currentConfig.colOrder.includes('video') ? ['video'] : [])];
+    const colSettings = { ...currentConfig.colSettings };
     if (!colSettings[id]) {
       colSettings[id] = {
         visible: true,
-        playOrder: p.config.colOrder.filter(colId => !isTranslationCol(colId) && colId !== 'video').length + targets.length,
+        playOrder: currentConfig.colOrder.filter(colId => !isTranslationCol(colId) && colId !== 'video').length + targets.length,
         ttsRate: 0.9,
       };
     }
-    const updatedConfig = { ...p.config, targetLang: targets[0], translationTargets: targets, colOrder, colSettings };
-    configRef.current = updatedConfig;
-    onSave({ ...p, config: updatedConfig, updatedAt: Date.now() });
-    setConfig(updatedConfig);
-    retranslate();
-  }, [onSave, retranslate]);
-
-  const removeTranslation = useCallback((language: string) => {
-    const p = projectRef.current;
-    const id = translationCol(language);
-    const targets = (p.config.translationTargets || []).filter(target => target !== language);
-    const colSettings = { ...p.config.colSettings };
-    delete colSettings[id];
     const updatedConfig = {
-      ...p.config,
-      targetLang: targets[0] || '',
+      ...currentConfig,
+      targetLang: nextLanguage,
       translationTargets: targets,
-      colOrder: p.config.colOrder.filter(colId => colId !== id),
+      colOrder,
       colSettings,
     };
     configRef.current = updatedConfig;
-    onSave({ ...p, config: updatedConfig, updatedAt: Date.now() });
     setConfig(updatedConfig);
+    onSave({ ...p, config: updatedConfig, updatedAt: Date.now() });
     retranslate();
-  }, [onSave, retranslate]);
+  }, [onSave, retranslate, stopPlaybackForSettingsChange]);
+
+  const removeTranslation = useCallback((language: string) => {
+    stopPlaybackForSettingsChange();
+    const p = projectRef.current;
+    const currentConfig = configRef.current;
+    const id = translationCol(language);
+    const targets = (currentConfig.translationTargets || p.config.translationTargets || []).filter(target => target !== language);
+    const colSettings = { ...currentConfig.colSettings };
+    delete colSettings[id];
+    const updatedConfig = {
+      ...currentConfig,
+      targetLang: targets.includes(currentConfig.targetLang) ? currentConfig.targetLang : targets[0] || '',
+      translationTargets: targets,
+      colOrder: currentConfig.colOrder.filter(colId => colId !== id),
+      colSettings,
+    };
+    configRef.current = updatedConfig;
+    setConfig(updatedConfig);
+    onSave({ ...p, config: updatedConfig, updatedAt: Date.now() });
+    retranslate();
+  }, [onSave, retranslate, stopPlaybackForSettingsChange]);
 
   const saveProviderSettings = useCallback((patch: Pick<YtProject, 'alternateYoutubeUrl' | 'subtitleProxyUrl'>) => {
     onSave({ ...projectRef.current, ...patch, updatedAt: Date.now() });
@@ -586,23 +668,6 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
       playerReadyRef.current = true;
       setPlayerReady(true);
     } catch { /* ignore cross-origin errors */ }
-  }, []);
-
-  const stopMedia = useCallback(() => {
-    playbackRunRef.current += 1;
-    cancelRef.current = true;
-    suppressPlayerEventsUntilRef.current = Date.now() + 1000;
-    speechSynthesis.cancel();
-    for (const ref of [iframeRef, audioRef]) {
-      try {
-        ref.current?.contentWindow?.postMessage(
-          JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }),
-          '*'
-        );
-      } catch { /* ignore cross-origin errors */ }
-    }
-    releaseWakeLock();
-    isPlayingRef.current = false;
   }, []);
 
   useEffect(() => () => {
@@ -727,13 +792,6 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
       if (cancelRef.current) return;
     }
   }, [ytCmd]);
-
-  const stop = useCallback(() => {
-    stopMedia();
-    flushPlaybackPosition();
-    dispatch(playbackStopped());
-    dispatch(currentLineChanged(-1));
-  }, [dispatch, flushPlaybackPosition, stopMedia]);
 
   const pausePlayback = useCallback(() => {
     stopMedia();
@@ -898,32 +956,6 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
             {isPlaying ? `▶ ${currentLine + 1}/${lines.length}` : `${lines.length} lines`}
           </span>
 
-          {/* ── Target language (optional and always editable) ── */}
-          <div className="yl-menu-lang-wrap">
-            <label className="yl-menu-lang-label">Translate to</label>
-            <input
-              className="yl-menu-lang-input"
-              type="text"
-              list="yl-header-lang-suggestions"
-              value={config.targetLang}
-              onChange={e => updateConfig({ targetLang: e.target.value })}
-              placeholder="en, he, ar…"
-              title="Target language code for translation (e.g. en, he, ar, ru)"
-            />
-            <button
-              className="yl-btn-ghost yl-btn-sm"
-              type="button"
-              onClick={retranslate}
-              disabled={!config.targetLang.trim() || translationStatus === 'translating'}
-              title="Translate the visible lines and the next seven lines now"
-            >
-              {translationStatus === 'translating' ? 'Translating…' : 'Translate now'}
-            </button>
-            <datalist id="yl-header-lang-suggestions">
-              {langOptions.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
-            </datalist>
-          </div>
-
           {lines.length > 0 && (
             <>
               {/* ── Download SRT ── */}
@@ -1019,11 +1051,21 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
               >
                 {shareCopied ? 'Copied!' : 'Share'}
               </button>
-              <button className={`yl-btn-ghost ${showSettings ? 'yl-active' : ''}`} onClick={() => setShowSettings(s => !s)}>
-                ⚙ Settings
-              </button>
             </>
           )}
+          <button
+            className={`yl-btn-ghost ${showSettings ? 'yl-active' : ''}`}
+            onClick={() => {
+              if (typeof navigate === 'function') {
+                navigate(`${routeBase}/settings`);
+                return;
+              }
+              window.location.assign(`${window.location.origin}${routeBase}/settings`);
+            }}
+            title="Open project settings"
+          >
+            ⚙ Settings
+          </button>
         </div>
       </div>
 
@@ -1072,18 +1114,28 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
           </div>
           <div className="yl-settings-global">
             <label className="yl-setting-field yl-translation-setting">
-              <span>Translate captions to</span>
+              <span>Add language</span>
               <div className="yl-translation-setting-control">
                 <input
                   className="yl-input-sm yl-target-input"
                   type="text"
                   list="yl-settings-lang-suggestions"
-                  value={config.targetLang}
-                  onChange={e => updateConfig({ targetLang: e.target.value })}
-                  aria-label="Translation language"
+                  value={newTranslationLang}
+                  onChange={e => setNewTranslationLang(e.target.value)}
+                  aria-label="New translation language"
+                  placeholder="ar, ru, he…"
                 />
-                <button className="yl-btn-secondary yl-btn-sm" type="button" onClick={retranslate} disabled={!config.targetLang.trim() || translationStatus === 'translating'}>
-                  {translationStatus === 'translating' ? 'Working…' : 'Translate'}
+                <button
+                  className="yl-btn-secondary yl-btn-sm"
+                  type="button"
+                  onClick={() => {
+                    const next = newTranslationLang.trim();
+                    if (!next) return;
+                    toggleTranslation(next);
+                    setNewTranslationLang('');
+                  }}
+                >
+                  Add language
                 </button>
                 <datalist id="yl-settings-lang-suggestions">
                   {langOptions.map(l => <option key={l.code} value={l.code}>{l.label}</option>)}
@@ -1109,15 +1161,6 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
             <div className="yl-setting-field">
               <span>Cached translations</span>
               <span className="yl-setting-info">{cachedCount} line{cachedCount === 1 ? '' : 's'}</span>
-            </div>
-            <div className="yl-setting-field">
-              <span>Translation column</span>
-                <input className="yl-input-sm" value={newTranslationLang} placeholder="Language code"
-                  onChange={e => setNewTranslationLang(e.target.value)} aria-label="New translation language" />
-                <button className="yl-btn-secondary yl-btn-sm" type="button" onClick={() => {
-                  toggleTranslation(newTranslationLang.trim());
-                  setNewTranslationLang('');
-                }}>Add translation</button>
             </div>
             <label className={`yl-setting-field yl-provider-setting ${subtitleServiceInfo.supportsAlternate ? '' : 'yl-provider-setting-disabled'}`}>
               <span>Alternate YouTube / Invidious host</span>
