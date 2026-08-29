@@ -254,10 +254,13 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     const p = new URLSearchParams();
     if (project.videoId) p.set('v', project.videoId);
     else p.set('p', project.id);
+    p.set('m', project.subtitleService || 'plus');
     p.set('tl', config.targetLang);
     p.set('l', String(project.lastLine));
     p.set('t', String(Math.floor(playbackTimeRef.current)));
     p.set('vl', String(config.visibleLines));
+    if (project.alternateYoutubeUrl) p.set('instanceUrl', project.alternateYoutubeUrl);
+    if (project.subtitleProxyUrl) p.set('proxyUrl', project.subtitleProxyUrl);
     for (const [colId, s] of Object.entries(config.colSettings)) {
       if (colId === 'video') continue;
       const sid = shortCol(colId);

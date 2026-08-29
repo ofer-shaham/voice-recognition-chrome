@@ -123,6 +123,15 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
     return params.get('url') || params.get('u') || params.get('videoUrl') || params.get('v') || '';
   };
 
+  const getSharedSetupMethod = (): SubtitleService | null => {
+    if (typeof window === 'undefined') return null;
+    const params = new URLSearchParams(window.location.search);
+    const method = params.get('m') || params.get('method') || params.get('service');
+    return method && ['plus', 'api-js', 'onrender', 'iframe', 'invidious'].includes(method)
+      ? (method as SubtitleService)
+      : null;
+  };
+
   // ── URL step ──────────────────────────────────────────────────────────────
   const [url, setUrl] = useState(() => {
     const sharedUrl = getSharedSetupUrl();
@@ -169,16 +178,26 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
 
   React.useEffect(() => {
     const sharedUrl = getSharedSetupUrl();
-    if (!sharedUrl) return;
+    const sharedMethod = getSharedSetupMethod();
+    const sharedVideoId = sharedUrl && /^[\w-]{11}$/.test(sharedUrl.trim()) ? sharedUrl.trim() : extractVideoId(sharedUrl || '');
 
-    if (parseInvidiousCaptionsUrl(sharedUrl)) {
-      setSubtitleService('invidious');
-      setInvidiousCaptionsUrl('');
+    if (sharedMethod) {
+      setSubtitleService(sharedMethod);
     }
 
-    setUrl(sharedUrl);
-    if (sharedUrl.trim()) {
+    if (sharedUrl) {
+      if (parseInvidiousCaptionsUrl(sharedUrl)) {
+        setSubtitleService('invidious');
+        setInvidiousCaptionsUrl('');
+      }
+      setUrl(sharedUrl);
       handleFindLanguages(sharedUrl);
+      return;
+    }
+
+    if (sharedVideoId) {
+      setUrl(`https://www.youtube.com/watch?v=${sharedVideoId}`);
+      handleFindLanguages(`https://www.youtube.com/watch?v=${sharedVideoId}`);
     }
   }, []);
 
