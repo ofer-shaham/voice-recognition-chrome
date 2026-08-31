@@ -547,6 +547,39 @@
   align-items: center;
   gap: 0.75rem;
   flex-shrink: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.yl-ai-mask-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding-left: 0.35rem;
+  border-left: 1px solid #374151;
+}
+
+.yl-settings-tabs {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid #2d3748;
+  margin-bottom: 1rem;
+}
+
+.yl-settings-tab {
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0.65rem 0.9rem;
+  font: inherit;
+}
+
+.yl-settings-tab:hover,
+.yl-settings-tab:focus-visible {
+  color: #e2e8f0;
+  border-bottom-color: #60a5fa;
 }
 
 .yl-video-title {

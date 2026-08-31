@@ -34,6 +34,15 @@ export const DEFAULT_MODEL = OPENROUTER_MODELS[0].id;
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 export const OPENROUTER_API_KEY_STORAGE = 'openrouter_api_key';
+export const OPENROUTER_VALIDATED_KEY_STORAGE = 'openrouter_api_key_validated';
+export const OPENROUTER_MAX_TOKENS_STORAGE = 'yt_ai_max_tokens';
+export const DEFAULT_OPENROUTER_MAX_TOKENS = 4096;
+
+export const getStoredOpenRouterMaxTokens = (): number => {
+  if (typeof window === 'undefined') return DEFAULT_OPENROUTER_MAX_TOKENS;
+  const value = Number(window.localStorage.getItem(OPENROUTER_MAX_TOKENS_STORAGE));
+  return Number.isFinite(value) && value >= 256 ? Math.min(16384, Math.round(value)) : DEFAULT_OPENROUTER_MAX_TOKENS;
+};
 
 export const getStoredOpenRouterApiKey = (): string => {
   if (typeof window === 'undefined') return '';
@@ -42,6 +51,12 @@ export const getStoredOpenRouterApiKey = (): string => {
   } catch {
     return '';
   }
+};
+
+export const hasValidatedOpenRouterKey = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const key = getStoredOpenRouterApiKey();
+  return key !== '' && window.localStorage.getItem(OPENROUTER_VALIDATED_KEY_STORAGE) === key;
 };
 
 const getUrlApiKey = (): string | undefined => {

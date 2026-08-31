@@ -446,19 +446,16 @@ app.post("/api/health_ai", async (req, res) => {
   if (!key) return res.status(401).json({ ok: false, error: "No API key available." });
   const t0 = Date.now();
   try {
-    const orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "HTTP-Referer": "http://localhost:5000", "X-Title": "Voice Translation App" },
-      body: JSON.stringify({ model: "meta-llama/llama-3.1-8b-instruct:free", messages: [{ role: "user", content: "Reply with the single word: OK" }], max_tokens: 5 }),
+    const orRes = await fetch("https://openrouter.ai/api/v1/key", {
+      headers: { Authorization: `Bearer ${key}`, "HTTP-Referer": "http://localhost:5000", "X-Title": "Voice Translation App" },
     });
     const elapsed = Date.now() - t0;
     if (!orRes.ok) {
       const body = await orRes.text().catch(() => "");
       return res.json({ ok: false, status: orRes.status, error: body.slice(0, 200), elapsed, timestamp: Date.now() });
     }
-    const data = await orRes.json();
-    const reply = data?.choices?.[0]?.message?.content || "";
-    return res.json({ ok: true, elapsed, reply, timestamp: Date.now() });
+    await orRes.json();
+    return res.json({ ok: true, elapsed, timestamp: Date.now() });
   } catch (err) {
     return res.status(500).json({ ok: false, error: err.message, elapsed: Date.now() - t0, timestamp: Date.now() });
   }

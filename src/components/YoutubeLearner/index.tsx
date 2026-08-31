@@ -149,6 +149,8 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
         <div className="yl-header">
           <div className="yl-header-left">
             <button className="yl-btn-ghost" onClick={() => navigate(`${routeBase}/setup`)}>Home</button>
+            {activeProject && <button className="yl-btn-ghost" onClick={() => navigate(`${routeBase}/view/${encodeURIComponent(activeProject.id)}`)}>View</button>}
+            <button className="yl-btn-ghost" onClick={() => navigate(`${routeBase}/setup`)}>New</button>
             <label className="yl-theme-control">
               <span className="yl-sr-only">Theme</span>
               <select className="yl-theme-select" value={theme} onChange={e => handleThemeChange(e.target.value as YoutubeTheme)}>
@@ -166,18 +168,21 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
               <span>Choose a settings category.</span>
             </div>
           </div>
-          <div className="yl-settings-global">
-            <button className="yl-btn-secondary" onClick={() => navigate(`${routeBase}/settings/translation`)}>Translation settings</button>
-            <button className="yl-btn-secondary" onClick={() => navigate(`${routeBase}/settings/openrouter`)}>OpenRouter settings</button>
+          <div className="yl-settings-tabs" role="tablist" aria-label="YouTube settings">
+            <button className="yl-settings-tab" role="tab" onClick={() => navigate(`${routeBase}/settings/translation`)}>
+              Translation
+            </button>
+            <button className="yl-settings-tab" role="tab" onClick={() => navigate(`${routeBase}/settings/openrouter`)}>
+              OpenRouter
+            </button>
           </div>
-          <OpenRouterSettings routeBase={routeBase} theme={theme} onThemeChange={handleThemeChange} showNavigation={false} />
         </div>
       </div>
     );
   }
 
   if (isOpenRouterSettingsRoute) {
-    return <OpenRouterSettings routeBase={routeBase} theme={theme} onThemeChange={handleThemeChange} />;
+    return <OpenRouterSettings routeBase={routeBase} theme={theme} onThemeChange={handleThemeChange} project={activeProject ?? projects[0] ?? null} />;
   }
 
   if (isLessonRoute && activeProject && lessonMatch) {

@@ -14,6 +14,8 @@ import {
 import { buildLines, parseSrt, secondsToHms, colLabel, sleep, dedupeAvailLangs } from './utils';
 import { DEFAULT_TTS_RATE } from './constants';
 import { translate, getTranslationCacheCount } from '../../utils/translate';
+import { hasValidatedOpenRouterKey } from '../../services/openRouterService';
+import { generateDifficultyMask } from './lesson';
 import { freeSpeak } from '../../utils/freeSpeak';
 import isRtl from '../../utils/isRtl';
 import { useVoices } from './useVoices';
@@ -198,6 +200,9 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     const raw = Number(window.localStorage.getItem('yt_ai_rows') || '12');
     return Number.isFinite(raw) ? Math.max(1, Math.round(raw)) : 12;
   });
+  const [aiMaskRows, setAiMaskRows] = useState<Record<number, string>>({});
+  const [aiMaskLoading, setAiMaskLoading] = useState(false);
+  const [aiMaskError, setAiMaskError] = useState('');
   const [newTranslationLang, setNewTranslationLang] = useState('');
   const [alternateYoutubeUrl, setAlternateYoutubeUrl] = useState(project.alternateYoutubeUrl || '');
   const [subtitleProxyUrl, setSubtitleProxyUrl] = useState(project.subtitleProxyUrl || '');
@@ -909,6 +914,8 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     [config.colOrder, config.colSettings]
   );
   const visibleRows = lines.slice(windowStart, windowStart + config.visibleLines);
+  const maskVisible = Object.keys(aiMaskRows).length > 0;
+  const displayCols = maskVisible ? [...visibleCols, 'ai-mask'] : visibleCols;
 
   // Helper to render text with word highlighting
   const renderHighlightedText = (text: string, lineIdx: number, colId: string) => {
@@ -955,6 +962,23 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     else {
       currentLineRef.current = idx;
       dispatch(currentLineChanged(idx));
+    }
+  };
+
+  const generateMask = async () => {
+    if (!hasValidatedOpenRouterKey()) {
+      setAiMaskError('Validate the OpenRouter key in Settings first.');
+      return;
+    }
+    setAiMaskLoading(true);
+    setAiMaskError('');
+    try {
+      const rows = await generateDifficultyMask(project, aiTranslationLevel, aiTranslationRows, true, windowStart);
+      setAiMaskRows(Object.fromEntries(rows.map((text, index) => [windowStart + index, text])));
+    } catch (error) {
+      setAiMaskError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setAiMaskLoading(false);
     }
   };
 
@@ -1370,20 +1394,27 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
                 stop();
               }
               if (typeof navigate === 'function') {
-                navigate(`${routeBase}/settings/translation`);
+                navigate(`${routeBase}/settings`);
                 return;
               }
-              window.location.assign(`${window.location.origin}${routeBase}/settings/translation`);
+              window.location.assign(`${window.location.origin}${routeBase}/settings`);
             }}
             title="Open project settings"
           >
             ⚙ Settings
           </button>
-          {[1, 2, 3, 4, 5].map(number => (
-            <button key={number} className="yl-btn-ghost" title="Open cached or generate this lesson" onClick={() => navigate(`${routeBase}/view/lesson/${number}`)}>
-              Lesson {number}
-            </button>
-          ))}
+          {hasValidatedOpenRouterKey() && (
+            <div className="yl-ai-mask-controls">
+              <label className="yl-sr-only" htmlFor="yl-ai-mask-level">Mask difficulty</label>
+              <select id="yl-ai-mask-level" className="yl-select-sm" value={aiTranslationLevel}
+                onChange={e => { const value = Number(e.target.value); setAiTranslationLevel(value); localStorage.setItem('yt_ai_level', String(value)); }}>
+                {[1, 2, 3, 4, 5].map(level => <option key={level} value={level}>Mask {level}</option>)}
+              </select>
+              <button className="yl-btn-secondary yl-btn-sm" type="button" onClick={generateMask} disabled={aiMaskLoading} title="Generate a simpler AI mask column">
+                {aiMaskLoading ? 'Masking…' : maskVisible ? 'Refresh mask' : 'AI mask'}
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -1704,16 +1735,18 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
               <span className="yl-translation-status-dot" />
               {translationStatusMessage || 'Translation on demand'}
             </span>
+            {aiMaskLoading && <span className="yl-translation-status">Generating AI mask…</span>}
+            {aiMaskError && <span className="yl-translation-status yl-translation-status-rate-limited">{aiMaskError}</span>}
           </div>
 
           <table className="yl-table">
             <thead>
               <tr>
                 <th className="yl-th-time">Time</th>
-                {visibleCols.map(colId => (
+                {displayCols.map(colId => (
                   <th key={colId} className="yl-th-text"
-                    dir={isTranslationCol(colId) ? (isRtl(translationLang(colId, config)) ? 'rtl' : 'ltr') : undefined}>
-                    {colLabel(colId, project)}
+                    dir={colId === 'ai-mask' ? 'ltr' : isTranslationCol(colId) ? (isRtl(translationLang(colId, config)) ? 'rtl' : 'ltr') : undefined}>
+                    {colId === 'ai-mask' ? `AI mask · ${aiTranslationLevel} words` : colLabel(colId, project)}
                   </th>
                 ))}
               </tr>
@@ -1727,7 +1760,10 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
                   onClick={() => handleRowClick(line.index)}
                 >
                   <td className="yl-td-time">{secondsToHms(line.startSec)}</td>
-                  {visibleCols.map(colId => {
+                  {displayCols.map(colId => {
+                    if (colId === 'ai-mask') {
+                      return <td key={colId} className="yl-td-text">{aiMaskRows[line.index] || 'Not generated'}</td>;
+                    }
                     const isTrans = isTranslationCol(colId);
                     const transLang = translationLang(colId, config);
                     const text = isTrans

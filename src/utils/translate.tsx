@@ -1,5 +1,5 @@
 import appConfig from '../config/appConfig.json';
-import { chatWithAI } from '../services/openRouterService';
+import { chatWithAI, getStoredOpenRouterMaxTokens } from '../services/openRouterService';
 
 const CACHE_KEY = 'yl_translation_cache_v1';
 const AI_CACHE_KEY = 'yt_ai_translation_cache_v1';
@@ -257,7 +257,7 @@ const translateWithOpenRouterText = async ({ text, fromLang, toLang, level, mode
             role: 'user',
             content: `Translate the following text from ${normalizeLanguage(fromLang)} to ${normalizeLanguage(toLang)}. Keep it easier to understand for education, use a language difficulty level of ${level}/5, and prefer fewer words while preserving the meaning. Return only the translated result, without explanation or markdown.\n\n${text}`,
         },
-    ], model || getConfiguredOpenRouterModel());
+    ], model || getConfiguredOpenRouterModel(), undefined, getStoredOpenRouterMaxTokens());
 
     const result = extractSrtFromMarkdown(response.content).trim();
     if (!result) throw new Error('OpenRouter returned no translated text');
@@ -283,7 +283,7 @@ export const generateAlternativeTranslationSrt = async ({ videoId, fromLang, toL
     const attemptTranslation = async (payload: string, mode: 'full' | 'partial') => {
         const reply = await chatWithAI([
             { role: 'user', content: buildPrompt(payload, mode) },
-        ], model || getConfiguredOpenRouterModel());
+        ], model || getConfiguredOpenRouterModel(), undefined, getStoredOpenRouterMaxTokens());
         const parsed = extractSrtFromMarkdown(reply.content);
         if (!parsed) throw new Error('OpenRouter returned no valid SRT translation.');
         return parsed;

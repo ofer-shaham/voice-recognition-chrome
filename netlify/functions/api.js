@@ -579,10 +579,8 @@ exports.handler = async (event) => {
     if (!key) return json(401, { ok: false, error: "No API key available." });
     const t0 = Date.now();
     try {
-      const orRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json", "HTTP-Referer": "https://netlify.app", "X-Title": "Voice Translation App" },
-        body: JSON.stringify({ model: "meta-llama/llama-3.1-8b-instruct:free", messages: [{ role: "user", content: "Reply with the single word: OK" }], max_tokens: 5 }),
+      const orRes = await fetch("https://openrouter.ai/api/v1/key", {
+        headers: { Authorization: `Bearer ${key}`, "HTTP-Referer": "https://netlify.app", "X-Title": "Voice Translation App" },
       });
       const elapsed = Date.now() - t0;
       if (!orRes.ok) {
@@ -590,9 +588,9 @@ exports.handler = async (event) => {
         log("warn", "health_ai check failed", { status: orRes.status, elapsed });
         return json(200, { ok: false, status: orRes.status, error: errBody.slice(0, 200), elapsed, timestamp: Date.now() });
       }
-      const data = await orRes.json();
+      await orRes.json();
       log("info", "health_ai OK", { elapsed });
-      return json(200, { ok: true, elapsed, reply: data?.choices?.[0]?.message?.content || "", timestamp: Date.now() });
+      return json(200, { ok: true, elapsed, timestamp: Date.now() });
     } catch (err) {
       log("error", "health_ai exception", { error: err.message });
       return json(500, { ok: false, error: err.message, elapsed: Date.now() - t0, timestamp: Date.now() });

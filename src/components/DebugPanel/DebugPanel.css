@@ -60,6 +60,13 @@
   overflow: hidden;
 }
 
+.dbg-panel-maximized {
+  position: fixed;
+  inset: 1rem;
+  width: auto;
+  max-height: none;
+}
+
 /* ── Header ────────────────────────────────────────────────────────────────── */
 .dbg-panel-header {
   display: flex;
@@ -154,7 +161,10 @@
   align-items: flex-start;
   gap: 0.4rem;
   font-size: 0.78rem;
+  cursor: pointer;
 }
+
+.dbg-entry-header:hover { background: #1a2230; }
 
 .dbg-entry-icon { flex-shrink: 0; line-height: 1.4; }
 
@@ -181,8 +191,9 @@
   word-break: break-all;
   font-family: 'Courier New', monospace;
   line-height: 1.4;
-  max-height: 4.5rem;
-  overflow: hidden;
+  max-height: none;
+  overflow: auto;
+  white-space: pre-wrap;
 }
 
 /* Kind-specific label colours — client */

@@ -33,6 +33,26 @@ function push(entry: Omit<LogEntry, 'id' | 'ts'>) {
   listeners.forEach(fn => fn([...globalEntries]));
 }
 
+function formatLogPayload(value: unknown): string {
+  if (typeof value !== 'string') return JSON.stringify(value, null, 2);
+  try {
+    const parsed = JSON.parse(value);
+    const redact = (item: unknown): unknown => {
+      if (Array.isArray(item)) return item.map(redact);
+      if (item && typeof item === 'object') {
+        return Object.fromEntries(Object.entries(item).map(([key, child]) => [
+          key,
+          /api.?key|authorization|token/i.test(key) ? '[REDACTED]' : redact(child),
+        ]));
+      }
+      return item;
+    };
+    return JSON.stringify(redact(parsed), null, 2);
+  } catch {
+    return value;
+  }
+}
+
 function installInterceptors() {
   if (interceptInstalled) return;
   interceptInstalled = true;
@@ -43,6 +63,7 @@ function installInterceptors() {
     const method = (init?.method || (input instanceof Request ? input.method : 'GET')).toUpperCase();
     const shortUrl = url.replace(window.location.origin, '');
     if (shortUrl.startsWith('/api/logs')) return origFetch(input, init);
+    const requestBody = init?.body instanceof FormData ? '[FormData]' : formatLogPayload(init?.body || '');
     const t0 = Date.now();
     try {
       const res = await origFetch(input, init);
@@ -53,15 +74,15 @@ function installInterceptors() {
         const ct = res.headers.get('content-type') || '';
         if (ct.includes('json')) {
           const j = await cloned.json();
-          body = JSON.stringify(j).slice(0, 300);
+          body = formatLogPayload(j);
         } else {
-          body = (await cloned.text()).slice(0, 300);
+          body = await cloned.text();
         }
       } catch { body = '(could not read body)'; }
       push({
         kind: res.ok ? 'fetch-ok' : 'fetch-err',
         label: `${method} ${shortUrl}  →  ${res.status} ${res.statusText}  (${elapsed}ms)`,
-        detail: body,
+        detail: [requestBody && `Request:\n${requestBody}`, `Response:\n${body}`].filter(Boolean).join('\n\n'),
       });
       return res;
     } catch (err: any) {
@@ -176,6 +197,8 @@ export default function DebugPanel() {
   const [tab, setTab]         = useState<Tab>('client');
   const [copied, setCopied]   = useState(false);
   const [filter, setFilter]   = useState<'all' | 'errors'>('all');
+  const [maximized, setMaximized] = useState(false);
+  const [expandedRecords, setExpandedRecords] = useState<Set<string>>(new Set());
   const entries               = useLogEntries();
   const serverEntries         = useServerLogs(open && (tab === 'server' || tab === 'openrouter'));
   const panelRef              = useRef<HTMLDivElement>(null);
@@ -244,6 +267,15 @@ export default function DebugPanel() {
     }
   };
 
+  const toggleRecord = (recordId: string) => {
+    setExpandedRecords(previous => {
+      const next = new Set(previous);
+      if (next.has(recordId)) next.delete(recordId);
+      else next.add(recordId);
+      return next;
+    });
+  };
+
   const totalErrors = errorCount + serverErrorCount;
 
   return (
@@ -257,7 +289,7 @@ export default function DebugPanel() {
       </button>
 
       {open && (
-        <div className="dbg-panel">
+        <div className={`dbg-panel ${maximized ? 'dbg-panel-maximized' : ''}`}>
           <div className="dbg-panel-header">
             <span className="dbg-panel-title">Debug Logs</span>
             <div className="dbg-panel-actions">
@@ -291,6 +323,9 @@ export default function DebugPanel() {
               <button className="dbg-action-btn dbg-copy-btn" onClick={copyAll} title="Copy all logs to clipboard">
                 {copied ? '✔ Copied!' : '📋 Copy All'}
               </button>
+              <button className="dbg-action-btn" onClick={() => setMaximized(value => !value)} title={maximized ? 'Restore panel size' : 'Maximize panel'}>
+                {maximized ? '↙ Restore' : '↗ Maximize'}
+              </button>
               {tab === 'client' && <button className="dbg-action-btn" onClick={clearAll} title="Clear logs">🗑</button>}
               <button className="dbg-action-btn dbg-close-btn" onClick={() => setOpen(false)}>✕</button>
             </div>
@@ -305,12 +340,12 @@ export default function DebugPanel() {
               <div className="dbg-entries">
                 {visible.map(e => (
                   <div key={e.id} className={`dbg-entry dbg-entry-${e.kind}`}>
-                    <div className="dbg-entry-header">
+                    <div className="dbg-entry-header" role="button" tabIndex={0} aria-expanded={expandedRecords.has(`client-${e.id}`)} onClick={() => toggleRecord(`client-${e.id}`)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') toggleRecord(`client-${e.id}`); }}>
                       <span className="dbg-entry-icon">{ICONS[e.kind]}</span>
                       <span className="dbg-entry-label">{e.label}</span>
                       <span className="dbg-entry-ts">{e.ts.slice(11)}</span>
                     </div>
-                    {e.detail && <div className="dbg-entry-detail">{e.detail}</div>}
+                    {e.detail && expandedRecords.has(`client-${e.id}`) && <div className="dbg-entry-detail">{e.detail}</div>}
                   </div>
                 ))}
               </div>
@@ -324,11 +359,12 @@ export default function DebugPanel() {
               <div className="dbg-entries">
                 {visibleServer.map(e => (
                   <div key={e.id} className={`dbg-entry dbg-entry-server-${e.level.toLowerCase()}`}>
-                    <div className="dbg-entry-header">
+                    <div className="dbg-entry-header" role="button" tabIndex={0} aria-expanded={expandedRecords.has(`server-${e.id}`)} onClick={() => toggleRecord(`server-${e.id}`)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') toggleRecord(`server-${e.id}`); }}>
                       <span className="dbg-entry-icon">{SERVER_LEVEL_ICON[e.level] ?? '⚪'}</span>
-                      <span className="dbg-entry-label">{e.msg}{Object.keys(e.meta).length > 0 ? ' — ' + JSON.stringify(e.meta) : ''}</span>
+                      <span className="dbg-entry-label">{e.msg}</span>
                       <span className="dbg-entry-ts">{e.ts.slice(11, 23)}</span>
                     </div>
+                    {Object.keys(e.meta).length > 0 && expandedRecords.has(`server-${e.id}`) && <div className="dbg-entry-detail">{JSON.stringify(e.meta, null, 2)}</div>}
                   </div>
                 ))}
               </div>
@@ -342,21 +378,22 @@ export default function DebugPanel() {
               <div className="dbg-entries">
                 {visibleOpenRouterEntries.map(e => (
                   <div key={`client-${e.id}`} className={`dbg-entry dbg-entry-${e.kind}`}>
-                    <div className="dbg-entry-header">
+                    <div className="dbg-entry-header" role="button" tabIndex={0} aria-expanded={expandedRecords.has(`openrouter-client-${e.id}`)} onClick={() => toggleRecord(`openrouter-client-${e.id}`)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') toggleRecord(`openrouter-client-${e.id}`); }}>
                       <span className="dbg-entry-icon">{ICONS[e.kind]}</span>
                       <span className="dbg-entry-label">{e.label}</span>
                       <span className="dbg-entry-ts">{e.ts.slice(11)}</span>
                     </div>
-                    {e.detail && <div className="dbg-entry-detail">{e.detail}</div>}
+                    {e.detail && expandedRecords.has(`openrouter-client-${e.id}`) && <div className="dbg-entry-detail">{e.detail}</div>}
                   </div>
                 ))}
                 {visibleOpenRouterServerEntries.map(e => (
                   <div key={`server-${e.id}`} className={`dbg-entry dbg-entry-server-${e.level.toLowerCase()}`}>
-                    <div className="dbg-entry-header">
+                    <div className="dbg-entry-header" role="button" tabIndex={0} aria-expanded={expandedRecords.has(`openrouter-server-${e.id}`)} onClick={() => toggleRecord(`openrouter-server-${e.id}`)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') toggleRecord(`openrouter-server-${e.id}`); }}>
                       <span className="dbg-entry-icon">{SERVER_LEVEL_ICON[e.level] ?? '⚪'}</span>
-                      <span className="dbg-entry-label">{e.msg}{Object.keys(e.meta).length > 0 ? ' — ' + JSON.stringify(e.meta) : ''}</span>
+                      <span className="dbg-entry-label">{e.msg}</span>
                       <span className="dbg-entry-ts">{e.ts.slice(11, 23)}</span>
                     </div>
+                    {Object.keys(e.meta).length > 0 && expandedRecords.has(`openrouter-server-${e.id}`) && <div className="dbg-entry-detail">{JSON.stringify(e.meta, null, 2)}</div>}
                   </div>
                 ))}
               </div>
