@@ -187,8 +187,24 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
   const [translationStatusMessage, setTranslationStatusMessage] = useState('');
   const [aiTranslationLevel, setAiTranslationLevel] = useState<number>(() => {
     if (typeof window === 'undefined') return 3;
+    // Check URL parameter first (for shared links)
+    const urlMask = new URLSearchParams(window.location.search).get('mask');
+    if (urlMask) {
+      const raw = Number(urlMask);
+      return Number.isFinite(raw) ? Math.min(5, Math.max(0, Math.round(raw))) : 3;
+    }
+    // Fall back to localStorage
     const raw = Number(window.localStorage.getItem('yt_ai_level') || '3');
-    return Number.isFinite(raw) ? Math.min(5, Math.max(1, Math.round(raw))) : 3;
+    return Number.isFinite(raw) ? Math.min(5, Math.max(0, Math.round(raw))) : 3;
+  });
+  const [useMaskAsTranslationBase, setUseMaskAsTranslationBase] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    // Check URL parameter first (for shared links)
+    const urlUseMask = new URLSearchParams(window.location.search).get('useMask');
+    if (urlUseMask === 'true') return true;
+    // Fall back to localStorage
+    const raw = window.localStorage.getItem('yt_use_mask_base');
+    return raw === 'true';
   });
   const [aiTranslationMode, setAiTranslationMode] = useState<'full' | 'rows'>(() => {
     if (typeof window === 'undefined') return 'rows';
@@ -287,8 +303,24 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
       window.localStorage.setItem('yt_ai_level', String(aiTranslationLevel));
       window.localStorage.setItem('yt_ai_mode', aiTranslationMode);
       window.localStorage.setItem('yt_ai_rows', String(aiTranslationRows));
+      window.localStorage.setItem('yt_use_mask_base', String(useMaskAsTranslationBase));
     }
-  }, [aiTranslationLevel, aiTranslationMode, aiTranslationRows]);
+  }, [aiTranslationLevel, aiTranslationMode, aiTranslationRows, useMaskAsTranslationBase]);
+
+  // ── When mask base is toggled, invalidate translation cache ────────────────
+  useEffect(() => {
+    // Mark all lines as pending re-translation when switching between mask/original base
+    pendingSet.current = new Set(linesRef.current.map((_, i) => i));
+    // Clear cached translations so they get re-fetched with the new source
+    setLines(prev => prev.map(line => ({
+      ...line,
+      translation: '',
+      translated: false,
+      translations: {},
+      translatedTargets: {}
+    })));
+    setTranslationVer(v => v + 1);
+  }, [useMaskAsTranslationBase]);
 
   // ── URL sync: reflect project + config in address bar ───────────────────────
   useEffect(() => {
@@ -311,8 +343,11 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
       if (s.ttsRate !== DEFAULT_TTS_RATE) p.set(`r_${sid}`, s.ttsRate.toFixed(1));
       if (s.voiceName) p.set(`vn_${sid}`, s.voiceName);
     }
+    // Include AI mask settings in URL
+    if (aiTranslationLevel > 0) p.set('mask', String(aiTranslationLevel));
+    if (useMaskAsTranslationBase) p.set('useMask', 'true');
     window.history.replaceState(null, '', `${window.location.pathname}?${p.toString()}`);
-  }, [project.id, project.videoId, project.lastLine, config, isPlaying, seamlessMode]);
+  }, [project.id, project.videoId, project.lastLine, config, isPlaying, seamlessMode, aiTranslationLevel, useMaskAsTranslationBase]);
 
   // ── Parse SRT on project change ─────────────────────────────────────────────
   useEffect(() => {
@@ -348,10 +383,67 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [project.id, dispatch]);
 
+  // ── Auto-generate mask on page load if difficulty is set ────────────────────
+  useEffect(() => {
+    if (!hasValidatedOpenRouterKey()) return;
+    if (aiTranslationLevel === 0) return; // "None" is selected
+    if (lines.length === 0) return; // Wait for lines
+    
+    // Check if masks for current visible window already exist
+    const firstVisibleIndex = windowStart;
+    const lastVisibleIndex = Math.min(windowStart + config.visibleLines - 1, lines.length - 1);
+    const allMasksExist = Array.from({ length: lastVisibleIndex - firstVisibleIndex + 1 }).every((_, i) => 
+      aiMaskRows[firstVisibleIndex + i] !== undefined
+    );
+    if (allMasksExist) return; // Masks for current window already exist
+    
+    const autoGenerate = async () => {
+      setAiMaskLoading(true);
+      try {
+        const rows = await generateDifficultyMask(project, aiTranslationLevel, config.visibleLines, true, windowStart);
+        // Accumulate masks instead of replacing - allows scrolling to generate more masks
+        setAiMaskRows(prev => ({
+          ...prev,
+          ...Object.fromEntries(rows.map((text, index) => [windowStart + index, text]))
+        }));
+        
+        // AFTER masks are ready, enable mask-based translation (only on first generation)
+        // This ensures translation uses masks as source, not original text
+        if (!useMaskAsTranslationBase) {
+          // Clear translations first, then enable mask mode
+          setLines(prev => prev.map(line => ({
+            ...line,
+            translation: '',
+            translated: false,
+            translations: {},
+            translatedTargets: {}
+          })));
+          // Mark all as pending re-translation with mask source
+          pendingSet.current = new Set(rows.map((_, i) => windowStart + i));
+          setUseMaskAsTranslationBase(true);
+          setTranslationVer(v => v + 1);
+        }
+      } catch {
+        // Silently fail - user can manually generate if needed
+      } finally {
+        setAiMaskLoading(false);
+      }
+    };
+    
+    autoGenerate();
+  }, [project.id, aiTranslationLevel, lines.length, windowStart, config.visibleLines]);
+
   // ── On-demand translation ─────────────────────────────────────────────────────
   // Translate only what the learner can see, plus a small lookahead. This keeps
   // navigation responsive without sending the whole transcript to the API.
   useEffect(() => {
+    // EARLY GUARD: If using mask as translation base but masks aren't ready yet, skip entire translation
+    if (useMaskAsTranslationBase && Object.keys(aiMaskRows).length === 0) {
+      setTranslationStatus('idle');
+      setTranslationStatusMessage('Generating AI mask for translation...');
+      return;
+    }
+
     let cancelled = false;
     const run = async () => {
       if (lines.length === 0) return; // Wait for lines to be populated
@@ -382,7 +474,10 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
         const line = linesRef.current[i];
         if (!line) { pendingSet.current.delete(i); continue; }
         const cfg = configRef.current;
-        const srcText = line.texts[cfg.translationSource] || '';
+        // Use mask as translation base if enabled and available
+        const srcText = (useMaskAsTranslationBase && aiMaskRows[i])
+          ? aiMaskRows[i]
+          : (line.texts[cfg.translationSource] || '');
         if (!srcText.trim()) {
           pendingSet.current.delete(i);
           setLines(prev => prev.map((l, idx) => idx === i ? { ...l, translation: '', translated: true, translations: {}, translatedTargets: Object.fromEntries(targets.map(target => [target, true])) } : l));
@@ -426,7 +521,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     run();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [translationVer, lines.length, windowStart, config.visibleLines, aiTranslationLevel, aiTranslationMode, aiTranslationRows]);
+  }, [translationVer, lines.length, windowStart, config.visibleLines, aiTranslationLevel, aiTranslationMode, aiTranslationRows, useMaskAsTranslationBase, aiMaskLoading]);
 
   // ── Slide window to follow current line ─────────────────────────────────────
   useEffect(() => {
@@ -915,24 +1010,58 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
   );
   const visibleRows = lines.slice(windowStart, windowStart + config.visibleLines);
   const maskVisible = Object.keys(aiMaskRows).length > 0;
-  const displayCols = maskVisible ? [...visibleCols, 'ai-mask'] : visibleCols;
+  const displayCols = maskVisible 
+    ? [
+        ...visibleCols.filter(id => !isTranslationCol(id)),  // Primary language columns
+        'ai-mask',
+        ...visibleCols.filter(id => isTranslationCol(id))    // Translation columns
+      ]
+    : visibleCols;
 
   // Helper to render text with word highlighting
   const renderHighlightedText = (text: string, lineIdx: number, colId: string) => {
-    if (!currentWord || currentWord.lineIdx !== lineIdx || currentWord.colId !== colId) {
-      return text;
+    // Get mask words for this line (only for original language, not translations)
+    const maskText = !isTranslationCol(colId) ? aiMaskRows[lineIdx] : null;
+    const maskWords = maskText ? 
+      new Set(maskText.toLowerCase().split(/\s+/).filter(w => w.length > 0)) : 
+      new Set<string>();
+    
+    // If current word is selected, highlight it (takes precedence over mask highlighting)
+    if (currentWord && currentWord.lineIdx === lineIdx && currentWord.colId === colId) {
+      const { charIndex, charLength } = currentWord;
+      const before = text.slice(0, charIndex);
+      const word = text.slice(charIndex, charIndex + (charLength || text.length - charIndex));
+      const after = text.slice(charIndex + (charLength || text.length - charIndex));
+      return (
+        <>
+          {before}
+          <span className="yl-word-highlight">{word}</span>
+          {after}
+        </>
+      );
     }
-    const { charIndex, charLength } = currentWord;
-    const before = text.slice(0, charIndex);
-    const word = text.slice(charIndex, charIndex + (charLength || text.length - charIndex));
-    const after = text.slice(charIndex + (charLength || text.length - charIndex));
-    return (
-      <>
-        {before}
-        <span className="yl-word-highlight">{word}</span>
-        {after}
-      </>
-    );
+    
+    // If no current word but mask words exist, highlight mask words in original text
+    if (maskWords.size > 0) {
+      const parts = text.split(/(\s+)/);
+      return (
+        <>
+          {parts.map((part, idx) => {
+            const isWhitespace = /^\s+$/.test(part);
+            const isMaskWord = maskWords.has(part.toLowerCase());
+            return isWhitespace ? part : (
+              isMaskWord ? (
+                <span key={idx} className="yl-mask-word-highlight">{part}</span>
+              ) : (
+                <span key={idx}>{part}</span>
+              )
+            );
+          })}
+        </>
+      );
+    }
+    
+    return text;
   };
 
   // Classic mode iframe URL (segment-specific, re-keyed)
@@ -973,7 +1102,8 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     setAiMaskLoading(true);
     setAiMaskError('');
     try {
-      const rows = await generateDifficultyMask(project, aiTranslationLevel, aiTranslationRows, true, windowStart);
+      // Generate masks for all visible rows, not just aiTranslationRows (12)
+      const rows = await generateDifficultyMask(project, aiTranslationLevel, config.visibleLines, true, windowStart);
       setAiMaskRows(Object.fromEntries(rows.map((text, index) => [windowStart + index, text])));
     } catch (error) {
       setAiMaskError(error instanceof Error ? error.message : String(error));
@@ -1371,6 +1501,9 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
                     if (s.ttsRate !== DEFAULT_TTS_RATE) p.set(`r_${sid}`, s.ttsRate.toFixed(1));
                     if (s.voiceName) p.set(`vn_${sid}`, s.voiceName);
                   }
+                  // Include AI mask settings
+                  if (aiTranslationLevel > 0) p.set('mask', String(aiTranslationLevel));
+                  if (useMaskAsTranslationBase) p.set('useMask', 'true');
                   const sharePath = `${routeBase}/project/${encodeURIComponent(project.id)}`;
                   const shareUrl = `${window.location.origin}${sharePath}?${p.toString()}`;
                   try {
@@ -1408,11 +1541,23 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
               <label className="yl-sr-only" htmlFor="yl-ai-mask-level">Mask difficulty</label>
               <select id="yl-ai-mask-level" className="yl-select-sm" value={aiTranslationLevel}
                 onChange={e => { const value = Number(e.target.value); setAiTranslationLevel(value); localStorage.setItem('yt_ai_level', String(value)); }}>
+                <option value={0}>None</option>
                 {[1, 2, 3, 4, 5].map(level => <option key={level} value={level}>Mask {level}</option>)}
               </select>
-              <button className="yl-btn-secondary yl-btn-sm" type="button" onClick={generateMask} disabled={aiMaskLoading} title="Generate a simpler AI mask column">
+              <button className="yl-btn-secondary yl-btn-sm" type="button" onClick={generateMask} disabled={aiMaskLoading || aiTranslationLevel === 0} title="Generate a simpler AI mask column">
                 {aiMaskLoading ? 'Masking…' : maskVisible ? 'Refresh mask' : 'AI mask'}
               </button>
+              {maskVisible && (
+                <>
+                  <label className="yl-checkbox-label" title="Use the AI mask as the source text for translation">
+                    <input type="checkbox" checked={useMaskAsTranslationBase} onChange={e => setUseMaskAsTranslationBase(e.target.checked)} />
+                    Use mask
+                  </label>
+                  <button className="yl-btn-ghost yl-btn-sm" type="button" onClick={() => { setAiMaskRows({}); setAiMaskError(''); }} title="Clear the AI mask column">
+                    ✕
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
@@ -1746,7 +1891,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
                 {displayCols.map(colId => (
                   <th key={colId} className="yl-th-text"
                     dir={colId === 'ai-mask' ? 'ltr' : isTranslationCol(colId) ? (isRtl(translationLang(colId, config)) ? 'rtl' : 'ltr') : undefined}>
-                    {colId === 'ai-mask' ? `AI mask · ${aiTranslationLevel} words` : colLabel(colId, project)}
+                    {colId === 'ai-mask' ? `AI mask · ${aiTranslationLevel} words${useMaskAsTranslationBase ? ' (translation base)' : ''}` : colLabel(colId, project)}
                   </th>
                 ))}
               </tr>
