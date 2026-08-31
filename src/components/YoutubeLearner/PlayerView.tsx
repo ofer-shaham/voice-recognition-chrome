@@ -488,6 +488,27 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     onSave({ ...projectRef.current, config: next, updatedAt: Date.now() });
   }, [onSave]);
 
+  useEffect(() => {
+    if (!voicesForLang || !project.config.colSettings || !Object.keys(project.config.colSettings).length) return;
+    const nextColSettings = { ...configRef.current.colSettings };
+    let changed = false;
+    for (const colId of configRef.current.colOrder) {
+      if (colId === 'video' || nextColSettings[colId]?.voiceName) continue;
+      const language = isTranslationCol(colId)
+        ? translationLang(colId, configRef.current)
+        : colId.replace('track:', '');
+      const defaultVoice = voicesForLang(language)[0];
+      if (!defaultVoice) continue;
+      nextColSettings[colId] = { ...nextColSettings[colId], voiceName: defaultVoice.name };
+      changed = true;
+    }
+    if (!changed) return;
+    const nextConfig = { ...configRef.current, colSettings: nextColSettings };
+    configRef.current = nextConfig;
+    setConfig(nextConfig);
+    onSave({ ...projectRef.current, config: nextConfig, updatedAt: Date.now() });
+  }, [onSave, project.config.colSettings, voicesForLang]);
+
   const updateProjectSource = useCallback((patch: Pick<YtProject, 'alternateYoutubeUrl' | 'subtitleProxyUrl'>) => {
     const next = { ...projectRef.current, ...patch, updatedAt: Date.now() };
     projectRef.current = next;
@@ -786,7 +807,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     const isSeamless = seamlessRef.current;
 
     const playable = cfg.colOrder
-      .filter(id => cfg.colSettings[id]?.visible && (cfg.colSettings[id]?.playOrder ?? 0) > 0)
+      .filter(id => cfg.colSettings[id]?.visible && !cfg.colSettings[id]?.muted && (cfg.colSettings[id]?.playOrder ?? 0) > 0)
       .sort((a, b) => (cfg.colSettings[a]?.playOrder ?? 0) - (cfg.colSettings[b]?.playOrder ?? 0));
 
     for (const colId of playable) {
@@ -1057,6 +1078,20 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
                           onChange={e => updateColSetting(colId, { playOrder: Math.max(0, parseInt(e.target.value) || 0) })}
                         />
                       </label>
+                      {colId !== 'video' && (
+                        <label className="yl-setting-field">
+                          <span>Mute</span>
+                          <input type="checkbox" checked={s.muted === true}
+                            onChange={e => updateColSetting(colId, { muted: e.target.checked })} />
+                        </label>
+                      )}
+                      {colId !== 'video' && (
+                        <label className="yl-setting-field">
+                          <span>Mute</span>
+                          <input type="checkbox" checked={s.muted === true}
+                            onChange={e => updateColSetting(colId, { muted: e.target.checked })} />
+                        </label>
+                      )}
                       {colId !== 'video' && (() => {
                         const colLang = isTranslationCol(colId)
                           ? translationLang(colId, config)
@@ -1704,7 +1739,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
                       <td key={colId} className="yl-td-text" dir={rtl ? 'rtl' : 'ltr'}>
                         {isLoading ? (
                           <span className="yl-translation-loading">Translating…</span>
-                        ) : isTrans && !line.translated ? (
+                        ) : isTrans && !line.translatedTargets?.[transLang] ? (
                           <span className="yl-translation-on-demand">On demand</span>
                         ) : (
                           renderHighlightedText(text, line.index)

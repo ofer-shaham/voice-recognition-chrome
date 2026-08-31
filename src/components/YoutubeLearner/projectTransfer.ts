@@ -65,6 +65,7 @@ export function parseProjectFile(text: string): YtProject {
       visible: rawSettings[colId]?.visible !== false,
       playOrder: Number.isFinite(rawSettings[colId]?.playOrder) ? rawSettings[colId].playOrder : index + 1,
       ttsRate: Number.isFinite(rawSettings[colId]?.ttsRate) ? rawSettings[colId].ttsRate : 1,
+      muted: rawSettings[colId]?.muted === true,
       voiceName: rawSettings[colId]?.voiceName,
     };
   });
@@ -72,6 +73,7 @@ export function parseProjectFile(text: string): YtProject {
     visible: rawSettings.translation?.visible !== false,
     playOrder: Number.isFinite(rawSettings.translation?.playOrder) ? rawSettings.translation.playOrder : tracks.length + 1,
     ttsRate: Number.isFinite(rawSettings.translation?.ttsRate) ? rawSettings.translation.ttsRate : 0.9,
+    muted: rawSettings.translation?.muted === true,
     voiceName: rawSettings.translation?.voiceName,
   };
   if (videoId) {
@@ -79,6 +81,7 @@ export function parseProjectFile(text: string): YtProject {
       visible: rawSettings.video?.visible !== false,
       playOrder: Number.isFinite(rawSettings.video?.playOrder) ? rawSettings.video.playOrder : tracks.length + 2,
       ttsRate: Number.isFinite(rawSettings.video?.ttsRate) ? rawSettings.video.ttsRate : 1,
+      muted: rawSettings.video?.muted === true,
       voiceName: rawSettings.video?.voiceName,
     };
   }

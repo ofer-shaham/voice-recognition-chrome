@@ -41,7 +41,8 @@ export function useVoices() {
   // Return voices filtered to those that match a given language code
   const voicesForLang = (lang: string): SpeechSynthesisVoice[] => {
     const base = lang.split(/[-_]/)[0].toLowerCase();
-    return voices.filter(v => v.lang.split(/[-_]/)[0].toLowerCase() === base);
+    const matches = voices.filter(v => v.lang.split(/[-_]/)[0].toLowerCase() === base);
+    return matches.length > 0 ? matches : voices;
   };
 
   return { voices, langOptions, voicesForLang };
