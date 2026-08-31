@@ -10,6 +10,9 @@ export interface ReduxLogEntry {
 }
 
 const MAX_ENTRIES = 200;
+const BLACKLISTED_ACTIONS = new Set([
+  'youtubePlayback/youtubeStateChanged',
+]);
 let nextId = 0;
 let entries: ReduxLogEntry[] = [];
 let listeners: Array<(next: ReduxLogEntry[]) => void> = [];
@@ -24,7 +27,7 @@ export function recordReduxAction(action: string, payload: unknown, state: {
 }) {
   // Position updates are intentionally omitted. They are high-frequency signals,
   // not useful action history, and would drown out the state transitions.
-  if (action.endsWith('/playbackTimeUpdated')) return;
+  if (action.endsWith('/playbackTimeUpdated') || BLACKLISTED_ACTIONS.has(action)) return;
 
   const entry: ReduxLogEntry = {
     id: ++nextId,
