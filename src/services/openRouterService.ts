@@ -33,6 +33,16 @@ export const OPENROUTER_MODELS: OpenRouterModel[] = [
 export const DEFAULT_MODEL = OPENROUTER_MODELS[0].id;
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
+export const OPENROUTER_API_KEY_STORAGE = 'openrouter_api_key';
+
+export const getStoredOpenRouterApiKey = (): string => {
+  if (typeof window === 'undefined') return '';
+  try {
+    return window.localStorage.getItem(OPENROUTER_API_KEY_STORAGE)?.trim() || '';
+  } catch {
+    return '';
+  }
+};
 
 const getUrlApiKey = (): string | undefined => {
   if (typeof window === 'undefined') return undefined;
@@ -66,6 +76,20 @@ export const checkServerKey = async (): Promise<boolean> => {
   return false;
 };
 
+export const validateOpenRouterKey = async (apiKey?: string): Promise<{ ok: boolean; error?: string }> => {
+  try {
+    const response = await fetch(`${API_BASE}/api/health_ai`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(apiKey?.trim() ? { apiKey: apiKey.trim() } : {}),
+    });
+    const data = await response.json().catch(() => ({}));
+    return data.ok ? { ok: true } : { ok: false, error: data.error || `Validation failed (${response.status})` };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : String(error) };
+  }
+};
+
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export interface ChatResponse {
@@ -83,7 +107,7 @@ export const chatWithAI = async (
 ): Promise<ChatResponse> => {
   const body: Record<string, unknown> = { messages, model };
   const urlApiKey = getUrlApiKey();
-  const effectiveKey = apiKey || urlApiKey;
+  const effectiveKey = apiKey || urlApiKey || getStoredOpenRouterApiKey();
   if (effectiveKey) body.apiKey = effectiveKey;
   if (maxTokens) body.maxTokens = maxTokens;
 

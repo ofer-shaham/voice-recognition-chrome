@@ -169,7 +169,7 @@ const SERVER_LEVEL_ICON: Record<string, string> = {
   INFO: '🔵', ERROR: '🔴', WARN: '🟡', DEBUG: '⚪',
 };
 
-type Tab = 'client' | 'server';
+type Tab = 'client' | 'server' | 'openrouter';
 
 export default function DebugPanel() {
   const [open, setOpen]       = useState(false);
@@ -177,7 +177,7 @@ export default function DebugPanel() {
   const [copied, setCopied]   = useState(false);
   const [filter, setFilter]   = useState<'all' | 'errors'>('all');
   const entries               = useLogEntries();
-  const serverEntries         = useServerLogs(open && tab === 'server');
+  const serverEntries         = useServerLogs(open && (tab === 'server' || tab === 'openrouter'));
   const panelRef              = useRef<HTMLDivElement>(null);
 
   useEffect(() => { installInterceptors(); }, []);
@@ -195,6 +195,14 @@ export default function DebugPanel() {
   const visibleServer = filter === 'errors'
     ? serverEntries.filter(e => e.level === 'ERROR' || e.level === 'WARN')
     : serverEntries;
+  const openRouterEntries = entries.filter(e => /\/api\/(chat|health_ai)/.test(e.label));
+  const openRouterServerEntries = serverEntries.filter(e => /openrouter|health_ai/i.test(e.msg));
+  const visibleOpenRouterEntries = filter === 'errors'
+    ? openRouterEntries.filter(e => e.kind === 'fetch-err' || e.kind === 'js-error' || e.kind === 'unhandled' || e.kind === 'console-error')
+    : openRouterEntries;
+  const visibleOpenRouterServerEntries = filter === 'errors'
+    ? openRouterServerEntries.filter(e => e.level === 'ERROR' || e.level === 'WARN')
+    : openRouterServerEntries;
 
   const buildText = useCallback(() => {
     const clientLines = entries.map(e => `[${e.ts}] ${ICONS[e.kind]} ${e.label}\n    ${e.detail}`);
@@ -265,6 +273,12 @@ export default function DebugPanel() {
               >
                 Server ({serverEntries.length})
               </button>
+              <button
+                className={`dbg-filter-btn ${tab === 'openrouter' ? 'dbg-filter-active' : ''}`}
+                onClick={() => setTab('openrouter')}
+              >
+                OpenRouter ({openRouterEntries.length + openRouterServerEntries.length})
+              </button>
               <span className="dbg-tab-divider" />
               <button
                 className={`dbg-filter-btn ${filter === 'all' ? 'dbg-filter-active' : ''}`}
@@ -301,7 +315,7 @@ export default function DebugPanel() {
                 ))}
               </div>
             )
-          ) : (
+          ) : tab === 'server' ? (
             visibleServer.length === 0 ? (
               <div className="dbg-empty">
                 {filter === 'errors' ? 'No server errors 🎉' : 'No server logs yet — waiting for activity…'}
@@ -319,11 +333,39 @@ export default function DebugPanel() {
                 ))}
               </div>
             )
+          ) : (
+            visibleOpenRouterEntries.length === 0 && visibleOpenRouterServerEntries.length === 0 ? (
+              <div className="dbg-empty">
+                {filter === 'errors' ? 'No OpenRouter errors 🎉' : 'No OpenRouter logs yet — waiting for activity…'}
+              </div>
+            ) : (
+              <div className="dbg-entries">
+                {visibleOpenRouterEntries.map(e => (
+                  <div key={`client-${e.id}`} className={`dbg-entry dbg-entry-${e.kind}`}>
+                    <div className="dbg-entry-header">
+                      <span className="dbg-entry-icon">{ICONS[e.kind]}</span>
+                      <span className="dbg-entry-label">{e.label}</span>
+                      <span className="dbg-entry-ts">{e.ts.slice(11)}</span>
+                    </div>
+                    {e.detail && <div className="dbg-entry-detail">{e.detail}</div>}
+                  </div>
+                ))}
+                {visibleOpenRouterServerEntries.map(e => (
+                  <div key={`server-${e.id}`} className={`dbg-entry dbg-entry-server-${e.level.toLowerCase()}`}>
+                    <div className="dbg-entry-header">
+                      <span className="dbg-entry-icon">{SERVER_LEVEL_ICON[e.level] ?? '⚪'}</span>
+                      <span className="dbg-entry-label">{e.msg}{Object.keys(e.meta).length > 0 ? ' — ' + JSON.stringify(e.meta) : ''}</span>
+                      <span className="dbg-entry-ts">{e.ts.slice(11, 23)}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
           )}
 
           <div className="dbg-panel-footer">
             <span className="dbg-footer-hint">
-              {tab === 'server' ? <>Server logs poll every 2.5s — <strong>📋 Copy All</strong> includes both tabs</> : <>Paste with <strong>📋 Copy All</strong> to share with developer</>}
+              {tab === 'server' ? <>Server logs poll every 2.5s — <strong>📋 Copy All</strong> includes all tabs</> : tab === 'openrouter' ? <>OpenRouter client and server activity</> : <>Paste with <strong>📋 Copy All</strong> to share with developer</>}
             </span>
           </div>
         </div>

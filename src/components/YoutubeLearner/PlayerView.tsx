@@ -82,7 +82,11 @@ interface Props {
 const shortCol = (id: string) => id === 'translation' ? 't' : id.replace('track:', '');
 const translationCol = (lang: string) => `translation:${lang}`;
 const isTranslationCol = (id: string) => id === 'translation' || id.startsWith('translation:');
-const translationLang = (id: string, config: ProjectConfig) => id.startsWith('translation:') ? id.slice('translation:'.length) : config.targetLang;
+const translationLang = (id: string, config: ProjectConfig) => {
+  if (id === 'translation') return config.targetLang;
+  const language = id.slice('translation:'.length);
+  return ['auto', 'default', 'und'].includes(language.toLowerCase()) ? config.targetLang : language;
+};
 const TRANSLATION_AHEAD = 7;
 
 const normalizeConfig = (source: ProjectConfig): ProjectConfig => {
@@ -1375,6 +1379,11 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
           >
             ⚙ Settings
           </button>
+          {[1, 2, 3, 4, 5].map(number => (
+            <button key={number} className="yl-btn-ghost" title="Open cached or generate this lesson" onClick={() => navigate(`${routeBase}/view/lesson/${number}`)}>
+              Lesson {number}
+            </button>
+          ))}
         </div>
       </div>
 

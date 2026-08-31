@@ -5,6 +5,7 @@ import { useProject } from './useProject';
 import SetupView from './SetupView';
 import PlayerView from './PlayerView';
 import OpenRouterSettings from './OpenRouterSettings';
+import LessonView from './LessonView';
 import './YoutubeLearner.css';
 
 interface YoutubeLearnerProps {
@@ -43,13 +44,15 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
   const isTranslationSettingsRoute = path === `${routeBase}/settings/translation`;
   const isOpenRouterSettingsRoute = path === `${routeBase}/settings/openrouter`;
   const isSettingsRoute = isSettingsHomeRoute || isTranslationSettingsRoute || isOpenRouterSettingsRoute;
+  const lessonMatch = path.match(new RegExp(`^${routeBase}/view/lesson/([1-5])$`));
+  const isLessonRoute = !!lessonMatch;
   const isProjectRoute = path.startsWith(`${routeBase}/view/`) || path.startsWith(`${routeBase}/project/`);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const resolvedProjects = projects.length > 0 ? projects : loadPersistedProjects();
     const routeId = (() => {
-      if (path.startsWith(`${routeBase}/view/`)) {
+      if (path.startsWith(`${routeBase}/view/`) && !isLessonRoute) {
         return decodeURIComponent(path.slice(`${routeBase}/view/`.length));
       }
       if (path.startsWith(`${routeBase}/project/`)) {
@@ -64,8 +67,14 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
 
     if (isSettingsRoute) {
       const targetProject = fromUrl ?? lastProject;
-      setActiveProject(targetProject);
+      setActiveProject(targetProject ?? null);
       setShowSetup(!targetProject);
+      return;
+    }
+
+    if (isLessonRoute) {
+      setActiveProject(fromUrl ?? lastProject);
+      setShowSetup(!fromUrl && !lastProject);
       return;
     }
 
@@ -76,7 +85,7 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
     }
 
     if (fromUrl) {
-      setActiveProject(fromUrl);
+      setActiveProject(fromUrl ?? null);
       setShowSetup(false);
       if (!isProjectRoute) {
         navigate(`${routeBase}/view/${encodeURIComponent(fromUrl.id)}`, { replace: true });
@@ -85,14 +94,14 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
     }
 
     if (isProjectRoute) {
-      setActiveProject(lastProject);
+      setActiveProject(lastProject ?? null);
       setShowSetup(!lastProject);
       return;
     }
 
     setActiveProject(null);
     setShowSetup(true);
-  }, [projects, path, routeBase, navigate, getLastId, isProjectRoute, isSettingsRoute, isSetupRoute]);
+  }, [projects, path, routeBase, navigate, getLastId, isProjectRoute, isSettingsRoute, isSetupRoute, isLessonRoute]);
 
   const handleProjectReady = (project: YtProject) => {
     upsert(project);
@@ -161,6 +170,7 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
             <button className="yl-btn-secondary" onClick={() => navigate(`${routeBase}/settings/translation`)}>Translation settings</button>
             <button className="yl-btn-secondary" onClick={() => navigate(`${routeBase}/settings/openrouter`)}>OpenRouter settings</button>
           </div>
+          <OpenRouterSettings routeBase={routeBase} theme={theme} onThemeChange={handleThemeChange} showNavigation={false} />
         </div>
       </div>
     );
@@ -168,6 +178,10 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
 
   if (isOpenRouterSettingsRoute) {
     return <OpenRouterSettings routeBase={routeBase} theme={theme} onThemeChange={handleThemeChange} />;
+  }
+
+  if (isLessonRoute && activeProject && lessonMatch) {
+    return <LessonView project={activeProject} lessonNumber={Number(lessonMatch[1])} routeBase={routeBase} theme={theme} onThemeChange={handleThemeChange} />;
   }
 
   if (isTranslationSettingsRoute) {
