@@ -388,15 +388,15 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     if (!hasValidatedOpenRouterKey()) return;
     if (aiTranslationLevel === 0) return; // "None" is selected
     if (lines.length === 0) return; // Wait for lines
-    
+
     // Check if masks for current visible window already exist
     const firstVisibleIndex = windowStart;
     const lastVisibleIndex = Math.min(windowStart + config.visibleLines - 1, lines.length - 1);
-    const allMasksExist = Array.from({ length: lastVisibleIndex - firstVisibleIndex + 1 }).every((_, i) => 
+    const allMasksExist = Array.from({ length: lastVisibleIndex - firstVisibleIndex + 1 }).every((_, i) =>
       aiMaskRows[firstVisibleIndex + i] !== undefined
     );
     if (allMasksExist) return; // Masks for current window already exist
-    
+
     const autoGenerate = async () => {
       setAiMaskLoading(true);
       try {
@@ -406,7 +406,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
           ...prev,
           ...Object.fromEntries(rows.map((text, index) => [windowStart + index, text]))
         }));
-        
+
         // AFTER masks are ready, enable mask-based translation (only on first generation)
         // This ensures translation uses masks as source, not original text
         if (!useMaskAsTranslationBase) {
@@ -429,7 +429,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
         setAiMaskLoading(false);
       }
     };
-    
+
     autoGenerate();
   }, [project.id, aiTranslationLevel, lines.length, windowStart, config.visibleLines]);
 
@@ -1010,22 +1010,22 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
   );
   const visibleRows = lines.slice(windowStart, windowStart + config.visibleLines);
   const maskVisible = Object.keys(aiMaskRows).length > 0;
-  const displayCols = maskVisible 
+  const displayCols = maskVisible
     ? [
-        ...visibleCols.filter(id => !isTranslationCol(id)),  // Primary language columns
-        'ai-mask',
-        ...visibleCols.filter(id => isTranslationCol(id))    // Translation columns
-      ]
+      ...visibleCols.filter(id => !isTranslationCol(id)),  // Primary language columns
+      'ai-mask',
+      ...visibleCols.filter(id => isTranslationCol(id))    // Translation columns
+    ]
     : visibleCols;
 
   // Helper to render text with word highlighting
   const renderHighlightedText = (text: string, lineIdx: number, colId: string) => {
     // Get mask words for this line (only for original language, not translations)
     const maskText = !isTranslationCol(colId) ? aiMaskRows[lineIdx] : null;
-    const maskWords = maskText ? 
-      new Set(maskText.toLowerCase().split(/\s+/).filter(w => w.length > 0)) : 
+    const maskWords = maskText ?
+      new Set(maskText.toLowerCase().split(/\s+/).filter(w => w.length > 0)) :
       new Set<string>();
-    
+
     // If current word is selected, highlight it (takes precedence over mask highlighting)
     if (currentWord && currentWord.lineIdx === lineIdx && currentWord.colId === colId) {
       const { charIndex, charLength } = currentWord;
@@ -1040,7 +1040,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
         </>
       );
     }
-    
+
     // If no current word but mask words exist, highlight mask words in original text
     if (maskWords.size > 0) {
       const parts = text.split(/(\s+)/);
@@ -1060,7 +1060,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
         </>
       );
     }
-    
+
     return text;
   };
 
