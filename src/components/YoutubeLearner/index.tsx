@@ -39,9 +39,10 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
   };
 
   const isSetupRoute = [routeBase, `${routeBase}/setup`, `${routeBase}/home`].includes(path);
-  const isTranslationSettingsRoute = path === `${routeBase}/settings` || path === `${routeBase}/settings/translation`;
+  const isSettingsHomeRoute = path === `${routeBase}/settings`;
+  const isTranslationSettingsRoute = path === `${routeBase}/settings/translation`;
   const isOpenRouterSettingsRoute = path === `${routeBase}/settings/openrouter`;
-  const isSettingsRoute = isTranslationSettingsRoute || isOpenRouterSettingsRoute;
+  const isSettingsRoute = isSettingsHomeRoute || isTranslationSettingsRoute || isOpenRouterSettingsRoute;
   const isProjectRoute = path.startsWith(`${routeBase}/view/`) || path.startsWith(`${routeBase}/project/`);
 
   useEffect(() => {
@@ -132,6 +133,38 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
       navigate(`${routeBase}/setup`);
     }
   };
+
+  if (isSettingsHomeRoute) {
+    return (
+      <div className={`yl-player yl-theme-${theme}`}>
+        <div className="yl-header">
+          <div className="yl-header-left">
+            <button className="yl-btn-ghost" onClick={() => navigate(`${routeBase}/setup`)}>Home</button>
+            <label className="yl-theme-control">
+              <span className="yl-sr-only">Theme</span>
+              <select className="yl-theme-select" value={theme} onChange={e => handleThemeChange(e.target.value as YoutubeTheme)}>
+                <option value="light">Light</option>
+                <option value="blue">Blue</option>
+                <option value="dark">Dark</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div className="yl-settings">
+          <div className="yl-settings-heading">
+            <div>
+              <strong>YouTube settings</strong>
+              <span>Choose a settings category.</span>
+            </div>
+          </div>
+          <div className="yl-settings-global">
+            <button className="yl-btn-secondary" onClick={() => navigate(`${routeBase}/settings/translation`)}>Translation settings</button>
+            <button className="yl-btn-secondary" onClick={() => navigate(`${routeBase}/settings/openrouter`)}>OpenRouter settings</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (isOpenRouterSettingsRoute) {
     return <OpenRouterSettings routeBase={routeBase} theme={theme} onThemeChange={handleThemeChange} />;

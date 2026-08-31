@@ -1009,46 +1009,6 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
                 </div>
               </label>
               <label className="yl-setting-field">
-                <span>AI translation model</span>
-                <span className="yl-setting-info">OpenRouter auto (free)</span>
-              </label>
-              <label className="yl-setting-field">
-                <span>AI clarity level</span>
-                <input
-                  type="range"
-                  min={1}
-                  max={5}
-                  step={1}
-                  value={aiTranslationLevel}
-                  onChange={e => setAiTranslationLevel(Number(e.target.value))}
-                />
-                <span className="yl-setting-info">Level {aiTranslationLevel}/5</span>
-              </label>
-              <label className="yl-setting-field">
-                <span>AI translation scope</span>
-                <select
-                  className="yl-select-sm"
-                  value={aiTranslationMode}
-                  onChange={e => setAiTranslationMode(e.target.value as 'full' | 'rows')}
-                >
-                  <option value="rows">Next X rows</option>
-                  <option value="full">Entire SRT file</option>
-                </select>
-              </label>
-              {aiTranslationMode === 'rows' && (
-                <label className="yl-setting-field">
-                  <span>Rows to translate</span>
-                  <input
-                    type="number"
-                    className="yl-input-sm"
-                    min={1}
-                    max={200}
-                    value={aiTranslationRows}
-                    onChange={e => setAiTranslationRows(Math.max(1, Math.min(200, Number(e.target.value) || 1)))}
-                  />
-                </label>
-              )}
-              <label className="yl-setting-field">
                 <span>Source column</span>
                 <select className="yl-select-sm" value={config.translationSource}
                   onChange={e => { updateConfig({ translationSource: e.target.value }); retranslate(); }}>
@@ -1463,46 +1423,6 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
                 </datalist>
               </div>
             </label>
-            <label className="yl-setting-field">
-              <span>AI translation model</span>
-              <span className="yl-setting-info">OpenRouter auto (free)</span>
-            </label>
-            <label className="yl-setting-field">
-              <span>AI clarity level</span>
-              <input
-                type="range"
-                min={1}
-                max={5}
-                step={1}
-                value={aiTranslationLevel}
-                onChange={e => setAiTranslationLevel(Number(e.target.value))}
-              />
-              <span className="yl-setting-info">Level {aiTranslationLevel}/5</span>
-            </label>
-            <label className="yl-setting-field">
-              <span>AI translation scope</span>
-              <select
-                className="yl-select-sm"
-                value={aiTranslationMode}
-                onChange={e => setAiTranslationMode(e.target.value as 'full' | 'rows')}
-              >
-                <option value="rows">Next X rows</option>
-                <option value="full">Entire SRT file</option>
-              </select>
-            </label>
-            {aiTranslationMode === 'rows' && (
-              <label className="yl-setting-field">
-                <span>Rows to translate</span>
-                <input
-                  type="number"
-                  className="yl-input-sm"
-                  min={1}
-                  max={200}
-                  value={aiTranslationRows}
-                  onChange={e => setAiTranslationRows(Math.max(1, Math.min(200, Number(e.target.value) || 1)))}
-                />
-              </label>
-            )}
             <label className="yl-setting-field">
               <span>Source column</span>
               <select className="yl-select-sm" value={config.translationSource}
