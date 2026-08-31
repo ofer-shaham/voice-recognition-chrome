@@ -166,7 +166,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     }
   }, [onSave, project]);
   const [translationVer, setTranslationVer] = useState(0);
-  const [currentWord, setCurrentWord] = useState<{ lineIdx: number; charIndex: number; charLength: number } | null>(null);
+  const [currentWord, setCurrentWord] = useState<{ lineIdx: number; colId: string; charIndex: number; charLength: number } | null>(null);
   // Keep one persistent iframe so row playback can seek without reloading.
   const seamlessMode = true;
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -845,7 +845,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
               lang,
               s?.ttsRate ?? DEFAULT_TTS_RATE,
               s?.voiceName || undefined,
-              (charIndex, charLength) => setCurrentWord({ lineIdx, charIndex, charLength })
+              (charIndex, charLength) => setCurrentWord({ lineIdx, colId, charIndex, charLength })
             );
           } catch { /* ignore */ }
           setCurrentWord(null);
@@ -907,8 +907,8 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
   const visibleRows = lines.slice(windowStart, windowStart + config.visibleLines);
 
   // Helper to render text with word highlighting
-  const renderHighlightedText = (text: string, lineIdx: number) => {
-    if (!currentWord || currentWord.lineIdx !== lineIdx) {
+  const renderHighlightedText = (text: string, lineIdx: number, colId: string) => {
+    if (!currentWord || currentWord.lineIdx !== lineIdx || currentWord.colId !== colId) {
       return text;
     }
     const { charIndex, charLength } = currentWord;
@@ -1078,13 +1078,6 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
                           onChange={e => updateColSetting(colId, { playOrder: Math.max(0, parseInt(e.target.value) || 0) })}
                         />
                       </label>
-                      {colId !== 'video' && (
-                        <label className="yl-setting-field">
-                          <span>Mute</span>
-                          <input type="checkbox" checked={s.muted === true}
-                            onChange={e => updateColSetting(colId, { muted: e.target.checked })} />
-                        </label>
-                      )}
                       {colId !== 'video' && (
                         <label className="yl-setting-field">
                           <span>Mute</span>
@@ -1742,7 +1735,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
                         ) : isTrans && !line.translatedTargets?.[transLang] ? (
                           <span className="yl-translation-on-demand">On demand</span>
                         ) : (
-                          renderHighlightedText(text, line.index)
+                          renderHighlightedText(text, line.index, colId)
                         )}
                       </td>
                     );
