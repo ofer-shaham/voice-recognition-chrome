@@ -93,7 +93,7 @@ function installInterceptors() {
   };
 
   const origError = console.error.bind(console);
-  const origWarn  = console.warn.bind(console);
+  const origWarn = console.warn.bind(console);
   console.error = (...args: any[]) => {
     push({ kind: 'console-error', label: 'console.error', detail: args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ').slice(0, 400) });
     origError(...args);
@@ -177,13 +177,13 @@ function useServerLogs(enabled: boolean) {
 }
 
 const ICONS: Record<LogEntry['kind'], string> = {
-  'fetch-ok':      '✅',
-  'fetch-err':     '❌',
-  'js-error':      '💥',
-  'unhandled':     '⚠️',
+  'fetch-ok': '✅',
+  'fetch-err': '❌',
+  'js-error': '💥',
+  'unhandled': '⚠️',
   'console-error': '🔴',
-  'console-warn':  '🟡',
-  redux:           '🧠',
+  'console-warn': '🟡',
+  redux: '🧠',
 };
 
 const SERVER_LEVEL_ICON: Record<string, string> = {
@@ -193,15 +193,15 @@ const SERVER_LEVEL_ICON: Record<string, string> = {
 type Tab = 'client' | 'server' | 'openrouter';
 
 export default function DebugPanel() {
-  const [open, setOpen]       = useState(false);
-  const [tab, setTab]         = useState<Tab>('client');
-  const [copied, setCopied]   = useState(false);
-  const [filter, setFilter]   = useState<'all' | 'errors'>('all');
+  const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<Tab>('client');
+  const [copied, setCopied] = useState(false);
+  const [filter, setFilter] = useState<'all' | 'errors'>('all');
   const [maximized, setMaximized] = useState(false);
   const [expandedRecords, setExpandedRecords] = useState<Set<string>>(new Set());
-  const entries               = useLogEntries();
-  const serverEntries         = useServerLogs(open && (tab === 'server' || tab === 'openrouter'));
-  const panelRef              = useRef<HTMLDivElement>(null);
+  const entries = useLogEntries();
+  const serverEntries = useServerLogs(open && (tab === 'server' || tab === 'openrouter'));
+  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { installInterceptors(); }, []);
 

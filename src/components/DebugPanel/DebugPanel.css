@@ -19,13 +19,23 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.5);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.5);
   transition: background 0.15s, transform 0.15s;
   position: relative;
 }
-.dbg-fab:hover { background: #2d3748; transform: scale(1.08); }
-.dbg-fab-errors { background: #3b1f1f; }
-.dbg-fab-errors:hover { background: #4a2020; }
+
+.dbg-fab:hover {
+  background: #2d3748;
+  transform: scale(1.08);
+}
+
+.dbg-fab-errors {
+  background: #3b1f1f;
+}
+
+.dbg-fab-errors:hover {
+  background: #4a2020;
+}
 
 .dbg-badge {
   position: absolute;
@@ -56,7 +66,7 @@
   border-radius: 10px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.7);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.7);
   overflow: hidden;
 }
 
@@ -104,8 +114,17 @@
   transition: all 0.15s;
   white-space: nowrap;
 }
-.dbg-filter-btn:hover { color: #e2e8f0; border-color: #64748b; }
-.dbg-filter-active { background: #1e2d4a; color: #93c5fd !important; border-color: #3b5280 !important; }
+
+.dbg-filter-btn:hover {
+  color: #e2e8f0;
+  border-color: #64748b;
+}
+
+.dbg-filter-active {
+  background: #1e2d4a;
+  color: #93c5fd !important;
+  border-color: #3b5280 !important;
+}
 
 .dbg-action-btn {
   background: transparent;
@@ -118,7 +137,11 @@
   transition: all 0.15s;
   white-space: nowrap;
 }
-.dbg-action-btn:hover { color: #e2e8f0; border-color: #64748b; }
+
+.dbg-action-btn:hover {
+  color: #e2e8f0;
+  border-color: #64748b;
+}
 
 .dbg-copy-btn {
   background: #162a1e;
@@ -128,9 +151,16 @@
   font-size: 0.78rem;
   padding: 0.25rem 0.65rem;
 }
-.dbg-copy-btn:hover { background: #1a3d27 !important; border-color: #22c55e !important; color: #86efac !important; }
 
-.dbg-close-btn { font-size: 0.85rem; }
+.dbg-copy-btn:hover {
+  background: #1a3d27 !important;
+  border-color: #22c55e !important;
+  color: #86efac !important;
+}
+
+.dbg-close-btn {
+  font-size: 0.85rem;
+}
 
 /* ── Entries ───────────────────────────────────────────────────────────────── */
 .dbg-entries {
@@ -154,7 +184,10 @@
   padding: 0.3rem 0.75rem;
   border-bottom: 1px solid #1a1f2e;
 }
-.dbg-entry:hover { background: #12161f; }
+
+.dbg-entry:hover {
+  background: #12161f;
+}
 
 .dbg-entry-header {
   display: flex;
@@ -164,9 +197,14 @@
   cursor: pointer;
 }
 
-.dbg-entry-header:hover { background: #1a2230; }
+.dbg-entry-header:hover {
+  background: #1a2230;
+}
 
-.dbg-entry-icon { flex-shrink: 0; line-height: 1.4; }
+.dbg-entry-icon {
+  flex-shrink: 0;
+  line-height: 1.4;
+}
 
 .dbg-entry-label {
   flex: 1;
@@ -197,18 +235,46 @@
 }
 
 /* Kind-specific label colours — client */
-.dbg-entry-fetch-ok    .dbg-entry-label { color: #86efac; }
-.dbg-entry-fetch-err   .dbg-entry-label { color: #fca5a5; }
-.dbg-entry-js-error    .dbg-entry-label { color: #fca5a5; }
-.dbg-entry-unhandled   .dbg-entry-label { color: #fde68a; }
-.dbg-entry-console-error .dbg-entry-label { color: #fca5a5; }
-.dbg-entry-console-warn  .dbg-entry-label { color: #fde68a; }
+.dbg-entry-fetch-ok .dbg-entry-label {
+  color: #86efac;
+}
+
+.dbg-entry-fetch-err .dbg-entry-label {
+  color: #fca5a5;
+}
+
+.dbg-entry-js-error .dbg-entry-label {
+  color: #fca5a5;
+}
+
+.dbg-entry-unhandled .dbg-entry-label {
+  color: #fde68a;
+}
+
+.dbg-entry-console-error .dbg-entry-label {
+  color: #fca5a5;
+}
+
+.dbg-entry-console-warn .dbg-entry-label {
+  color: #fde68a;
+}
 
 /* Kind-specific label colours — server */
-.dbg-entry-server-info  .dbg-entry-label { color: #93c5fd; }
-.dbg-entry-server-error .dbg-entry-label { color: #fca5a5; }
-.dbg-entry-server-warn  .dbg-entry-label { color: #fde68a; }
-.dbg-entry-server-debug .dbg-entry-label { color: #6b7280; }
+.dbg-entry-server-info .dbg-entry-label {
+  color: #93c5fd;
+}
+
+.dbg-entry-server-error .dbg-entry-label {
+  color: #fca5a5;
+}
+
+.dbg-entry-server-warn .dbg-entry-label {
+  color: #fde68a;
+}
+
+.dbg-entry-server-debug .dbg-entry-label {
+  color: #6b7280;
+}
 
 /* Tab divider */
 .dbg-tab-divider {
@@ -231,4 +297,7 @@
   font-size: 0.72rem;
   color: #374151;
 }
-.dbg-footer-hint strong { color: #4ade80; }
+
+.dbg-footer-hint strong {
+  color: #4ade80;
+}

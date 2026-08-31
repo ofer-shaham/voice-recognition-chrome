@@ -200,8 +200,8 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
           projects={projects}
           hasHistory={projects.length > 0}
           onLoadProject={handleSelectProject}
-          onDeleteProject={() => {}}
-          onLoadRecent={() => {}}
+          onDeleteProject={() => { }}
+          onLoadRecent={() => { }}
           onClearHistory={() => { clearAll(); setActiveProject(null); }}
           theme={theme}
           onThemeChange={handleThemeChange}
@@ -215,7 +215,7 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
         project={projectToEdit}
         onSave={handleSave}
         onBackHome={() => { setShowSetup(true); setActiveProject(null); navigate(`${routeBase}/setup`); }}
-              onBackToView={() => {
+        onBackToView={() => {
           setShowSetup(false);
           if (projectToEdit) {
             navigate(`${routeBase}/view/${encodeURIComponent(projectToEdit.id)}`);
