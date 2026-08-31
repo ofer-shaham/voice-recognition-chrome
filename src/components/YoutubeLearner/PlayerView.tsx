@@ -13,7 +13,7 @@ import {
 } from './types';
 import { buildLines, parseSrt, secondsToHms, colLabel, sleep, dedupeAvailLangs } from './utils';
 import { DEFAULT_TTS_RATE } from './constants';
-import { translate, getTranslationCacheCount, DEFAULT_OPENROUTER_MODEL } from '../../utils/translate';
+import { translate, getTranslationCacheCount } from '../../utils/translate';
 import { freeSpeak } from '../../utils/freeSpeak';
 import isRtl from '../../utils/isRtl';
 import { useVoices } from './useVoices';
@@ -157,7 +157,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     const currentConfig = normalizeConfig(project.config);
     const hydrated = hydrateConfigFromUrl({ ...currentConfig, visibleLines: currentConfig.visibleLines || defaultVisibleLines() });
     const isHydrated = hydrated.targetLang !== currentConfig.targetLang
-      || hydrated.translationTargets.join(',') !== (currentConfig.translationTargets || []).join(',')
+      || (hydrated.translationTargets || []).join(',') !== (currentConfig.translationTargets || []).join(',')
       || hydrated.colOrder.join(',') !== currentConfig.colOrder.join(',');
 
     if (isHydrated) {
@@ -278,7 +278,6 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
       window.localStorage.setItem('yt_ai_level', String(aiTranslationLevel));
       window.localStorage.setItem('yt_ai_mode', aiTranslationMode);
       window.localStorage.setItem('yt_ai_rows', String(aiTranslationRows));
-      window.localStorage.setItem('yt_ai_model', DEFAULT_OPENROUTER_MODEL);
     }
   }, [aiTranslationLevel, aiTranslationMode, aiTranslationRows]);
 
@@ -1379,10 +1378,10 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
                 stop();
               }
               if (typeof navigate === 'function') {
-                navigate(`${routeBase}/settings`);
+                navigate(`${routeBase}/settings/translation`);
                 return;
               }
-              window.location.assign(`${window.location.origin}${routeBase}/settings`);
+              window.location.assign(`${window.location.origin}${routeBase}/settings/translation`);
             }}
             title="Open project settings"
           >

@@ -4,6 +4,7 @@ import { YtProject, YoutubeTheme } from './types';
 import { useProject } from './useProject';
 import SetupView from './SetupView';
 import PlayerView from './PlayerView';
+import OpenRouterSettings from './OpenRouterSettings';
 import './YoutubeLearner.css';
 
 interface YoutubeLearnerProps {
@@ -38,7 +39,9 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
   };
 
   const isSetupRoute = [routeBase, `${routeBase}/setup`, `${routeBase}/home`].includes(path);
-  const isSettingsRoute = path === `${routeBase}/settings`;
+  const isTranslationSettingsRoute = path === `${routeBase}/settings` || path === `${routeBase}/settings/translation`;
+  const isOpenRouterSettingsRoute = path === `${routeBase}/settings/openrouter`;
+  const isSettingsRoute = isTranslationSettingsRoute || isOpenRouterSettingsRoute;
   const isProjectRoute = path.startsWith(`${routeBase}/view/`) || path.startsWith(`${routeBase}/project/`);
 
   useEffect(() => {
@@ -102,8 +105,8 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
     setActiveProject(updated);
 
     const pathname = window.location.pathname;
-    if (pathname === `${routeBase}/settings`) {
-      navigate(`${routeBase}/settings`, { replace: true });
+    if (pathname === `${routeBase}/settings` || pathname === `${routeBase}/settings/translation`) {
+      navigate(`${routeBase}/settings/translation`, { replace: true });
       return;
     }
 
@@ -130,7 +133,11 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
     }
   };
 
-  if (path === `${routeBase}/settings`) {
+  if (isOpenRouterSettingsRoute) {
+    return <OpenRouterSettings routeBase={routeBase} theme={theme} onThemeChange={handleThemeChange} />;
+  }
+
+  if (isTranslationSettingsRoute) {
     const projectToEdit = activeProject ?? (projects[0] ?? null);
     if (!projectToEdit) {
       return (
@@ -156,7 +163,7 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
         project={projectToEdit}
         onSave={handleSave}
         onBackHome={() => { setShowSetup(true); setActiveProject(null); navigate(`${routeBase}/setup`); }}
-        onBackToView={() => {
+              onBackToView={() => {
           setShowSetup(false);
           if (projectToEdit) {
             navigate(`${routeBase}/view/${encodeURIComponent(projectToEdit.id)}`);

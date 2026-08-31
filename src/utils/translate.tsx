@@ -65,7 +65,7 @@ const getConfiguredTranslationMethod = (): TranslationMethod => {
         try {
             const params = new URLSearchParams(window.location.search);
             const fromUrl = params.get('translationMethod');
-            if (fromUrl === 'openapi' || fromUrl === 'google' || fromUrl === 'openrouter') {
+            if (fromUrl === 'openapi' || fromUrl === 'google') {
                 return fromUrl;
             }
         } catch {
@@ -74,7 +74,7 @@ const getConfiguredTranslationMethod = (): TranslationMethod => {
 
         try {
             const fromStorage = window.localStorage.getItem('yt_translation_method');
-            if (fromStorage === 'openapi' || fromStorage === 'google' || fromStorage === 'openrouter') {
+            if (fromStorage === 'openapi' || fromStorage === 'google') {
                 return fromStorage;
             }
         } catch {
@@ -83,8 +83,8 @@ const getConfiguredTranslationMethod = (): TranslationMethod => {
     }
 
     const configured = (appConfig as any).translation?.method;
-    if (configured === 'google' || configured === 'openrouter') return configured;
-    return 'openrouter';
+    if (configured === 'google' || configured === 'openapi') return configured;
+    return 'google';
 };
 
 const getConfiguredOpenRouterModel = (): string => {

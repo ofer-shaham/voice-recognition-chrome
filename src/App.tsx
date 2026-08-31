@@ -41,7 +41,7 @@ function AppRoutes() {
   if (path.startsWith("/youtube2/")) return <YoutubeLearner routeBase="/youtube2" />;
 
   if (path === "/youtube") return <Navigate to={`/youtube/setup${location.search}`} replace />;
-  if (["/youtube/setup", "/youtube/home", "/youtube/settings"].includes(path)) return <YoutubeLearner />;
+  if (["/youtube/setup", "/youtube/home", "/youtube/settings", "/youtube/settings/translation", "/youtube/settings/openrouter"].includes(path)) return <YoutubeLearner />;
   if (path.startsWith("/youtube/view/") || path.startsWith("/youtube/project/")) return <YoutubeLearner />;
 
   if (path === "/proverb") return <ProverbList />;

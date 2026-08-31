@@ -5,6 +5,6 @@
     "defaultTargetLanguage": "he"
   },
   "translation": {
-    "method": "openrouter"
+    "method": "google"
   }
 }
