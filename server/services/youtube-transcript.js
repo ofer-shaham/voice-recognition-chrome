@@ -271,7 +271,7 @@ function toSrtTimestamp(timestamp) {
   );
 }
 
-async function resolveInvidiousCaptionUrl(sourceUrl) {
+async function fetchInvidiousCaptionLabels(sourceUrl) {
   let parsed;
   try {
     parsed = new URL(String(sourceUrl || '').trim());
@@ -283,8 +283,24 @@ async function resolveInvidiousCaptionUrl(sourceUrl) {
   if (!response.ok) throw new Error(`Invidious captions HTTP ${response.status}`);
   let data;
   try { data = await response.json(); } catch { throw new Error('Invidious captions response was not valid JSON'); }
-  const label = data?.captions?.[0]?.label;
-  if (typeof label !== 'string' || !label.trim()) throw new Error('Invidious response did not contain captions[0].label');
+  const labels = (Array.isArray(data?.captions) ? data.captions : [])
+    .map(caption => caption?.label)
+    .filter(label => typeof label === 'string' && label.trim());
+  if (!labels.length) throw new Error('Invidious response did not contain caption labels');
+  return labels;
+}
+
+async function resolveInvidiousCaptionUrl(sourceUrl) {
+  let parsed;
+  try {
+    parsed = new URL(String(sourceUrl || '').trim());
+    if (!['http:', 'https:'].includes(parsed.protocol) || !parsed.pathname.includes('/captions/')) throw new Error();
+  } catch {
+    throw new Error('url must be a valid Invidious captions URL');
+  }
+  if (parsed.searchParams.get('label')) return parsed.toString();
+  const labels = await fetchInvidiousCaptionLabels(parsed.toString());
+  const label = labels[0];
   parsed.searchParams.set('label', label);
   return parsed.toString();
 }
@@ -539,5 +555,6 @@ module.exports = {
   fetchInvidiousLanguages,
   segmentsToSrt,
   vttToSrt,
+  fetchInvidiousCaptionLabels,
   resolveInvidiousCaptionUrl,
 };

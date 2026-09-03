@@ -53,6 +53,19 @@ function formatLogPayload(value: unknown): string {
   }
 }
 
+function tokenSummary(meta: Record<string, unknown> = {}): string {
+  const remaining = meta.remainingTokens;
+  const max = meta.maxTokens;
+  const total = meta.totalTokens;
+  if (remaining === undefined && max === undefined && total === undefined) return '';
+  const parts = [
+    remaining !== undefined ? `remaining=${Number(remaining)}` : null,
+    max !== undefined ? `max=${Number(max)}` : null,
+    total !== undefined ? `used=${Number(total)}` : null,
+  ].filter(Boolean) as string[];
+  return parts.length ? ` [tokens ${parts.join(' | ')}]` : '';
+}
+
 function installInterceptors() {
   if (interceptInstalled) return;
   interceptInstalled = true;
@@ -418,7 +431,7 @@ export default function DebugPanel() {
                   <div key={`server-${e.id}`} className={`dbg-entry dbg-entry-server-${e.level.toLowerCase()}`}>
                     <div className="dbg-entry-header" role="button" tabIndex={0} aria-expanded={expandedRecords.has(`openrouter-server-${e.id}`)} onClick={() => toggleRecord(`openrouter-server-${e.id}`)} onKeyDown={event => { if (event.key === 'Enter' || event.key === ' ') toggleRecord(`openrouter-server-${e.id}`); }}>
                       <span className="dbg-entry-icon">{SERVER_LEVEL_ICON[e.level] ?? '⚪'}</span>
-                      <span className="dbg-entry-label">{e.msg}</span>
+                      <span className="dbg-entry-label">{e.msg}{tokenSummary(e.meta)}</span>
                       <span className="dbg-entry-ts">{e.ts.slice(11, 23)}</span>
                     </div>
                     {Object.keys(e.meta).length > 0 && expandedRecords.has(`openrouter-server-${e.id}`) && <div className="dbg-entry-detail">{JSON.stringify(e.meta, null, 2)}</div>}

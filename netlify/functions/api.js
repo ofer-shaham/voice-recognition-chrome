@@ -3,6 +3,7 @@ const {
   fetchSrt: fetchServerSrt,
   fetchLanguagesMethod2,
   fetchInvidiousLanguages: fetchAlternateLanguages,
+  fetchInvidiousCaptionLabels,
   resolveInvidiousCaptionUrl,
   vttToSrt,
 } = require("../../server/services/youtube-transcript");
@@ -518,8 +519,12 @@ exports.handler = async (event) => {
 
   if (method === "GET" && apiPath === "/api/invidious-caption") {
     try {
-      const subtitleUrl = await resolveInvidiousCaptionUrl(qs.url);
-      return json(200, { subtitleUrl });
+      const sourceUrl = String(qs.url || '').trim();
+      const subtitleUrl = await resolveInvidiousCaptionUrl(sourceUrl);
+      const labelsUrl = new URL(sourceUrl);
+      labelsUrl.searchParams.delete('label');
+      const labels = await fetchInvidiousCaptionLabels(labelsUrl.toString());
+      return json(200, { subtitleUrl, labels });
     } catch (err) {
       return json(502, { error: err.message || "Could not resolve Invidious captions" });
     }
@@ -642,8 +647,19 @@ exports.handler = async (event) => {
       const data = await orRes.json();
       const content = data?.choices?.[0]?.message?.content;
       if (!content) return json(500, { error: "No content in OpenRouter response" });
-      log("info", "OpenRouter chat OK", { model, elapsed: Date.now() - t0, promptTokens: data.usage?.prompt_tokens, completionTokens: data.usage?.completion_tokens });
-      return json(200, { content, model: data?.model || model });
+      const usage = data?.usage || {};
+      const totalTokens = Number(usage.prompt_tokens || 0) + Number(usage.completion_tokens || 0);
+      const remainingTokens = Number.isFinite(maxTokens) && maxTokens > 0 ? Math.max(0, Number(maxTokens) - totalTokens) : undefined;
+      log("info", "OpenRouter chat OK", {
+        model,
+        elapsed: Date.now() - t0,
+        promptTokens: usage.prompt_tokens,
+        completionTokens: usage.completion_tokens,
+        totalTokens,
+        maxTokens,
+        remainingTokens,
+      });
+      return json(200, { content, model: data?.model || model, usage, remainingTokens, maxTokens });
     } catch (err) {
       log("error", "OpenRouter chat exception", { error: err.message, elapsed: Date.now() - t0 });
       return json(500, { error: err.message });

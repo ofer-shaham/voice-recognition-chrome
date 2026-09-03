@@ -143,6 +143,8 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
   const [capturedLoading, setCapturedLoading] = useState(false);
   const replacedRequestUrl = toSrtTimedTextUrl(capturedRequestUrl);
   const [invidiousCaptionsUrl, setInvidiousCaptionsUrl] = useState('');
+  const [invidiousLabels, setInvidiousLabels] = useState<string[]>([]);
+  const [invidiousSelectedLabel, setInvidiousSelectedLabel] = useState('');
 
   // ── Language selection step ──────────────────────────────────────────────
   const [videoId, setVideoId] = useState('');
@@ -249,8 +251,9 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
         ))}
       </div>
       {subtitleService === 'invidious' && (
-        <label className="yl-service-extra">
-          <span>Invidious captions URL</span>
+        <>
+          <label className="yl-service-extra">
+            <span>Invidious captions URL</span>
           <input
             className="yl-input"
             type="url"
@@ -258,7 +261,25 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
             value={invidiousCaptionsUrl}
             onChange={e => setInvidiousCaptionsUrl(e.target.value)}
           />
-        </label>
+          </label>
+          {invidiousLabels.length > 0 && (
+            <label className="yl-service-extra">
+              <span>Caption label</span>
+              <select
+                className="yl-input"
+                value={invidiousSelectedLabel || invidiousLabels[0]}
+                onChange={e => {
+                  const selected = new URL(invidiousCaptionsUrl || url);
+                  selected.searchParams.set('label', e.target.value);
+                  setInvidiousSelectedLabel(e.target.value);
+                  setInvidiousCaptionsUrl(selected.toString());
+                }}
+              >
+                {invidiousLabels.map(label => <option key={label} value={label}>{label}</option>)}
+              </select>
+            </label>
+          )}
+        </>
       )}
       <label className={`yl-service-extra ${subtitleServiceInfo.supportsAlternate ? '' : 'yl-service-extra-disabled'}`}>
         <span>
@@ -352,13 +373,21 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
     setFetchedProject(null);
     const inputInvidiousUrl = parseInvidiousCaptionsUrl(inputUrl);
     if (inputInvidiousUrl || requestedService === 'invidious') {
-      const sourceUrl = inputInvidiousUrl ? inputUrl.trim() : invidiousCaptionsUrl.trim();
+      const selectedUrl = invidiousCaptionsUrl.trim();
+      const sourceUrl = inputInvidiousUrl && new URL(inputUrl.trim()).searchParams.has('label')
+        ? inputUrl.trim()
+        : selectedUrl || inputUrl.trim();
       setFindLoading(true);
       try {
         const response = await fetch(`/api/invidious-caption?url=${encodeURIComponent(sourceUrl)}`);
         const body = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(body.error || `HTTP ${response.status}`);
         const subtitleUrl = String(body.subtitleUrl || '');
+        const labels = Array.isArray(body.labels) ? body.labels.map((label: unknown) => String(label)).filter(Boolean) : [];
+        if (labels.length) {
+          setInvidiousLabels(labels);
+          setInvidiousSelectedLabel(new URL(subtitleUrl || sourceUrl).searchParams.get('label') || labels[0]);
+        }
         if (!subtitleUrl) throw new Error('Invidious did not return a subtitle URL.');
         setInvidiousCaptionsUrl(subtitleUrl);
         const finalResponse = await fetch(`/api/srt-url?url=${encodeURIComponent(subtitleUrl)}`);

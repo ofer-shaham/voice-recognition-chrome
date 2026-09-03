@@ -291,6 +291,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
   // ── Derived: video visible? audio-only mode? ─────────────────────────────────
   const showVideo = config.colSettings['video']?.visible && !!project.videoId;
   const audioOnlyMode = !showVideo && !!project.videoId;
+  const remotePlayerTarget = showVideo ? iframeRef : audioRef;
   const totalDuration = lines.length > 0 ? lines[lines.length - 1].endSec : 0;
   const currentTimeSec = playbackTime > 0
     ? playbackTime
@@ -805,6 +806,11 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
   const ytCmd = useCallback((func: string, args: any[] = []) => {
     try {
       const target = (seamlessRef.current && showVideoRef.current) ? iframeRef : audioRef;
+      if (target === iframeRef) {
+        audioRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }), '*');
+      } else {
+        iframeRef.current?.contentWindow?.postMessage(JSON.stringify({ event: 'command', func: 'pauseVideo', args: [] }), '*');
+      }
       target.current?.contentWindow?.postMessage(
         JSON.stringify({ event: 'command', func, args }),
         '*'
@@ -1989,8 +1995,8 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
         )}
       </div>
 
-      {/* Always-present background audio iframe — invisible, provides audio when video is hidden */}
-      {project.videoId && (
+      {/* Background audio iframe is only used when video is hidden, so the app never runs two playback streams at once. */}
+      {project.videoId && !showVideo && (
         <iframe
           key={`audio-bg-${project.videoId}`}
           ref={audioRef}

@@ -7,6 +7,7 @@ const {
   fetchSrt,
   fetchLanguagesMethod2,
   fetchInvidiousLanguages,
+  fetchInvidiousCaptionLabels,
   resolveInvidiousCaptionUrl,
   vttToSrt,
 } = require("./services/youtube-transcript");
@@ -466,8 +467,14 @@ app.get("/api/srt-url", async (req, res) => {
 
 app.get("/api/invidious-caption", async (req, res) => {
   try {
-    const subtitleUrl = await resolveInvidiousCaptionUrl(req.query.url);
-    res.json({ subtitleUrl });
+    const sourceUrl = String(req.query.url || '').trim();
+    const subtitleUrl = await resolveInvidiousCaptionUrl(sourceUrl);
+    const source = new URL(sourceUrl);
+    const selectedLabel = source.searchParams.get('label');
+    const labelsUrl = new URL(sourceUrl);
+    labelsUrl.searchParams.delete('label');
+    const labels = await fetchInvidiousCaptionLabels(labelsUrl.toString());
+    res.json({ subtitleUrl, labels });
   } catch (e) {
     res.status(502).json({ error: e.message || "Could not resolve Invidious captions" });
   }
@@ -592,9 +599,20 @@ app.post("/api/chat", async (req, res) => {
     const data = await orRes.json();
     const content = data?.choices?.[0]?.message?.content;
     if (!content) return res.status(500).json({ error: "No content in OpenRouter response" });
+    const usage = data?.usage || {};
+    const totalTokens = Number(usage.prompt_tokens || 0) + Number(usage.completion_tokens || 0);
+    const remainingTokens = Number.isFinite(maxTokens) && maxTokens > 0 ? Math.max(0, Number(maxTokens) - totalTokens) : undefined;
     const keySuffix = key.length > 4 ? `...${key.slice(-4)}` : "***";
-    log("info", "OpenRouter OK", { model, elapsed, promptTokens: data.usage?.prompt_tokens, completionTokens: data.usage?.completion_tokens });
-    res.json({ content, model: data?.model || model, keySuffix });
+    log("info", "OpenRouter OK", {
+      model,
+      elapsed,
+      promptTokens: usage.prompt_tokens,
+      completionTokens: usage.completion_tokens,
+      totalTokens,
+      maxTokens,
+      remainingTokens,
+    });
+    res.json({ content, model: data?.model || model, keySuffix, usage, remainingTokens, maxTokens });
   } catch (err) {
     log("error", "OpenRouter fetch failed", { error: err.message, elapsed: Date.now() - t0 });
     res.status(500).json({ error: err.message });

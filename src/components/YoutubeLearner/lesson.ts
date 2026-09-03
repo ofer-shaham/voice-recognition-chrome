@@ -43,17 +43,35 @@ const saveLesson = (project: YtProject, lessonNumber: number, rows: LessonRow[])
   localStorage.setItem(LESSON_CACHE_KEY, JSON.stringify(cache));
 };
 
-const parseMaskRows = (content: string): string[] => {
+export const buildMinimalMaskPrompt = (subtitleSentence: string, difficulty: number): string => {
+  const safeDifficulty = Math.max(1, Math.min(5, Math.round(difficulty)));
+  const sentence = subtitleSentence.replace(/\s+/g, ' ').trim();
+
+  return [
+    `Generate ${safeDifficulty} words sentence based on the words:`,
+    '',
+    sentence,
+  ].join('\n');
+};
+
+export const parseMaskRows = (content: string, targetWordCount = 3): string[] => {
   const fenced = content.match(/```(?:json)?\s*([\s\S]*?)```/i);
   const candidate = (fenced ? fenced[1] : content).trim();
-  try {
-    const parsed = JSON.parse(candidate);
-    const values = Array.isArray(parsed) ? parsed : parsed.rows;
-    if (Array.isArray(values)) return values.map(value => String(typeof value === 'object' ? value.lesson || value.text || '' : value).trim()).filter(Boolean);
-  } catch {
-    // Fall through to one generated row per non-empty line.
-  }
-  return candidate.split(/\r?\n/).map(line => line.replace(/^\s*\d+[.)-]?\s*/, '').trim()).filter(Boolean);
+
+  const rawLines = candidate
+    .split(/\r?\n/)
+    .map(line => line.replace(/^\s*[-*\d.]+\s*/, '').trim())
+    .filter(Boolean);
+
+  if (!rawLines.length) return [];
+
+  return rawLines.map(line => {
+    const normalized = line.replace(/^["'`]+|["'`]+$/g, '').trim();
+    const words = normalized.split(/\s+/).filter(Boolean);
+    if (!words.length) return '';
+    if (words.length <= targetWordCount) return words.join(' ');
+    return words.slice(0, targetWordCount).join(' ');
+  }).filter(Boolean);
 };
 
 const readMaskCache = (): Record<string, string[]> => {
@@ -67,38 +85,49 @@ export const generateDifficultyMask = async (project: YtProject, difficulty: num
   const safeRows = Math.max(1, Math.round(maxRows));
   const sourceTrack = project.tracks[0];
   if (!sourceTrack?.srtContent) throw new Error('This project has no subtitle file.');
-  const subtitleRows = sourceTrack.srtContent.replace(/\r\n/g, '\n').trim().split(/\n\s*\n/).slice(Math.max(0, startRow), Math.max(0, startRow) + safeRows).join('\n\n');
-  if (usesLocalDifficultyMask()) return createLocalDifficultyMask(subtitleRows, safeDifficulty);
+
+  const subtitleEntries = sourceTrack.srtContent
+    .replace(/\r\n/g, '\n')
+    .trim()
+    .split(/\n\s*\n/)
+    .map(entry => entry
+      .split(/\r?\n/)
+      .filter(line => !/^\d+$/.test(line.trim()) && !line.includes('-->'))
+      .join(' ')
+      .replace(/\s+/g, ' ')
+      .trim())
+    .filter(Boolean)
+    .slice(Math.max(0, startRow), Math.max(0, startRow) + safeRows);
+
+  if (usesLocalDifficultyMask()) {
+    return createLocalDifficultyMask(subtitleEntries.join('\n\n'), safeDifficulty).slice(0, safeRows);
+  }
+
   const key = `${maskCacheKey(project, safeDifficulty, safeRows)}:${Math.max(0, startRow)}`;
   const cached = useCache ? readMaskCache()[key] : undefined;
   if (cached?.length) return cached;
 
-  const prompt = [
-    'Create a difficulty mask for language learning from the subtitle rows below.',
-    `Difficulty level: ${safeDifficulty}/5.`,
-    `Rewrite each subtitle row in the original language using no more than ${safeDifficulty} words per row.`,
-    'Keep exactly one output row for every input subtitle row, in the same order.',
-    'Keep only the main meaning, remove repetition and unnecessary details, and do not translate to another language.',
-    'Return only a JSON array of strings. Do not return timestamps, numbering, explanations, or markdown.',
-    '',
-    subtitleRows,
-  ].join('\n');
-  const response = await chatWithAI(
-    [{ role: 'user', content: prompt }],
-    localStorage.getItem('yt_ai_model') || 'openrouter/auto:free',
-    undefined,
-    getStoredOpenRouterMaxTokens() || DEFAULT_OPENROUTER_MAX_TOKENS,
-  );
-  const rows = parseMaskRows(response.content)
-    .slice(0, safeRows)
-    .map(row => row.split(/\s+/).slice(0, safeDifficulty).join(' '));
+  const rows: string[] = [];
+  for (const sentence of subtitleEntries) {
+    const prompt = buildMinimalMaskPrompt(sentence, safeDifficulty);
+    const response = await chatWithAI(
+      [{ role: 'user', content: prompt }],
+      localStorage.getItem('yt_ai_model') || 'openrouter/auto:free',
+      undefined,
+      getStoredOpenRouterMaxTokens() || DEFAULT_OPENROUTER_MAX_TOKENS,
+    );
+    const parsed = parseMaskRows(response.content, safeDifficulty);
+    const chosen = parsed[0];
+    if (chosen) rows.push(chosen);
+  }
+
   if (!rows.length) throw new Error('OpenRouter returned no difficulty-mask rows.');
   if (useCache) {
     const cache = readMaskCache();
-    cache[key] = rows;
+    cache[key] = rows.slice(0, safeRows);
     localStorage.setItem(MASK_CACHE_KEY, JSON.stringify(cache));
   }
-  return rows;
+  return rows.slice(0, safeRows);
 };
 
 const parseLessonRows = (content: string): LessonRow[] => {
