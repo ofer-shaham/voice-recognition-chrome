@@ -15,7 +15,7 @@ interface Props {
 export default function OpenRouterSettings({ routeBase, theme, onThemeChange, showNavigation = true, project }: Props) {
     const navigate = useNavigate();
     const [model, setModel] = useState(() => localStorage.getItem('yt_ai_model') || DEFAULT_MODEL);
-    const [level, setLevel] = useState(() => Number(localStorage.getItem('yt_ai_level') || '3'));
+    const [level, setLevel] = useState(() => Math.min(5, Math.max(1, Number(localStorage.getItem('yt_ai_level') || '3'))));
     const [mode, setMode] = useState<'full' | 'rows'>(() => localStorage.getItem('yt_ai_mode') === 'full' ? 'full' : 'rows');
     const [rows, setRows] = useState(() => Number(localStorage.getItem('yt_ai_rows') || '12'));
     const [maxTokens, setMaxTokens] = useState(() => getStoredOpenRouterMaxTokens());
@@ -25,6 +25,19 @@ export default function OpenRouterSettings({ routeBase, theme, onThemeChange, sh
     const [testRows, setTestRows] = useState<LessonRow[]>([]);
     const [testState, setTestState] = useState<'idle' | 'running' | 'success' | 'error'>('idle');
     const [testError, setTestError] = useState('');
+    const [freeModels, setFreeModels] = useState(OPENROUTER_MODELS);
+
+    useEffect(() => {
+        fetch('/api/free-models')
+            .then(response => response.ok ? response.json() : Promise.reject(new Error(`Free model list unavailable (${response.status})`)))
+            .then(data => {
+                if (Array.isArray(data.models) && data.models.length > 0) {
+                    setFreeModels(data.models);
+                    if (!data.models.some((option: { id: string }) => option.id === model)) saveModel(data.models[0].id);
+                }
+            })
+            .catch(() => { });
+    }, []);
 
     useEffect(() => {
         if (!apiKey) return;
@@ -73,7 +86,7 @@ export default function OpenRouterSettings({ routeBase, theme, onThemeChange, sh
         setTestState('running');
         setTestError('');
         try {
-            setTestRows(await generateLesson(project, 1, 12, false));
+            setTestRows(await generateLesson(project, 1, 3, false, level));
             setTestState('success');
         } catch (error) {
             setTestError(error instanceof Error ? error.message : String(error));
@@ -106,6 +119,10 @@ export default function OpenRouterSettings({ routeBase, theme, onThemeChange, sh
                     </div>
                     {showNavigation && <button className="yl-btn-ghost yl-btn-sm" onClick={() => navigate(`${routeBase}/settings/translation`)}>Close</button>}
                 </div>
+                <div className="yl-settings-tabs" role="tablist" aria-label="YouTube settings">
+                    <button className="yl-settings-tab" role="tab" onClick={() => navigate(`${routeBase}/settings/translation`)}>Translation</button>
+                    <button className="yl-settings-tab yl-settings-tab-active" role="tab" aria-selected="true">OpenRouter</button>
+                </div>
                 <div className="yl-settings-global">
                     <label className="yl-setting-field">
                         <span>OpenRouter API key</span>
@@ -120,10 +137,10 @@ export default function OpenRouterSettings({ routeBase, theme, onThemeChange, sh
                     {validation.state === 'valid' && <>
                         <label className="yl-setting-field">
                             <span>Free model</span>
-                            <select className="yl-select-sm" value={OPENROUTER_MODELS.some(option => option.id === model) ? model : ''}
+                            <select className="yl-select-sm" value={freeModels.some(option => option.id === model) ? model : ''}
                                 onChange={e => { if (e.target.value) saveModel(e.target.value); }}>
                                 <option value="">Choose a free model</option>
-                                {OPENROUTER_MODELS.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
+                                {freeModels.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
                             </select>
                         </label>
                         <label className="yl-setting-field">
@@ -151,12 +168,12 @@ export default function OpenRouterSettings({ routeBase, theme, onThemeChange, sh
                         <div className="yl-setting-field">
                             <span>Lesson generation test</span>
                             <button className="yl-btn-secondary yl-btn-sm" type="button" onClick={handleTestLesson} disabled={!project || testState === 'running'}>
-                                {testState === 'running' ? 'Testing…' : 'Test first 12 rows'}
+                                {testState === 'running' ? 'Testing…' : 'Test first 3 rows'}
                             </button>
                             {!project && <span className="yl-setting-info">Load a YouTube project first</span>}
                         </div>
                         {testState === 'error' && <p className="yl-error">{testError}</p>}
-                        {testState === 'success' && <div className="yl-settings-cols">{testRows.slice(0, 12).map((row, index) => <div className="yl-col-card" key={`${index}-${row.source}`}><div className="yl-col-card-name">{row.source}</div><div className="yl-col-card-body">{row.lesson}</div></div>)}</div>}
+                        {testState === 'success' && <div className="yl-settings-cols">{testRows.slice(0, 3).map((row, index) => <div className="yl-col-card" key={`${index}-${row.source}`}><div className="yl-col-card-name">{row.source}</div><div className="yl-col-card-body">{row.lesson}</div></div>)}</div>}
                     </>}
                 </div>
             </div>

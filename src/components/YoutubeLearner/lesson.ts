@@ -111,17 +111,19 @@ const parseLessonRows = (content: string): LessonRow[] => {
     .filter(row => row.source && row.lesson);
 };
 
-export const generateLesson = async (project: YtProject, lessonNumber: number, maxRows = 30, useCache = true): Promise<LessonRow[]> => {
+export const generateLesson = async (project: YtProject, lessonNumber: number, maxRows = 30, useCache = true, difficulty = 3): Promise<LessonRow[]> => {
   const cached = useCache ? getCachedLesson(project, lessonNumber) : undefined;
   if (cached?.length) return cached;
 
   const sourceTrack = project.tracks[0];
   if (!sourceTrack?.srtContent) throw new Error('This project has no subtitle file.');
   const targetLanguage = project.config.targetLang || 'English';
+  const safeDifficulty = Math.min(5, Math.max(1, Math.round(difficulty)));
   const subtitleRows = sourceTrack.srtContent.replace(/\r\n/g, '\n').trim().split(/\n\s*\n/).slice(0, Math.max(1, maxRows)).join('\n\n');
   const prompt = [
     `Create lesson ${lessonNumber} from the following video subtitles.`,
     `Target language: ${targetLanguage}.`,
+    `Difficulty level: ${safeDifficulty}/5. Adapt the explanations and exercises to this level.`,
     'Return only a JSON array. Each item must have exactly two string fields: source and lesson.',
     'The source field must quote a subtitle line. The lesson field must give a useful translation, explanation, vocabulary note, or grammar exercise in the target language.',
     `Keep the rows in subtitle order and produce up to ${Math.max(1, maxRows)} rows.`,

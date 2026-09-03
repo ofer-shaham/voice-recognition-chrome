@@ -601,6 +601,11 @@
   border-bottom-color: #60a5fa;
 }
 
+.yl-settings-tab-active {
+  color: #e2e8f0;
+  border-bottom-color: #60a5fa;
+}
+
 .yl-video-title {
   font-size: 0.9rem;
   font-weight: 600;
