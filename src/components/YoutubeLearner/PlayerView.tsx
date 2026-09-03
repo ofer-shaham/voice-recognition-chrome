@@ -14,8 +14,7 @@ import {
 import { buildLines, parseSrt, secondsToHms, colLabel, sleep, dedupeAvailLangs } from './utils';
 import { DEFAULT_TTS_RATE } from './constants';
 import { translate, getTranslationCacheCount } from '../../utils/translate';
-import { hasValidatedOpenRouterKey } from '../../services/openRouterService';
-import { generateDifficultyMask } from './lesson';
+import { generateDifficultyMask, usesLocalDifficultyMask } from './lesson';
 import { freeSpeak } from '../../utils/freeSpeak';
 import isRtl from '../../utils/isRtl';
 import { useVoices } from './useVoices';
@@ -248,6 +247,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
   const playbackRunRef = useRef(0);
   const playbackTimeRef = useRef(project.lastTime ?? 0);
   const playerReadyRef = useRef(false);
+  const seamlessVideoStartedRef = useRef(false);
   const autoStartedProjectRef = useRef<string | null>(null);
   const suppressPlayerEventsUntilRef = useRef(0);
 
@@ -385,7 +385,6 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
 
   // ── Auto-generate mask on page load if difficulty is set ────────────────────
   useEffect(() => {
-    if (!hasValidatedOpenRouterKey()) return;
     if (aiTranslationLevel === 0) return; // "None" is selected
     if (lines.length === 0) return; // Wait for lines
 
@@ -542,6 +541,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
   const stopMedia = useCallback(() => {
     playbackRunRef.current += 1;
     cancelRef.current = true;
+    seamlessVideoStartedRef.current = false;
     suppressPlayerEventsUntilRef.current = Date.now() + 1000;
     speechSynthesis.cancel();
     for (const ref of [iframeRef, audioRef]) {
@@ -835,6 +835,18 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     } catch { /* ignore cross-origin errors */ }
   }, []);
 
+  const waitForVideoTime = useCallback((targetSec: number, fallbackMs: number) => new Promise<void>(resolve => {
+    const startedAt = Date.now();
+    const check = () => {
+      if (cancelRef.current || playbackTimeRef.current >= targetSec || Date.now() - startedAt >= fallbackMs) {
+        resolve();
+        return;
+      }
+      window.setTimeout(check, 50);
+    };
+    check();
+  }), []);
+
   useEffect(() => () => {
     stopMedia();
     dispatch(playbackStopped());
@@ -920,13 +932,18 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
 
       if (colId === 'video') {
         if (isSeamless || audioOnlyRef.current) {
-          // Seamless/audio-only mode: seek + play the persistent iframe, then pause after duration
-          const dur = Math.max(500, (line.endSec - line.startSec) * 1000);
-          ytCmd('seekTo', [line.startSec, true]);
-          await sleep(200);
-          ytCmd('playVideo');
-          await sleep(dur);
-          ytCmd('pauseVideo');
+          // The persistent iframe must keep playing across subtitle boundaries.
+          // Cue changes are tracked from YouTube's currentTime events instead
+          // of pausing at each next subtitle start.
+          if (!seamlessVideoStartedRef.current) {
+            seamlessVideoStartedRef.current = true;
+            playbackTimeRef.current = line.startSec;
+            ytCmd('seekTo', [line.startSec, true]);
+            await sleep(200);
+            ytCmd('playVideo');
+          }
+          const durationMs = Math.max(500, (line.endSec - line.startSec) * 1000);
+          await waitForVideoTime(line.endSec, durationMs + 2000);
         } else {
           // Classic mode: re-key the iframe to play just this segment
           setIframeSeg({ startSec: line.startSec, endSec: line.endSec });
@@ -957,7 +974,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
       }
       if (cancelRef.current) return;
     }
-  }, [ytCmd]);
+  }, [waitForVideoTime, ytCmd]);
 
   const pausePlayback = useCallback(() => {
     stopMedia();
@@ -973,6 +990,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     playbackRunRef.current = runId;
     // Ensure video is paused before starting new playback
     ytCmd('pauseVideo');
+    seamlessVideoStartedRef.current = false;
     cancelRef.current = false;
     isPlayingRef.current = true;
     dispatch(playbackStarted({ line: startIdx, reason: 'sequence:start' }));
@@ -987,6 +1005,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     if (!cancelRef.current && playbackRunRef.current === runId) {
       suppressPlayerEventsUntilRef.current = Date.now() + 1000;
       ytCmd('pauseVideo');
+      seamlessVideoStartedRef.current = false;
       releaseWakeLock();
       isPlayingRef.current = false;
       dispatch(playbackEnded());
@@ -1095,10 +1114,6 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
   };
 
   const generateMask = async () => {
-    if (!hasValidatedOpenRouterKey()) {
-      setAiMaskError('Validate the OpenRouter key in Settings first.');
-      return;
-    }
     setAiMaskLoading(true);
     setAiMaskError('');
     try {
@@ -1536,7 +1551,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
           >
             ⚙ Settings
           </button>
-          {hasValidatedOpenRouterKey() && (
+          {(
             <div className="yl-ai-mask-controls">
               <label className="yl-sr-only" htmlFor="yl-ai-mask-level">Mask difficulty</label>
               <select id="yl-ai-mask-level" className="yl-select-sm" value={aiTranslationLevel}
@@ -1545,7 +1560,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
                 {[1, 2, 3, 4, 5].map(level => <option key={level} value={level}>Mask {level}</option>)}
               </select>
               <button className="yl-btn-secondary yl-btn-sm" type="button" onClick={generateMask} disabled={aiMaskLoading || aiTranslationLevel === 0} title="Generate a simpler AI mask column">
-                {aiMaskLoading ? 'Masking…' : maskVisible ? 'Refresh mask' : 'AI mask'}
+                {aiMaskLoading ? 'Masking…' : maskVisible ? 'Refresh mask' : usesLocalDifficultyMask() ? 'Random mask' : 'AI mask'}
               </button>
               {maskVisible && (
                 <>
@@ -1558,6 +1573,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
                   </button>
                 </>
               )}
+              {usesLocalDifficultyMask() && <span className="yl-setting-info yl-ai-mask-disclaimer">No OpenRouter key: this mask uses a random consecutive word selection, not AI.</span>}
             </div>
           )}
         </div>

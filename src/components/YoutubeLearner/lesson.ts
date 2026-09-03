@@ -1,4 +1,15 @@
-import { chatWithAI, DEFAULT_OPENROUTER_MAX_TOKENS, getStoredOpenRouterMaxTokens } from '../../services/openRouterService';
+import { chatWithAI, DEFAULT_OPENROUTER_MAX_TOKENS, getStoredOpenRouterApiKey, getStoredOpenRouterMaxTokens } from '../../services/openRouterService';
+const createLocalDifficultyMask = (subtitleRows: string, difficulty: number): string[] => {
+  return subtitleRows.split(/\n\s*\n/).map(row => {
+    const content = row.split(/\r?\n/).filter(line => !/^\d+$/.test(line.trim()) && !line.includes('-->')).join(' ').trim();
+    const words = content.split(/\s+/).filter(Boolean);
+    if (words.length <= difficulty) return words.join(' ');
+    const start = Math.floor(Math.random() * (words.length - difficulty + 1));
+    return words.slice(start, start + difficulty).join(' ');
+  }).filter(Boolean);
+};
+
+export const usesLocalDifficultyMask = (): boolean => !getStoredOpenRouterApiKey();
 import { YtProject } from './types';
 
 export interface LessonRow {
@@ -54,13 +65,14 @@ const maskCacheKey = (project: YtProject, difficulty: number, maxRows: number) =
 export const generateDifficultyMask = async (project: YtProject, difficulty: number, maxRows: number, useCache = true, startRow = 0): Promise<string[]> => {
   const safeDifficulty = Math.min(5, Math.max(1, Math.round(difficulty)));
   const safeRows = Math.max(1, Math.round(maxRows));
+  const sourceTrack = project.tracks[0];
+  if (!sourceTrack?.srtContent) throw new Error('This project has no subtitle file.');
+  const subtitleRows = sourceTrack.srtContent.replace(/\r\n/g, '\n').trim().split(/\n\s*\n/).slice(Math.max(0, startRow), Math.max(0, startRow) + safeRows).join('\n\n');
+  if (usesLocalDifficultyMask()) return createLocalDifficultyMask(subtitleRows, safeDifficulty);
   const key = `${maskCacheKey(project, safeDifficulty, safeRows)}:${Math.max(0, startRow)}`;
   const cached = useCache ? readMaskCache()[key] : undefined;
   if (cached?.length) return cached;
 
-  const sourceTrack = project.tracks[0];
-  if (!sourceTrack?.srtContent) throw new Error('This project has no subtitle file.');
-  const subtitleRows = sourceTrack.srtContent.replace(/\r\n/g, '\n').trim().split(/\n\s*\n/).slice(Math.max(0, startRow), Math.max(0, startRow) + safeRows).join('\n\n');
   const prompt = [
     'Create a difficulty mask for language learning from the subtitle rows below.',
     `Difficulty level: ${safeDifficulty}/5.`,

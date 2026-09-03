@@ -176,6 +176,23 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
   const previewVideoId = extractVideoId(url.trim());
   const subtitleServiceInfo = SUBTITLE_SERVICE_INFO[subtitleService];
 
+  const selectSubtitleService = (next: SubtitleService) => {
+    setSubtitleService(next);
+    const params = new URLSearchParams(window.location.search);
+    params.set('m', next);
+    const id = extractVideoId(url.trim());
+    if (id) params.set('v', id);
+    window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+  };
+
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const id = extractVideoId(url.trim());
+    if (id) params.set('v', id);
+    params.set('m', subtitleService);
+    window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+  }, [url, subtitleService]);
+
   const buildSetupShareUrl = () => {
     const params = new URLSearchParams();
     if (url.trim()) params.set('url', url.trim());
@@ -202,13 +219,13 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
         setInvidiousCaptionsUrl('');
       }
       setUrl(sharedUrl);
-      handleFindLanguages(sharedUrl);
+      handleFindLanguages(sharedUrl, sharedMethod || undefined);
       return;
     }
 
     if (sharedVideoId) {
       setUrl(`https://www.youtube.com/watch?v=${sharedVideoId}`);
-      handleFindLanguages(`https://www.youtube.com/watch?v=${sharedVideoId}`);
+      handleFindLanguages(`https://www.youtube.com/watch?v=${sharedVideoId}`, sharedMethod || undefined);
     }
   }, []);
 
@@ -225,7 +242,7 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
         ] as const).map(([value, label]) => (
           <button key={value} type="button"
             className={`yl-service-option ${subtitleService === value ? 'yl-service-option-active' : ''}`}
-            onClick={() => setSubtitleService(value)} aria-pressed={subtitleService === value}>
+            onClick={() => selectSubtitleService(value)} aria-pressed={subtitleService === value}>
             <span>{label}{value === 'plus' && <span className="yl-default-badge">default</span>}</span>
             <small>{SUBTITLE_SERVICE_INFO[value].library}</small>
           </button>
@@ -330,11 +347,11 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
     }
   };
 
-  const handleFindLanguages = async (inputUrl = url) => {
+  const handleFindLanguages = async (inputUrl = url, requestedService = subtitleService) => {
     setFindError('');
     setFetchedProject(null);
     const inputInvidiousUrl = parseInvidiousCaptionsUrl(inputUrl);
-    if (inputInvidiousUrl || subtitleService === 'invidious') {
+    if (inputInvidiousUrl || requestedService === 'invidious') {
       const sourceUrl = inputInvidiousUrl ? inputUrl.trim() : invidiousCaptionsUrl.trim();
       setFindLoading(true);
       try {
@@ -377,16 +394,17 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
     setFindLoading(true);
     try {
       const sourceQuery = new URLSearchParams();
-      if (subtitleServiceInfo.supportsAlternate && alternateYoutubeUrl.trim()) {
+      const requestedServiceInfo = SUBTITLE_SERVICE_INFO[requestedService];
+      if (requestedServiceInfo.supportsAlternate && alternateYoutubeUrl.trim()) {
         sourceQuery.set('instanceUrl', alternateYoutubeUrl.trim());
       }
-      if (subtitleServiceInfo.supportsProxy && subtitleProxyUrl.trim()) {
+      if (requestedServiceInfo.supportsProxy && subtitleProxyUrl.trim()) {
         sourceQuery.set('proxyUrl', subtitleProxyUrl.trim());
       }
-      if (subtitleService === 'onrender') {
+      if (requestedService === 'onrender') {
         sourceQuery.set('service', 'onrender');
-      } else if (subtitleService !== 'iframe') {
-        sourceQuery.set('method', subtitleMethod);
+      } else if (requestedService !== 'iframe') {
+        sourceQuery.set('method', requestedService === 'api-js' ? '2' : '1');
       }
       const res = await fetch(`/api/transcript/languages?videoId=${encodeURIComponent(vid)}${sourceQuery.toString() ? `&${sourceQuery}` : ''}`);
       if (!res.ok) {
@@ -598,6 +616,14 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
         </div>
 
         <div className="yl-setup-form">
+          <label className="yl-label">YouTube URL or Video ID</label>
+          <input
+            className="yl-input"
+            type="text"
+            value={url}
+            onChange={e => setUrl(e.target.value)}
+            aria-label="YouTube URL or Video ID"
+          />
           <label className="yl-label">Select subtitle track(s) to fetch</label>
           {serviceToggle}
           {languageDiscoveryFallback && (

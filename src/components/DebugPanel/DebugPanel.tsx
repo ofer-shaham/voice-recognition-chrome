@@ -62,7 +62,7 @@ function installInterceptors() {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : (input as Request).url;
     const method = (init?.method || (input instanceof Request ? input.method : 'GET')).toUpperCase();
     const shortUrl = url.replace(window.location.origin, '');
-    if (shortUrl.startsWith('/api/logs')) return origFetch(input, init);
+    if (shortUrl.startsWith('/api/logs') || shortUrl.startsWith('/api/proxy/requests')) return origFetch(input, init);
     const requestBody = init?.body instanceof FormData ? '[FormData]' : formatLogPayload(init?.body || '');
     const t0 = Date.now();
     try {
@@ -151,6 +151,7 @@ function useLogEntries() {
 function useServerLogs(enabled: boolean) {
   const [entries, setEntries] = useState<ServerLogEntry[]>([]);
   const maxIdRef = useRef(0);
+  const proxySeenRef = useRef(new Set<string>());
 
   useEffect(() => {
     if (!enabled) return;
@@ -164,6 +165,33 @@ function useServerLogs(enabled: boolean) {
         if (data.entries?.length) {
           setEntries(prev => [...data.entries, ...prev].slice(0, 200));
           maxIdRef.current = data.maxId;
+        }
+
+        const proxyRes = await window.fetch('/api/proxy/requests?limit=200');
+        if (proxyRes.ok && !cancelled) {
+          const proxyData = await proxyRes.json();
+          const proxyEntries = (proxyData.attempts || []).map((attempt: any, index: number) => {
+            const key = [attempt.timestamp, attempt.groupId, attempt.service, attempt.status, attempt.durationMs].join('|');
+            return {
+              key,
+              entry: {
+                id: -index - 1,
+                ts: attempt.timestamp,
+                level: attempt.status === 'success' ? 'INFO' : attempt.status === 'failed' ? 'ERROR' : 'WARN',
+                msg: `PROXY ${String(attempt.status || 'attempt').toUpperCase()} ${attempt.service || 'subtitle'}`,
+                meta: {
+                  groupId: attempt.groupId,
+                  proxyUrl: attempt.proxyUrl,
+                  durationMs: attempt.durationMs,
+                  error: attempt.error,
+                },
+              },
+            };
+          }).filter((item: { key: string }) => !proxySeenRef.current.has(item.key));
+          if (proxyEntries.length) {
+            proxyEntries.forEach((item: { key: string }) => proxySeenRef.current.add(item.key));
+            setEntries(prev => [...proxyEntries.map((item: { entry: ServerLogEntry }) => item.entry), ...prev].slice(0, 200));
+          }
         }
       } catch { /* server may not be up */ }
       if (!cancelled) timer = setTimeout(poll, 2500);
@@ -200,7 +228,7 @@ export default function DebugPanel() {
   const [maximized, setMaximized] = useState(false);
   const [expandedRecords, setExpandedRecords] = useState<Set<string>>(new Set());
   const entries = useLogEntries();
-  const serverEntries = useServerLogs(open && (tab === 'server' || tab === 'openrouter'));
+  const serverEntries = useServerLogs(open);
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { installInterceptors(); }, []);
