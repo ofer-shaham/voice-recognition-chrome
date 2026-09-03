@@ -11,6 +11,8 @@ const {
   vttToSrt,
 } = require("./services/youtube-transcript");
 const { fetchTtsAudio } = require("./services/tts-proxy");
+const proxyManager = require("./services/proxy-manager");
+const { SERVICE_CONFIG, YOUTUBE_ALTERNATIVES, PROXY_MECHANISMS, YOUTUBE_RETRY_STRATEGY, UI_CONFIG_BY_SERVICE } = require("./services/youtube-service-config");
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -50,6 +52,8 @@ const swaggerSpec = {
     { name: "TTS", description: "Text-to-speech proxy" },
     { name: "AI", description: "OpenRouter chat proxy" },
     { name: "Health", description: "Server status" },
+    { name: "Proxy", description: "Proxy rotation management and statistics" },
+    { name: "Services", description: "Service configuration and YouTube alternatives" },
   ],
   paths: {
     "/api/transcript/languages": {
@@ -123,6 +127,96 @@ const swaggerSpec = {
                       }
                     },
                     maxId: { type: "integer" },
+                  }
+                }
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/proxy/stats": {
+      get: {
+        tags: ["Proxy"],
+        summary: "Get proxy health statistics and performance metrics",
+        responses: {
+          200: {
+            description: "Proxy statistics including success rates and blacklist status",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object", properties: {
+                    proxies: { type: "array", items: { type: "object" } },
+                    summary: { type: "object", properties: { total: { type: "integer" }, healthy: { type: "integer" }, blacklisted: { type: "integer" }, successRate: { type: "string" } } },
+                    timestamp: { type: "string", format: "date-time" },
+                  }
+                }
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/proxy/requests": {
+      get: {
+        tags: ["Proxy"],
+        summary: "Get grouped request attempts by service or groupId",
+        parameters: [
+          { name: "groupId", in: "query", required: false, schema: { type: "string" }, description: "Filter by groupId (e.g., videoId)" },
+          { name: "limit", in: "query", required: false, schema: { type: "integer", default: 50 } },
+        ],
+        responses: {
+          200: {
+            description: "Request attempt log grouped by service and groupId",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object", properties: {
+                    groupId: { type: "string" },
+                    attempts: { type: "array", items: { type: "object" } },
+                    total: { type: "integer" },
+                    grouped: { type: "object" },
+                  }
+                }
+              },
+            },
+          },
+        },
+      },
+    },
+    "/api/services/config": {
+      get: {
+        tags: ["Services"],
+        summary: "Get complete service configuration, YouTube alternatives, and retry strategies",
+        responses: {
+          200: { description: "Service configuration and YouTube alternatives documentation" },
+        },
+      },
+    },
+    "/api/services/ui-config/{service}": {
+      get: {
+        tags: ["Services"],
+        summary: "Get UI configuration for a specific YouTube transcript service",
+        parameters: [{ name: "service", in: "path", required: true, schema: { type: "string", enum: ["youtube-transcript-plus", "youtube-transcript-api-js", "invidious", "downsub-api"] } }],
+        responses: {
+          200: { description: "UI configuration for the service" },
+          404: { description: "Service not found" },
+        },
+      },
+    },
+    "/api/services/alternatives": {
+      get: {
+        tags: ["Services"],
+        summary: "List YouTube alternatives that support subtitles (Invidious, PeerTube, Odysee, etc.)",
+        responses: {
+          200: {
+            description: "YouTube alternatives with features, setup, and use cases",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object", properties: {
+                    alternatives: { type: "object" },
+                    recommended: { type: "object", properties: { languageLearning: { type: "array" }, privacy: { type: "array" }, largeLibrary: { type: "array" }, bestSubtitles: { type: "array" } } },
                   }
                 }
               },
@@ -425,13 +519,17 @@ app.get("/api/tts", async (req, res) => {
 app.get("/api/free-models", async (_req, res) => {
   try {
     const orRes = await fetch(
-      "https://openrouter.ai/api/frontend/models/find?active=true&fmt=cards&max_price=0&order=top-weekly",
+      "https://openrouter.ai/api/frontend/v1/models/find?active=true&fmt=cards&max_price=0&variant=free",
       { headers: { Accept: "application/json" } },
     );
     if (!orRes.ok) return res.status(orRes.status).json({ error: "OpenRouter returned " + orRes.status });
     const data = await orRes.json();
     const rawList = data?.data?.models ?? data?.data ?? data?.models ?? data ?? [];
-    const models = rawList.map((m) => ({ id: m.slug || m.id || "", label: m.name || m.short_name || m.slug || "" })).filter((m) => m.id);
+    const models = rawList
+      .filter((m) => m?.has_text_output && Array.isArray(m?.input_modalities) && m.input_modalities.includes("text"))
+      .map((m) => ({ id: m.slug || m.id || "", label: m.name || m.short_name || m.slug || m.id || "" }))
+      .filter((m) => m.id)
+      .sort((a, b) => a.label.localeCompare(b.label));
     res.json({ models });
   } catch (err) {
     log("error", "free-models fetch failed", { error: err.message });
@@ -501,6 +599,84 @@ app.post("/api/chat", async (req, res) => {
     log("error", "OpenRouter fetch failed", { error: err.message, elapsed: Date.now() - t0 });
     res.status(500).json({ error: err.message });
   }
+});
+
+// ── Proxy Management & Service Configuration ────────────────────────────────────
+
+// Get proxy statistics and health
+app.get("/api/proxy/stats", (_req, res) => {
+  const stats = proxyManager.getProxyStats();
+  res.json({
+    proxies: stats,
+    timestamp: new Date().toISOString(),
+    summary: {
+      total: stats.length,
+      healthy: stats.filter(s => s.isHealthy).length,
+      blacklisted: stats.filter(s => s.isBlacklisted).length,
+      successRate: stats.length > 0
+        ? (stats.reduce((sum, s) => sum + (s.successes || 0), 0) / stats.reduce((sum, s) => sum + (s.attempts || 1), 1) * 100).toFixed(2) + "%"
+        : "N/A",
+    },
+  });
+});
+
+// Get grouped request attempts by service/groupId
+app.get("/api/proxy/requests", (req, res) => {
+  const { groupId, limit } = req.query;
+  const attempts = proxyManager.getRequestAttempts(groupId || null, parseInt(limit || "50", 10));
+  res.json({
+    groupId: groupId || null,
+    attempts,
+    total: attempts.length,
+    grouped: attempts.reduce((acc, attempt) => {
+      if (!acc[attempt.groupId]) acc[attempt.groupId] = [];
+      acc[attempt.groupId].push(attempt);
+      return acc;
+    }, {}),
+  });
+});
+
+// Get service configuration and capabilities
+app.get("/api/services/config", (_req, res) => {
+  res.json({
+    services: SERVICE_CONFIG,
+    alternatives: YOUTUBE_ALTERNATIVES,
+    proxyMechanisms: PROXY_MECHANISMS,
+    retryStrategy: YOUTUBE_RETRY_STRATEGY,
+    uiConfigByService: UI_CONFIG_BY_SERVICE,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Get UI configuration for a specific service
+app.get("/api/services/ui-config/:service", (req, res) => {
+  const { service } = req.params;
+  const config = UI_CONFIG_BY_SERVICE[service];
+  const serviceConfig = SERVICE_CONFIG[service];
+
+  if (!config || !serviceConfig) {
+    return res.status(404).json({ error: `Service '${service}' not found` });
+  }
+
+  res.json({
+    service,
+    uiConfig: config,
+    serviceConfig,
+    alternatives: YOUTUBE_ALTERNATIVES,
+  });
+});
+
+// Get YouTube alternatives that support subtitles
+app.get("/api/services/alternatives", (_req, res) => {
+  res.json({
+    alternatives: YOUTUBE_ALTERNATIVES,
+    recommended: {
+      languageLearning: ["invidious", "ted", "bbc-learning-english"],
+      privacy: ["invidious", "peertube"],
+      largeLibrary: ["youtube-transcript-api-js", "dailymotion"],
+      bestSubtitles: ["ted", "vimeo", "bbc-learning-english"],
+    },
+  });
 });
 
 // Serve the compiled React app when running as a single production service.

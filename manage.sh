@@ -7,30 +7,33 @@
 # Usage:
 #   ./manage.sh [--docker|--native|--codespace] {start|stop|restart|status|build|install|ensure|doctor|recover|fix|e2e}
 #   ./manage.sh [--native|--codespace] logs [client|server|openrouter|all]
+#   ./manage.sh proxy:{stats|requests|reset|report} [OPTIONS]
+#   ./manage.sh subtitle:{test|health|cache}
 #
 # Docker Compose services:
 #   client      React dev server  → http://localhost:5000
 #   server      OpenRouter proxy  → http://localhost:3001
 #   openrouter  Alias for 'server'
 #
+# Proxy Management Commands:
+#   ./manage.sh proxy:stats              # show proxy health and success rates
+#   ./manage.sh proxy:requests [VIDEO]   # show request attempts grouped by video
+#   ./manage.sh proxy:reset              # reset all proxy blacklists
+#   ./manage.sh proxy:report             # detailed performance report
+#
+# Subtitle Fetch Commands:
+#   ./manage.sh subtitle:test VIDEO_ID   # test subtitle fetch with all fallbacks
+#   ./manage.sh subtitle:health          # check YouTube fetch health
+#   ./manage.sh subtitle:cache           # inspect subtitle cache
+#
 # Examples:
 #   ./manage.sh --native ensure         # check prereqs, install deps, start & health-check
 #   ./manage.sh install                 # install all client + server npm dependencies
 #   ./manage.sh doctor                  # diagnose Docker + environment issues
-#   ./manage.sh recover                 # inspect the last 30 minutes and repair safe dependency issues
-#   ./manage.sh fix                     # auto-fix detected issues
 #   ./manage.sh start                   # docker compose up (build if needed)
-#   ./manage.sh stop                    # docker compose down
-#   ./manage.sh restart                 # rebuild + restart both services
-#   ./manage.sh status                  # show container states
-#   ./manage.sh build                   # rebuild images
-#   ./manage.sh logs                    # follow all logs
-#   ./manage.sh logs server             # follow server / OpenRouter logs
-#   ./manage.sh logs client             # follow React client logs
-#   ./manage.sh --native start          # start server + client natively (no Docker)
-#   ./manage.sh --codespace restart     # restart native server + client in GitHub Codespaces
-#   ./manage.sh --docker e2e --record    # run Docker E2E and save videos
-#   ./manage.sh --native logs server    # tail logs/server.log
+#   ./manage.sh proxy:stats              # view proxy health
+#   ./manage.sh subtitle:test dQw4w9WgXcQ # test subtitle fetch
+#   ./manage.sh logs server             # follow server logs
 
 set -uo pipefail
 
@@ -52,11 +55,24 @@ error() { echo -e "${RED}[ERROR]${NC} $*" >&2; }
 head_()  { echo -e "${CYAN}── $* ──${NC}"; }
 
 # ── argument parsing ──────────────────────────────────────────────────────────
+SUBCOMMAND=""
+COMMAND_ARGS=()
+i=0
 for arg in "$@"; do
+  ((i++))
   case "$arg" in
     --docker) USE_NATIVE=false ;;
     --native) USE_NATIVE=true ;;
     --codespace) USE_NATIVE=true ;;
+    proxy:*|subtitle:*)
+      COMMAND="${arg%%:*}"
+      SUBCOMMAND="${arg##*:}"
+      # Collect remaining args as command arguments (skip the command itself)
+      if [[ $i -lt $# ]]; then
+        COMMAND_ARGS=("${@:$((i+1))}")
+      fi
+      break
+      ;;
     start|stop|restart|status|build|install|ensure|doctor|recover|fix|e2e) COMMAND="$arg" ;;
     --record) E2E_RECORD=true ;;
     logs) COMMAND="logs" ;;
@@ -69,19 +85,19 @@ for arg in "$@"; do
       fi
       ;;
     -h|--help)
-      grep '^#' "$0" | head -30 | sed 's/^# \?//'
+      grep '^#' "$0" | head -50 | sed 's/^# \?//'
       exit 0
       ;;
     *)
       error "Unknown argument: $arg"
-      echo "Usage: $0 [--docker|--native|--codespace] {start|stop|restart|status|build|install|ensure|doctor|recover|fix|e2e [--record]|logs [service]}" >&2
+      echo "Usage: $0 [--docker|--native|--codespace] {start|stop|restart|status|build|install|ensure|doctor|recover|fix|e2e [--record]|logs [service]} or {proxy|subtitle}:{command} [ARGS]" >&2
       exit 1
       ;;
   esac
 done
 
 if [[ -z "$COMMAND" ]]; then
-  echo "Usage: $0 [--docker|--native|--codespace] {start|stop|restart|status|build|install|ensure|doctor|recover|fix|e2e [--record]|logs [service]}"
+  echo "Usage: $0 [--docker|--native|--codespace] {start|stop|restart|status|build|install|ensure|doctor|recover|fix|e2e [--record]|logs [service]} or {proxy|subtitle}:{command} [ARGS]"
   exit 1
 fi
 
@@ -1325,7 +1341,201 @@ run_e2e() {
     --spec cypress/e2e/invidious.cy.ts
 }
 
+# ── Proxy Management Commands ─────────────────────────────────────────────────
+
+proxy_stats() {
+  head_ "Proxy Health & Statistics"
+  local server_url="${SERVER_URL:-http://localhost:3001}"
+
+  local response
+  response=$(curl -s "${server_url}/api/proxy/stats" 2>/dev/null)
+
+  if [[ -z "$response" ]]; then
+    error "Cannot connect to server at ${server_url}. Is it running?"
+    return 1
+  fi
+
+  echo "$response" | jq '.' 2>/dev/null || echo "$response"
+}
+
+proxy_requests() {
+  head_ "Request Attempt Log"
+  local server_url="${SERVER_URL:-http://localhost:3001}"
+  local video_id="${1:---}"
+  local limit="${2:-50}"
+
+  if [[ "$video_id" == "--" ]]; then
+    info "Showing last $limit requests"
+    curl -s "${server_url}/api/proxy/requests?limit=${limit}" 2>/dev/null | jq '.' || error "Failed to fetch logs"
+  else
+    info "Showing requests for video: $video_id"
+    curl -s "${server_url}/api/proxy/requests?groupId=${video_id}&limit=${limit}" 2>/dev/null | jq '.' || error "Failed to fetch logs"
+  fi
+}
+
+proxy_reset() {
+  head_ "Resetting Proxy State"
+  info "This would reset all proxy blacklists and counters."
+  info "To implement: Add a POST /api/proxy/reset endpoint to server/index.js"
+  warn "For now, restart the server to reset: ./manage.sh restart"
+}
+
+proxy_report() {
+  head_ "Proxy Performance Report"
+  local server_url="${SERVER_URL:-http://localhost:3001}"
+
+  info "Fetching proxy statistics..."
+  local stats
+  stats=$(curl -s "${server_url}/api/proxy/stats" 2>/dev/null)
+
+  if [[ -z "$stats" ]]; then
+    error "Cannot connect to server at ${server_url}"
+    return 1
+  fi
+
+  echo ""
+  echo "=== PROXY POOL HEALTH ==="
+  echo "$stats" | jq '.summary | to_entries | .[] | "\(.key): \(.value)"' 2>/dev/null || echo "$stats"
+
+  echo ""
+  echo "=== INDIVIDUAL PROXY STATUS ==="
+  echo "$stats" | jq '.proxies | sort_by(-.successRate) | .[] | "\(.url | split("@")[1] // .url): \(.successRate) success (\(.successes)/\(.attempts) attempts)"' 2>/dev/null || echo "$stats"
+
+  echo ""
+  echo "=== BLACKLISTED PROXIES ==="
+  echo "$stats" | jq '.proxies | map(select(.isBlacklisted)) | .[] | "\(.url | split("@")[1] // .url): blacklisted until \(.blacklistedUntil // "N/A")"' 2>/dev/null || echo "(None)"
+
+  echo ""
+  info "View detailed logs with: ./manage.sh proxy:requests"
+}
+
+# ── Subtitle Fetch Commands ───────────────────────────────────────────────────
+
+subtitle_test() {
+  head_ "Testing Subtitle Fetch (All Layers)"
+  local server_url="${SERVER_URL:-http://localhost:3001}"
+  local video_id="${1}"
+  local lang="${2:-en}"
+
+  if [[ -z "$video_id" ]]; then
+    error "Usage: ./manage.sh subtitle:test VIDEO_ID [LANGUAGE]"
+    echo "Example: ./manage.sh subtitle:test dQw4w9WgXcQ en"
+    return 1
+  fi
+
+  info "Testing subtitle fetch for: $video_id (language: $lang)"
+  echo ""
+  echo "Layer 1: YouTube API + Residential Proxy"
+  echo "  Attempting to fetch via youtube-transcript-api-js..."
+
+  # Simulate request through Layer 1
+  curl -s "${server_url}/api/srt?videoId=${video_id}&lang=${lang}&method=2" \
+    --max-time 35 \
+    --write-out "\n  HTTP Status: %{http_code}\n  Time: %{time_total}s\n" \
+    > /tmp/test_srt.txt 2>&1
+
+  if [[ $? -eq 0 ]]; then
+    info "✓ Layer 1 Success"
+    local lines=$(wc -l < /tmp/test_srt.txt 2>/dev/null || echo "?")
+    echo "  Got $lines lines of subtitle data"
+  else
+    warn "✗ Layer 1 Failed (trying Layer 2: Invidious)"
+    echo ""
+    echo "Layer 2: Invidious Fallback"
+    echo "  Would use public Invidious instances as fallback"
+    info "Check request log for details: ./manage.sh proxy:requests ${video_id}"
+  fi
+
+  echo ""
+  info "Request details:"
+  curl -s "${server_url}/api/proxy/requests?groupId=${video_id}&limit=10" | jq '.attempts | reverse | .[] | "\(.timestamp): [\(.status)] \(.service) - \(.durationMs)ms"' 2>/dev/null || echo "  (No logs yet)"
+}
+
+subtitle_health() {
+  head_ "YouTube Subtitle Fetch Health Check"
+  local server_url="${SERVER_URL:-http://localhost:3001}"
+
+  info "Checking server health..."
+  local health
+  health=$(curl -s "${server_url}/api/health" 2>/dev/null)
+
+  if [[ -z "$health" ]]; then
+    error "Server is not running. Start with: ./manage.sh start"
+    return 1
+  fi
+
+  echo "$health" | jq '.' 2>/dev/null || echo "$health"
+
+  echo ""
+  info "Checking proxy pool status..."
+  curl -s "${server_url}/api/proxy/stats" 2>/dev/null | jq '.summary' 2>/dev/null
+
+  echo ""
+  info "Recent request attempts:"
+  curl -s "${server_url}/api/proxy/requests?limit=20" 2>/dev/null \
+    | jq '.attempts | reverse | .[0:5] | .[] | "\(.timestamp): [\(.status | ascii_upcase)] \(.service)"' 2>/dev/null
+}
+
+subtitle_cache() {
+  head_ "Subtitle Cache Information"
+  local cache_dir="${PROJECT_ROOT}/server/services/youtube-transcript-cache"
+
+  if [[ -d "$cache_dir" ]]; then
+    local cache_size=$(du -sh "$cache_dir" 2>/dev/null | cut -f1)
+    local cache_count=$(find "$cache_dir" -type f | wc -l)
+    info "Cache found at: $cache_dir"
+    info "Cache size: $cache_size"
+    info "Files cached: $cache_count"
+
+    if [[ $cache_count -gt 0 ]]; then
+      echo ""
+      echo "=== Cached Subtitle Files ==="
+      find "$cache_dir" -type f -printf '%T@ %p\n' 2>/dev/null \
+        | sort -rn \
+        | head -20 \
+        | awk '{print strftime("%Y-%m-%d %H:%M", $1), $NF}' \
+        | sed 's|'"$cache_dir"'/||'
+    fi
+  else
+    info "No local cache directory found. Subtitles cached in localStorage (browser) or backend."
+  fi
+
+  echo ""
+  info "To view subtitle fetch performance:"
+  echo "  curl http://localhost:3001/api/proxy/requests | jq '.'"
+}
+
 # ── dispatch ──────────────────────────────────────────────────────────────────
+# Proxy and subtitle commands (no Docker/native distinction needed)
+if [[ "$COMMAND" == "proxy" ]]; then
+  case "$SUBCOMMAND" in
+    stats)  proxy_stats "${COMMAND_ARGS[@]}" ;;
+    requests) proxy_requests "${COMMAND_ARGS[@]}" ;;
+    reset) proxy_reset "${COMMAND_ARGS[@]}" ;;
+    report) proxy_report "${COMMAND_ARGS[@]}" ;;
+    *)
+      error "Unknown proxy subcommand: $SUBCOMMAND"
+      echo "Available: stats, requests, reset, report"
+      exit 1
+      ;;
+  esac
+  exit $?
+fi
+
+if [[ "$COMMAND" == "subtitle" ]]; then
+  case "$SUBCOMMAND" in
+    test) subtitle_test "${COMMAND_ARGS[@]}" ;;
+    health) subtitle_health "${COMMAND_ARGS[@]}" ;;
+    cache) subtitle_cache "${COMMAND_ARGS[@]}" ;;
+    *)
+      error "Unknown subtitle subcommand: $SUBCOMMAND"
+      echo "Available: test, health, cache"
+      exit 1
+      ;;
+  esac
+  exit $?
+fi
+
 # install, doctor and fix run regardless of --native flag
 if [[ "$COMMAND" == "install" ]]; then run_install; exit 0; fi
 if [[ "$COMMAND" == "doctor"  ]]; then run_doctor;  exit 0; fi
