@@ -6,6 +6,7 @@ const {
   resolveInvidiousCaptionUrl,
   vttToSrt,
 } = require("../../server/services/youtube-transcript");
+const proxyManager = require("../../server/services/proxy-manager");
 
 const ENV_KEY = process.env.OPENROUTER_API_KEY || process.env.REACT_APP_OPENAI_API_KEY || "";
 const YOUTUBE_API_BASE = "https://youtube-dl-jrte.onrender.com";
@@ -321,6 +322,25 @@ exports.handler = async (event) => {
   if (method === "GET" && apiPath === "/api/health") {
     const now = Date.now();
     return json(200, { ok: true, timestamp: now, startedAt: SERVER_START, age: formatAge(now - SERVER_START), uptime: Math.floor(process.uptime()) });
+  }
+
+  if (method === "GET" && apiPath === "/api/proxy/stats") {
+    const stats = proxyManager.getProxyStats();
+    return json(200, {
+      proxies: stats,
+      timestamp: new Date().toISOString(),
+      summary: {
+        total: stats.length,
+        healthy: stats.filter(item => item.isHealthy).length,
+        blacklisted: stats.filter(item => item.isBlacklisted).length,
+      },
+    });
+  }
+
+  if (method === "GET" && apiPath === "/api/proxy/requests") {
+    const groupId = String(qs.groupId || "").trim() || null;
+    const limit = Math.min(500, Math.max(1, Number(qs.limit) || 50));
+    return json(200, { attempts: proxyManager.getRequestAttempts(groupId, limit), groupId, limit });
   }
 
   if (method === "GET" && apiPath === "/api/config") {

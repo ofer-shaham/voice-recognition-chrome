@@ -22,6 +22,14 @@ const DEFAULT_PROXIES = [
   "http://zhuwraee:cm4igg4nj86y@31.58.9.4:6077",
 ];
 
+function getProxyList() {
+  const configuredProxies = String(process.env.YOUTUBE_HTTP_PROXIES || process.env.YOUTUBE_HTTP_PROXY || "")
+    .split(",")
+    .map(proxy => proxy.trim())
+    .filter(Boolean);
+  return configuredProxies.length > 0 ? configuredProxies : DEFAULT_PROXIES;
+}
+
 // Track proxy health and performance
 const proxyStats = {};
 
@@ -43,7 +51,7 @@ const BACKOFF_CONFIG = {
  * Initialize proxy stats for all proxies
  */
 function initProxyStats() {
-  DEFAULT_PROXIES.forEach((proxy, idx) => {
+  getProxyList().forEach((proxy, idx) => {
     if (!proxyStats[proxy]) {
       proxyStats[proxy] = {
         index: idx,
@@ -65,11 +73,12 @@ function initProxyStats() {
  */
 function getNextProxy() {
   initProxyStats();
-  
-  const availableProxies = DEFAULT_PROXIES.filter(proxy => {
+  const proxies = getProxyList();
+
+  const availableProxies = proxies.filter(proxy => {
     const stats = proxyStats[proxy];
     if (!stats.isBlacklisted) return true;
-    
+
     // Check if blacklist period has expired
     if (stats.blacklistedUntil && Date.now() > stats.blacklistedUntil) {
       stats.isBlacklisted = false;
@@ -78,16 +87,16 @@ function getNextProxy() {
     }
     return false;
   });
-  
+
   if (availableProxies.length === 0) {
     // All proxies blacklisted, reset and return first
-    DEFAULT_PROXIES.forEach(proxy => {
+    proxies.forEach(proxy => {
       proxyStats[proxy].isBlacklisted = false;
       proxyStats[proxy].blacklistedUntil = null;
     });
     availableProxies.push(...DEFAULT_PROXIES);
   }
-  
+
   currentProxyIndex = (currentProxyIndex + 1) % availableProxies.length;
   return availableProxies[currentProxyIndex];
 }
@@ -117,14 +126,14 @@ function logRequestAttempt(groupId, service, proxyUrl, status, errorMessage, dur
     error: errorMessage || null,
     durationMs,
   };
-  
+
   requestAttemptLog.push(entry);
-  
+
   // Trim log if it gets too large
   if (requestAttemptLog.length > REQUEST_LOG_MAX) {
     requestAttemptLog.shift();
   }
-  
+
   return entry;
 }
 
@@ -133,11 +142,11 @@ function logRequestAttempt(groupId, service, proxyUrl, status, errorMessage, dur
  */
 function getRequestAttempts(groupId = null, limit = 50) {
   let logs = requestAttemptLog;
-  
+
   if (groupId) {
     logs = logs.filter(log => log.groupId === groupId);
   }
-  
+
   return logs.slice(-limit);
 }
 
@@ -146,7 +155,7 @@ function getRequestAttempts(groupId = null, limit = 50) {
  */
 function getProxyStats() {
   initProxyStats();
-  return Object.values(proxyStats).map(stat => ({
+  return getProxyList().map(proxy => proxyStats[proxy]).map(stat => ({
     ...stat,
     successRate: stat.attempts > 0 ? ((stat.successes / stat.attempts) * 100).toFixed(2) + "%" : "N/A",
     isHealthy: !stat.isBlacklisted && stat.successes > stat.failures,
@@ -159,16 +168,16 @@ function getProxyStats() {
  */
 function markProxyFailed(proxyUrl, error) {
   if (!proxyStats[proxyUrl]) return;
-  
+
   const stats = proxyStats[proxyUrl];
   stats.failures++;
   stats.lastError = error.message || String(error);
   stats.lastUsed = new Date().toISOString();
-  
+
   // Blacklist progressively: 5s, 30s, 2m, 5m
   const blacklistDurations = [5000, 30000, 120000, 300000];
   const duration = blacklistDurations[Math.min(stats.failures - 1, 3)];
-  
+
   stats.isBlacklisted = true;
   stats.blacklistedUntil = Date.now() + duration;
 }
@@ -178,11 +187,11 @@ function markProxyFailed(proxyUrl, error) {
  */
 function markProxySuccess(proxyUrl) {
   if (!proxyStats[proxyUrl]) return;
-  
+
   const stats = proxyStats[proxyUrl];
   stats.successes++;
   stats.lastUsed = new Date().toISOString();
-  
+
   // Reset failure count on success
   if (stats.failures > 0) {
     stats.failures = Math.max(0, stats.failures - 1);
@@ -191,7 +200,7 @@ function markProxySuccess(proxyUrl) {
 
 /**
  * Execute a fetch with proxy rotation and retry logic
- * 
+ *
  * @param {string} groupId - Unique ID to group related attempts (e.g., videoId)
  * @param {string} service - Service name for logging (e.g., "youtube-transcript")
  * @param {Function} fetchFn - Async function(proxyUrl) that performs the fetch
@@ -214,20 +223,20 @@ async function executeWithProxyFallback(
   } = {}
 ) {
   initProxyStats();
-  
+
   let lastError = null;
   let lastProxyUrl = null;
-  
+
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     const proxyUrl = useProxies ? getNextProxy() : null;
     lastProxyUrl = proxyUrl;
-    
+
     const startTime = Date.now();
     const attemptStatus = attempt === 0 ? 'attempt' : 'retry';
-    
+
     try {
       logRequestAttempt(groupId, service, proxyUrl, attemptStatus, null, 0);
-      
+
       // Execute the fetch function
       const result = await Promise.race([
         fetchFn(proxyUrl),
@@ -235,23 +244,23 @@ async function executeWithProxyFallback(
           setTimeout(() => reject(new Error('Request timeout')), timeout)
         ),
       ]);
-      
+
       const durationMs = Date.now() - startTime;
       logRequestAttempt(groupId, service, proxyUrl, 'success', null, durationMs);
-      
+
       if (useProxies && proxyUrl) {
         markProxySuccess(proxyUrl);
       }
-      
+
       return result;
     } catch (error) {
       const durationMs = Date.now() - startTime;
       lastError = error;
-      
+
       // Determine if this is retriable
       const isRetriable = attempt < maxRetries;
       const status = isRetriable ? 'retry' : 'failed';
-      
+
       logRequestAttempt(
         groupId,
         service,
@@ -260,11 +269,11 @@ async function executeWithProxyFallback(
         error.message || String(error),
         durationMs
       );
-      
+
       if (useProxies && proxyUrl) {
         markProxyFailed(proxyUrl, error);
       }
-      
+
       if (isRetriable) {
         // Exponential backoff before retry
         const delayMs = getBackoffDelay(attempt);
@@ -272,7 +281,7 @@ async function executeWithProxyFallback(
       }
     }
   }
-  
+
   throw new Error(
     `Failed after ${maxRetries + 1} attempts using ${useProxies ? 'proxy rotation' : 'direct connection'}: ${lastError.message}`
   );
@@ -286,5 +295,5 @@ module.exports = {
   getProxyStats,
   markProxyFailed,
   markProxySuccess,
-  DEFAULT_PROXIES,
+  DEFAULT_PROXIES: getProxyList(),
 };
