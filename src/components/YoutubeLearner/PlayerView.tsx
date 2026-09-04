@@ -15,7 +15,7 @@ import { buildLines, parseSrt, secondsToHms, colLabel, sleep, dedupeAvailLangs }
 import { DEFAULT_TTS_RATE } from './constants';
 import { translate, getTranslationCacheCount } from '../../utils/translate';
 import { generateDifficultyMask, usesLocalDifficultyMask } from './lesson';
-import { getStoredOpenRouterApiKey } from '../../services/openRouterService';
+import { DEFAULT_OPENROUTER_MAX_TOKENS, getStoredOpenRouterApiKey, getStoredOpenRouterMaxTokens, OPENROUTER_MAX_TOKENS_STORAGE } from '../../services/openRouterService';
 import { freeSpeak } from '../../utils/freeSpeak';
 import isRtl from '../../utils/isRtl';
 import { useVoices } from './useVoices';
@@ -218,6 +218,26 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     const raw = Number(window.localStorage.getItem('yt_ai_level') || '3');
     return Number.isFinite(raw) ? Math.min(5, Math.max(0, Math.round(raw))) : 3;
   });
+  const [autoGenerateMask, setAutoGenerateMask] = useState<boolean>(() =>
+    typeof window !== 'undefined' && window.localStorage.getItem('yt_auto_generate_mask') === 'true'
+  );
+  const [autoStartVideo, setAutoStartVideo] = useState<boolean>(() =>
+    typeof window !== 'undefined' && window.localStorage.getItem('yt_auto_start_video') === 'true'
+  );
+  const [autoTranslateRows, setAutoTranslateRows] = useState<boolean>(() =>
+    typeof window !== 'undefined' && window.localStorage.getItem('yt_auto_translate_rows') === 'true'
+  );
+  const [maxRequestTokens, setMaxRequestTokens] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const shared = Number(new URLSearchParams(window.location.search).get('maxTokens'));
+      if (Number.isFinite(shared) && shared >= 256) {
+        const value = Math.min(16384, Math.round(shared));
+        window.localStorage.setItem(OPENROUTER_MAX_TOKENS_STORAGE, String(value));
+        return value;
+      }
+    }
+    return getStoredOpenRouterMaxTokens();
+  });
   const [useMaskAsTranslationBase, setUseMaskAsTranslationBase] = useState<boolean>(() => {
     if (typeof window === 'undefined') return false;
     // Check URL parameter first (for shared links)
@@ -225,7 +245,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     if (urlUseMask === 'true') return true;
     // Fall back to localStorage
     const raw = window.localStorage.getItem('yt_use_mask_base');
-    return raw === 'true';
+    return raw === null ? true : raw === 'true';
   });
   const [aiTranslationMode, setAiTranslationMode] = useState<'full' | 'rows'>(() => {
     if (typeof window === 'undefined') return 'rows';
@@ -329,6 +349,11 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
       window.localStorage.setItem('yt_use_mask_base', String(useMaskAsTranslationBase));
     }
   }, [aiTranslationLevel, aiTranslationMode, aiTranslationRows, useMaskAsTranslationBase]);
+  useEffect(() => {
+    window.localStorage.setItem('yt_auto_generate_mask', String(autoGenerateMask));
+    window.localStorage.setItem('yt_auto_start_video', String(autoStartVideo));
+    window.localStorage.setItem('yt_auto_translate_rows', String(autoTranslateRows));
+  }, [autoGenerateMask, autoStartVideo, autoTranslateRows]);
 
   // ── When mask base is toggled, invalidate translation cache ────────────────
   useEffect(() => {
@@ -408,6 +433,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
 
   // ── Auto-generate mask on page load if difficulty is set ────────────────────
   useEffect(() => {
+    if (!autoGenerateMask) return;
     if (aiTranslationLevel === 0) return; // "None" is selected
     if (lines.length === 0) return; // Wait for lines
 
@@ -436,7 +462,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     };
 
     autoGenerate();
-  }, [project.id, aiTranslationLevel, lines.length, windowStart, config.visibleLines]);
+  }, [autoGenerateMask, project.id, aiTranslationLevel, lines.length, windowStart, config.visibleLines]);
 
   useEffect(() => {
     if (!useMaskAsTranslationBase) return;
@@ -458,6 +484,11 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
   // Translate only what the learner can see, plus a small lookahead. This keeps
   // navigation responsive without sending the whole transcript to the API.
   useEffect(() => {
+    if (!autoTranslateRows) {
+      setTranslationStatus('idle');
+      setTranslationStatusMessage('Translation is paused until enabled');
+      return;
+    }
     // EARLY GUARD: If using mask as translation base but masks aren't ready yet, skip entire translation
     if (useMaskAsTranslationBase && Object.keys(aiMaskRows).length === 0) {
       setTranslationStatus('idle');
@@ -542,7 +573,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     run();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [translationVer, lines.length, windowStart, config.visibleLines, aiTranslationLevel, aiTranslationMode, aiTranslationRows, useMaskAsTranslationBase, aiMaskLoading]);
+  }, [autoTranslateRows, translationVer, lines.length, windowStart, config.visibleLines, aiTranslationLevel, aiTranslationMode, aiTranslationRows, useMaskAsTranslationBase, aiMaskLoading]);
 
   // ── Slide window to follow current line ─────────────────────────────────────
   useEffect(() => {
@@ -1040,6 +1071,12 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     }
   }, [dispatch, playLine, onSave, ytCmd]);
 
+  useEffect(() => {
+    if (!autoStartVideo || !project.videoId || !lines.length || autoStartedProjectRef.current === project.id) return;
+    autoStartedProjectRef.current = project.id;
+    void playFrom(Math.max(0, project.lastLine || 0));
+  }, [autoStartVideo, lines.length, playFrom, project.id, project.lastLine, project.videoId]);
+
   // Reset the active row back to the very first line
   const resetToStart = useCallback(() => {
     if (isPlaying) stop();
@@ -1417,42 +1454,37 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
       {/* ── Header ─────────────────────────────────────────────────────────── */}
       <div className="yl-header">
         <div className="yl-header-left">
-          <button className="yl-btn-ghost" onClick={() => { stopMedia(); onBackHome(); }}>← Home</button>
-          <button className="yl-btn-ghost" onClick={() => { stopMedia(); onNewVideo(); }}>＋ New</button>
-          <label className="yl-theme-control">
-            <span className="yl-sr-only">Theme</span>
-            <select className="yl-theme-select" value={theme} onChange={e => onThemeChange(e.target.value as YoutubeTheme)}>
-              <option value="light">Light</option>
-              <option value="blue">Blue</option>
-              <option value="dark">Dark</option>
-            </select>
-          </label>
-          {projects.length > 1 && (
-            <select className="yl-select-sm" value={project.id}
-              onChange={e => { const p = projects.find(x => x.id === e.target.value); if (p) { setConfirmDelete(false); onSelectProject(p); } }}>
-              {projects.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
-            </select>
-          )}
+          <details className="yl-header-menu">
+            <summary>Project</summary>
+            <div className="yl-header-menu-panel">
+              <button className="yl-btn-ghost" onClick={() => { stopMedia(); onBackHome(); }}>← Home</button>
+              <button className="yl-btn-ghost" onClick={() => { stopMedia(); onNewVideo(); }}>＋ New</button>
+              <label className="yl-theme-control">
+                <span>Theme</span>
+                <select className="yl-theme-select" value={theme} onChange={e => onThemeChange(e.target.value as YoutubeTheme)}>
+                  <option value="light">Light</option>
+                  <option value="blue">Blue</option>
+                  <option value="dark">Dark</option>
+                </select>
+              </label>
+              {projects.length > 1 && (
+                <select className="yl-select-sm" value={project.id}
+                  onChange={e => { const p = projects.find(x => x.id === e.target.value); if (p) { setConfirmDelete(false); onSelectProject(p); } }}>
+                  {projects.map(p => <option key={p.id} value={p.id}>{p.title}</option>)}
+                </select>
+              )}
+              {confirmDelete ? (
+                <span className="yl-delete-confirm">
+                  Delete?
+                  <button className="yl-btn-ghost yl-btn-sm yl-btn-danger" onClick={() => { setConfirmDelete(false); if (isPlaying) stop(); onDelete(project.id); }}>Yes</button>
+                  <button className="yl-btn-ghost yl-btn-sm" onClick={() => setConfirmDelete(false)}>No</button>
+                </span>
+              ) : (
+                <button className="yl-btn-ghost yl-btn-sm yl-btn-danger" title="Delete this project" onClick={() => setConfirmDelete(true)}>🗑 Delete</button>
+              )}
+            </div>
+          </details>
           <span className="yl-video-title" title={project.title}>{project.title}</span>
-
-          {/* ── Delete project ── */}
-          {confirmDelete ? (
-            <span className="yl-delete-confirm">
-              Delete?
-              <button className="yl-btn-ghost yl-btn-sm yl-btn-danger"
-                onClick={() => { setConfirmDelete(false); if (isPlaying) stop(); onDelete(project.id); }}>
-                Yes
-              </button>
-              <button className="yl-btn-ghost yl-btn-sm" onClick={() => setConfirmDelete(false)}>
-                No
-              </button>
-            </span>
-          ) : (
-            <button className="yl-btn-ghost yl-btn-sm yl-btn-danger" title="Delete this project"
-              onClick={() => setConfirmDelete(true)}>
-              🗑
-            </button>
-          )}
         </div>
         <div className="yl-header-right">
           <span className="yl-line-info">
@@ -1535,6 +1567,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
                   if (project.subtitleUrl) p.set('url', project.subtitleUrl);
                   const openRouterKey = getStoredOpenRouterApiKey();
                   if (openRouterKey) p.set('orKey', openRouterKey);
+                  p.set('maxTokens', String(maxRequestTokens));
                   if (project.alternateYoutubeUrl) p.set('instanceUrl', project.alternateYoutubeUrl);
                   if (project.subtitleProxyUrl) p.set('proxyUrl', project.subtitleProxyUrl);
                   p.set('tl', config.targetLang);
@@ -1582,7 +1615,33 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
             ⚙ Settings
           </button>
           {(
-            <div className="yl-ai-mask-controls">
+            <details className="yl-header-menu yl-ai-menu">
+              <summary>AI</summary>
+              <div className="yl-header-menu-panel yl-ai-mask-controls">
+                <label className="yl-checkbox-label" title="Allow mask generation to call OpenRouter automatically when a project loads">
+                  <input type="checkbox" checked={autoGenerateMask} onChange={e => setAutoGenerateMask(e.target.checked)} />
+                  Auto-generate mask
+                </label>
+                <label className="yl-checkbox-label" title="Allow video playback to start automatically when a project loads">
+                  <input type="checkbox" checked={autoStartVideo} onChange={e => setAutoStartVideo(e.target.checked)} />
+                  Auto-start video
+                </label>
+                <label className="yl-checkbox-label" title="Allow translation requests for visible rows and lookahead rows">
+                  <input type="checkbox" checked={autoTranslateRows} onChange={e => setAutoTranslateRows(e.target.checked)} />
+                  Auto-translate rows
+                </label>
+                <label className="yl-checkbox-label" title="Maximum output tokens sent with each OpenRouter request">
+                  Request tokens
+                  <input className="yl-input-sm" type="number" min={256} max={16384} step={256} value={maxRequestTokens}
+                    onChange={e => {
+                      const value = Math.max(256, Math.min(16384, Math.round(Number(e.target.value) || DEFAULT_OPENROUTER_MAX_TOKENS)));
+                      setMaxRequestTokens(value);
+                      localStorage.setItem(OPENROUTER_MAX_TOKENS_STORAGE, String(value));
+                    }} />
+                </label>
+                {!autoTranslateRows && <button className="yl-btn-secondary yl-btn-sm" type="button" onClick={async () => { if (useMaskAsTranslationBase && !maskVisible) await generateMask(); setAutoTranslateRows(true); retranslate(); }}>
+                  Translate visible rows
+                </button>}
               <label className="yl-sr-only" htmlFor="yl-ai-mask-level">Mask difficulty</label>
               <select id="yl-ai-mask-level" className="yl-select-sm" value={aiTranslationLevel}
                 onChange={e => { const value = Number(e.target.value); setAiTranslationLevel(value); localStorage.setItem('yt_ai_level', String(value)); }}>
@@ -1604,7 +1663,8 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
                 </>
               )}
               {usesLocalDifficultyMask() && <span className="yl-setting-info yl-ai-mask-disclaimer">No OpenRouter key: this mask uses a random consecutive word selection, not AI.</span>}
-            </div>
+              </div>
+            </details>
           )}
         </div>
       </div>

@@ -43,6 +43,20 @@
     padding-bottom: 2px;
   }
 
+  .yl-header-menu-panel {
+    position: fixed;
+    top: 3.2rem;
+    left: 0.5rem;
+    right: auto;
+    max-height: 70dvh;
+    overflow-y: auto;
+  }
+
+  .yl-header-right .yl-header-menu-panel {
+    left: auto;
+    right: 0.5rem;
+  }
+
   .yl-video-title {
     max-width: 150px;
     font-size: 0.8rem;
@@ -561,6 +575,46 @@
   flex-wrap: wrap;
   justify-content: flex-end;
 }
+
+.yl-header-menu {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.yl-header-menu summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid #374151;
+  border-radius: 4px;
+  color: #e2e8f0;
+  background: #202737;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.yl-header-menu summary::-webkit-details-marker { display: none; }
+
+.yl-header-menu-panel {
+  position: absolute;
+  top: calc(100% + 0.4rem);
+  left: 0;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.45rem;
+  min-width: 210px;
+  max-width: min(340px, calc(100vw - 1rem));
+  padding: 0.65rem;
+  background: #1a1f2e;
+  border: 1px solid #374151;
+  border-radius: 5px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.yl-header-right .yl-header-menu-panel { right: 0; left: auto; }
+.yl-ai-menu .yl-header-menu-panel { min-width: 260px; }
 
 .yl-ai-mask-controls {
   display: inline-flex;
