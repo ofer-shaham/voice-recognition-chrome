@@ -388,6 +388,11 @@ app.get("/api/transcript/languages", async (req, res) => {
       log("info", "alternate transcript/languages OK", { videoId, n: alternate.availableLanguages.length });
       return res.json(alternate);
     }
+    if (service === "invidious") {
+      const invidious = await fetchInvidiousLanguages(String(videoId), "https://yewtu.be");
+      log("info", "Invidious transcript/languages OK", { videoId, n: invidious.availableLanguages.length });
+      return res.json(invidious);
+    }
     if (method === "2") {
       const apiJs = await fetchLanguagesMethod2(String(videoId), proxyUrl);
       log("info", "youtube-transcript-api-js/languages OK", { videoId, n: apiJs.availableLanguages.length });
@@ -424,11 +429,11 @@ app.get("/api/transcript/languages", async (req, res) => {
 
 // ── SRT fetch ─────────────────────────────────────────────────────────────────
 app.get("/api/srt", async (req, res) => {
-  const { videoId, lang, method, instanceUrl, proxyUrl } = req.query;
+  const { videoId, lang, method, service, instanceUrl, proxyUrl } = req.query;
   if (!videoId) return res.status(400).json({ error: "videoId is required" });
   const langCode = String(lang || "en").split("-")[0];
   try {
-    const instances = instanceUrl ? String(instanceUrl) : undefined;
+    const instances = instanceUrl ? String(instanceUrl) : service === "invidious" ? "https://yewtu.be" : undefined;
     const srt = await fetchSrt(String(videoId), langCode, method, instances, proxyUrl);
     log("info", "SRT OK", { videoId, lang: langCode, method: method || "auto" });
     res.type("text/plain; charset=utf-8").send(srt);

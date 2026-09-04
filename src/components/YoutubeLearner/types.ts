@@ -37,6 +37,8 @@ export interface YtProject {
   lastTime?: number;
   /** Subtitle fetcher used for this project. Older projects default to plus. */
   subtitleService?: SubtitleService;
+  /** Optional source caption URL used to recreate shared Invidious projects. */
+  subtitleUrl?: string;
   /** Optional Invidious-compatible alternate host, e.g. https://yewtu.be. */
   alternateYoutubeUrl?: string;
   /** Optional Webshare/HTTP proxy URL used by the transcript API client. */

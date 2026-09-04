@@ -15,6 +15,7 @@ import { buildLines, parseSrt, secondsToHms, colLabel, sleep, dedupeAvailLangs }
 import { DEFAULT_TTS_RATE } from './constants';
 import { translate, getTranslationCacheCount } from '../../utils/translate';
 import { generateDifficultyMask, usesLocalDifficultyMask } from './lesson';
+import { getStoredOpenRouterApiKey } from '../../services/openRouterService';
 import { freeSpeak } from '../../utils/freeSpeak';
 import isRtl from '../../utils/isRtl';
 import { useVoices } from './useVoices';
@@ -406,23 +407,6 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
           ...prev,
           ...Object.fromEntries(rows.map((text, index) => [windowStart + index, text]))
         }));
-
-        // AFTER masks are ready, enable mask-based translation (only on first generation)
-        // This ensures translation uses masks as source, not original text
-        if (!useMaskAsTranslationBase) {
-          // Clear translations first, then enable mask mode
-          setLines(prev => prev.map(line => ({
-            ...line,
-            translation: '',
-            translated: false,
-            translations: {},
-            translatedTargets: {}
-          })));
-          // Mark all as pending re-translation with mask source
-          pendingSet.current = new Set(rows.map((_, i) => windowStart + i));
-          setUseMaskAsTranslationBase(true);
-          setTranslationVer(v => v + 1);
-        }
       } catch {
         // Silently fail - user can manually generate if needed
       } finally {
@@ -1511,6 +1495,9 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
                   if (project.videoId) p.set('v', project.videoId);
                   else p.set('p', project.id);
                   p.set('m', project.subtitleService || 'plus');
+                  if (project.subtitleUrl) p.set('url', project.subtitleUrl);
+                  const openRouterKey = getStoredOpenRouterApiKey();
+                  if (openRouterKey) p.set('orKey', openRouterKey);
                   if (project.alternateYoutubeUrl) p.set('instanceUrl', project.alternateYoutubeUrl);
                   if (project.subtitleProxyUrl) p.set('proxyUrl', project.subtitleProxyUrl);
                   p.set('tl', config.targetLang);
@@ -1570,11 +1557,11 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
               </button>
               {maskVisible && (
                 <>
-                  <label className="yl-checkbox-label" title="Use the AI mask as the source text for translation">
+                  <label className="yl-checkbox-label" title="Translate the AI mask instead of the subtitle text">
                     <input type="checkbox" checked={useMaskAsTranslationBase} onChange={e => setUseMaskAsTranslationBase(e.target.checked)} />
-                    Use mask
+                    Translate mask
                   </label>
-                  <button className="yl-btn-ghost yl-btn-sm" type="button" onClick={() => { setAiMaskRows({}); setAiMaskError(''); }} title="Clear the AI mask column">
+                  <button className="yl-btn-ghost yl-btn-sm" type="button" onClick={() => { setAiMaskRows({}); setUseMaskAsTranslationBase(false); setAiMaskError(''); }} title="Clear the AI mask column">
                     ✕
                   </button>
                 </>

@@ -11,6 +11,7 @@ import {
 import { LANG_OPTIONS, DEFAULT_TTS_RATE, DEFAULT_VISIBLE_LINES } from './constants';
 import { extractVideoId, dedupeAvailLangs } from './utils';
 import { downloadProject, parseProjectFile } from './projectTransfer';
+import { getStoredOpenRouterApiKey } from '../../services/openRouterService';
 
 interface Props {
   onProjectReady: (project: YtProject) => void;
@@ -74,6 +75,7 @@ function buildProject(
   subtitleService: SubtitleService,
   alternateYoutubeUrl = '',
   subtitleProxyUrl = '',
+  subtitleUrl = '',
 ): YtProject {
   const colOrder: string[] = [...tracks.map(t => `track:${t.lang}`), 'video'];
   const colSettings: ProjectConfig['colSettings'] = {};
@@ -94,6 +96,7 @@ function buildProject(
   return {
     id, videoId, title, description, createdAt: Date.now(), updatedAt: Date.now(),
     tracks, config, lastLine: 0, lastTime: 0, subtitleService,
+    subtitleUrl: subtitleUrl.trim() || undefined,
     alternateYoutubeUrl: alternateYoutubeUrl.trim() || undefined,
     subtitleProxyUrl: subtitleProxyUrl.trim() || undefined,
   };
@@ -199,6 +202,8 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
     const params = new URLSearchParams();
     if (url.trim()) params.set('url', url.trim());
     params.set('m', subtitleService);
+    const openRouterKey = getStoredOpenRouterApiKey();
+    if (openRouterKey) params.set('orKey', openRouterKey);
 
     const sharePath = window.location.pathname.startsWith('/youtube2/') ? '/youtube2/setup' : '/youtube/setup';
     const shareUrl = new URL(sharePath, window.location.origin);
@@ -372,7 +377,7 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
     setFindError('');
     setFetchedProject(null);
     const inputInvidiousUrl = parseInvidiousCaptionsUrl(inputUrl);
-    if (inputInvidiousUrl || requestedService === 'invidious') {
+    if (inputInvidiousUrl || (requestedService === 'invidious' && invidiousCaptionsUrl.trim())) {
       const selectedUrl = invidiousCaptionsUrl.trim();
       const sourceUrl = inputInvidiousUrl && new URL(inputUrl.trim()).searchParams.has('label')
         ? inputUrl.trim()
@@ -408,6 +413,9 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
           [{ lang: 'und', label, isAuto: false, srtContent: subtitleText }],
           targetLang.trim(),
           'invidious',
+          '',
+          '',
+          subtitleUrl,
         );
         setFetchedProject(project);
         onProjectFetched?.(project);
@@ -432,6 +440,8 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
       }
       if (requestedService === 'onrender') {
         sourceQuery.set('service', 'onrender');
+      } else if (requestedService === 'invidious') {
+        sourceQuery.set('service', 'invidious');
       } else if (requestedService !== 'iframe') {
         sourceQuery.set('method', requestedService === 'api-js' ? '2' : '1');
       }
@@ -529,10 +539,11 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
       const query = sourceQuery.toString();
       for (const lang of chosen) {
         const langCode = lang.languageCode.split('-')[0];
-        const methodQuery = subtitleService === 'iframe' ? '' : `&method=${subtitleMethod}`;
+        const methodQuery = subtitleService === 'iframe' || subtitleService === 'invidious' ? '' : `&method=${subtitleMethod}`;
+        const serviceQuery = subtitleService === 'invidious' ? '&service=invidious' : '';
         const trackUrl = lang.subtitleUrl
           ? `/api/srt-url?url=${encodeURIComponent(lang.subtitleUrl)}`
-          : `/api/srt?videoId=${encodeURIComponent(videoId)}&lang=${encodeURIComponent(langCode)}${methodQuery}${query ? `&${query}` : ''}`;
+          : `/api/srt?videoId=${encodeURIComponent(videoId)}&lang=${encodeURIComponent(langCode)}${methodQuery}${serviceQuery}${query ? `&${query}` : ''}`;
         const res = await fetch(trackUrl);
         if (!res.ok) {
           const j = await res.json().catch(() => ({}));

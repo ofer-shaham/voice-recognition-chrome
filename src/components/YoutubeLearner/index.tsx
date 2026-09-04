@@ -6,6 +6,7 @@ import SetupView from './SetupView';
 import PlayerView from './PlayerView';
 import OpenRouterSettings from './OpenRouterSettings';
 import LessonView from './LessonView';
+import { OPENROUTER_API_KEY_STORAGE } from '../../services/openRouterService';
 import './YoutubeLearner.css';
 
 interface YoutubeLearnerProps {
@@ -50,6 +51,8 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    const sharedApiKey = params.get('orKey');
+    if (sharedApiKey) localStorage.setItem(OPENROUTER_API_KEY_STORAGE, sharedApiKey);
     const resolvedProjects = projects.length > 0 ? projects : loadPersistedProjects();
     const routeId = (() => {
       if (path.startsWith(`${routeBase}/view/`) && !isLessonRoute) {
@@ -71,7 +74,8 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
     const fromProjectParam = projectId
       ? resolvedProjects.find(p => p.id === projectId)
       : null;
-    const fromUrl = fromSharedVideo ?? fromRoute ?? fromProjectParam;
+    const sharedSourceUrl = params.get('url');
+    const fromUrl = sharedSourceUrl ? null : fromSharedVideo ?? fromRoute ?? fromProjectParam;
     const lastId = getLastId();
     const lastProject = lastId ? resolvedProjects.find(p => p.id === lastId) : resolvedProjects[0] ?? null;
 
@@ -104,8 +108,8 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
     }
 
     if (isProjectRoute) {
-      setActiveProject(lastProject ?? null);
-      setShowSetup(!lastProject);
+      setActiveProject(null);
+      setShowSetup(true);
       return;
     }
 

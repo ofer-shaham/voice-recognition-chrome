@@ -3,6 +3,7 @@ const {
   fetchSrt: fetchServerSrt,
   fetchLanguagesMethod2,
   fetchInvidiousLanguages: fetchAlternateLanguages,
+  fetchInvidiousLanguages,
   fetchInvidiousCaptionLabels,
   resolveInvidiousCaptionUrl,
   vttToSrt,
@@ -403,6 +404,9 @@ exports.handler = async (event) => {
       if (qs.instanceUrl) {
         return json(200, await fetchAlternateLanguages(videoId, String(qs.instanceUrl)));
       }
+      if (qs.service === "invidious") {
+        return json(200, await fetchInvidiousLanguages(videoId, "https://yewtu.be"));
+      }
       if (qs.method === "2") {
         return json(200, await fetchLanguagesMethod2(videoId, qs.proxyUrl));
       }
@@ -434,8 +438,9 @@ exports.handler = async (event) => {
     const lang = String(qs.lang || "en").split("-")[0];
     if (!videoId) return json(400, { error: "videoId is required" });
     try {
-      if (qs.instanceUrl || qs.proxyUrl || qs.method) {
-        const content = await fetchServerSrt(videoId, lang, qs.method, qs.instanceUrl, qs.proxyUrl);
+      if (qs.instanceUrl || qs.proxyUrl || qs.method || qs.service === "invidious") {
+        const instances = qs.instanceUrl || (qs.service === "invidious" ? "https://yewtu.be" : undefined);
+        const content = await fetchServerSrt(videoId, lang, qs.method, instances, qs.proxyUrl);
         return textResp(200, content);
       }
       const upstream = await fetchYoutube("/api/subtitles", {
