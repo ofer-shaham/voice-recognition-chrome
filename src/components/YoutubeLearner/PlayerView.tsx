@@ -438,6 +438,22 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     autoGenerate();
   }, [project.id, aiTranslationLevel, lines.length, windowStart, config.visibleLines]);
 
+  useEffect(() => {
+    if (!useMaskAsTranslationBase) return;
+    const maskIndices = Object.keys(aiMaskRows).map(Number).filter(Number.isFinite);
+    if (!maskIndices.length) return;
+
+    pendingSet.current = new Set([...pendingSet.current, ...maskIndices]);
+    setLines(prev => prev.map((line, index) => maskIndices.includes(index) ? {
+      ...line,
+      translation: '',
+      translated: false,
+      translations: {},
+      translatedTargets: {},
+    } : line));
+    setTranslationVer(version => version + 1);
+  }, [aiMaskRows, useMaskAsTranslationBase]);
+
   // ── On-demand translation ─────────────────────────────────────────────────────
   // Translate only what the learner can see, plus a small lookahead. This keeps
   // navigation responsive without sending the whole transcript to the API.
