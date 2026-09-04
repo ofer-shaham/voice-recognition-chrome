@@ -107,26 +107,47 @@ const normalizeConfig = (source: ProjectConfig): ProjectConfig => {
 
 const hydrateConfigFromUrl = (source: ProjectConfig): ProjectConfig => {
   if (typeof window === 'undefined') return source;
-  const urlTarget = new URLSearchParams(window.location.search).get('tl')?.trim();
-  if (!urlTarget) return source;
+  const params = new URLSearchParams(window.location.search);
+  const urlTarget = params.get('tl')?.trim() || '';
+  const urlTranslationTargets = Array.from(params.keys())
+    .map(key => key.match(/^(?:r|vn)_translation:(.+)$/)?.[1]?.trim())
+    .filter((lang): lang is string => !!lang);
+  const inferredTargets = Array.from(new Set([urlTarget, ...urlTranslationTargets].filter(Boolean)));
+  if (!inferredTargets.length && !source.translationTargets?.length) return source;
 
-  const targets = Array.from(new Set([...(source.translationTargets || []), urlTarget]));
-  const id = translationCol(urlTarget);
-  const colOrder = source.colOrder.includes(id)
-    ? source.colOrder
-    : [...source.colOrder.filter(colId => colId !== 'video'), id, ...(source.colOrder.includes('video') ? ['video'] : [])];
+  const targets = Array.from(new Set([...(source.translationTargets || []), ...inferredTargets]));
+  const translationIds = targets.map(translationCol);
+  const colOrder = [...source.colOrder.filter(colId => !translationIds.includes(colId) && colId !== 'video'), ...translationIds, ...(source.colOrder.includes('video') ? ['video'] : [])];
   const colSettings = { ...source.colSettings };
-  if (!colSettings[id]) {
+  const basePlayOrder = source.colOrder.filter(colId => !isTranslationCol(colId) && colId !== 'video').length;
+  for (const [index, target] of targets.entries()) {
+    const id = translationCol(target);
+    const rate = Number(params.get(`r_translation:${target}`));
     colSettings[id] = {
-      visible: true,
-      playOrder: source.colOrder.filter(colId => !isTranslationCol(colId) && colId !== 'video').length + targets.length,
-      ttsRate: DEFAULT_TTS_RATE,
+      ...(colSettings[id] || {}),
+      visible: colSettings[id]?.visible !== false,
+      playOrder: basePlayOrder + index + 1,
+      ttsRate: Number.isFinite(rate) && rate > 0 ? rate : colSettings[id]?.ttsRate || DEFAULT_TTS_RATE,
+      voiceName: params.get(`vn_translation:${target}`) || colSettings[id]?.voiceName,
     };
+  }
+
+  for (const id of Object.keys(colSettings)) {
+    const sid = shortCol(id);
+    const rate = Number(params.get(`r_${sid}`));
+    const voiceName = params.get(`vn_${sid}`);
+    if (Number.isFinite(rate) && rate > 0 || voiceName) {
+      colSettings[id] = {
+        ...colSettings[id],
+        ...(Number.isFinite(rate) && rate > 0 ? { ttsRate: rate } : {}),
+        ...(voiceName ? { voiceName } : {}),
+      };
+    }
   }
 
   return {
     ...source,
-    targetLang: urlTarget,
+    targetLang: urlTarget || targets[0] || source.targetLang,
     translationTargets: targets,
     colOrder,
     colSettings,

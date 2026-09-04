@@ -121,7 +121,7 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
     upsert(project);
     setActiveProject(project);
     setShowSetup(false);
-    navigate(`${routeBase}/view/${encodeURIComponent(project.id)}`);
+    navigate(`${routeBase}/view/${encodeURIComponent(project.id)}${window.location.search}`);
   };
 
   const handleSave = (updated: YtProject) => {
