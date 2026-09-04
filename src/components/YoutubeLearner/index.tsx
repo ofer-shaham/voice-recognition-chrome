@@ -60,8 +60,18 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
       }
       return '';
     })();
-    const urlId = routeId || params.get('v') || params.get('p');
-    const fromUrl = urlId ? resolvedProjects.find(p => p.id === urlId || p.videoId === urlId) : null;
+    const sharedVideoId = params.get('v');
+    const fromSharedVideo = sharedVideoId
+      ? resolvedProjects.find(p => p.videoId === sharedVideoId)
+      : null;
+    const fromRoute = routeId
+      ? resolvedProjects.find(p => p.id === routeId || p.videoId === routeId)
+      : null;
+    const projectId = params.get('p');
+    const fromProjectParam = projectId
+      ? resolvedProjects.find(p => p.id === projectId)
+      : null;
+    const fromUrl = fromSharedVideo ?? fromRoute ?? fromProjectParam;
     const lastId = getLastId();
     const lastProject = lastId ? resolvedProjects.find(p => p.id === lastId) : resolvedProjects[0] ?? null;
 
