@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildMinimalMaskPrompt, parseMaskRows } from './lesson';
+import { buildMinimalMaskPrompt, getMaskRequestTokenLimit, parseMaskRows } from './lesson';
 
 describe('lesson mask helpers', () => {
   it('builds a minimal prompt that asks for exactly X words and no extra output', () => {
@@ -13,5 +13,10 @@ describe('lesson mask helpers', () => {
       'This is a',
       'Another line',
     ]);
+  });
+
+  it('limits mask output tokens from the caption line instead of a whole lesson payload', () => {
+    expect(getMaskRequestTokenLimit('Short caption here.', 3)).toBe(16);
+    expect(getMaskRequestTokenLimit('one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen twenty', 5)).toBe(33);
   });
 });

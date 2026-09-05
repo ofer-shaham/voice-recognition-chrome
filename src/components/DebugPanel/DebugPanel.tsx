@@ -142,7 +142,9 @@ function useLogEntries() {
   }, []);
 
   const merged = [
-    ...reduxEntries.map(entry => ({
+    ...reduxEntries
+      .filter(entry => entry.action !== 'youtubePlayback/currentLineChanged')
+      .map(entry => ({
       id: -entry.id,
       ts: entry.ts,
       kind: 'redux' as const,
@@ -154,7 +156,7 @@ function useLogEntries() {
         time: entry.time,
         youtubeState: entry.youtubeState,
       }).slice(0, 400),
-    })),
+      })),
     ...entries,
   ].sort((a, b) => a.ts.localeCompare(b.ts));
 

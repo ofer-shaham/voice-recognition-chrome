@@ -54,6 +54,13 @@ export const buildMinimalMaskPrompt = (subtitleSentence: string, difficulty: num
   ].join('\n');
 };
 
+export const getMaskRequestTokenLimit = (subtitleSentence: string, difficulty: number): number => {
+  const safeDifficulty = Math.max(1, Math.min(5, Math.round(difficulty)));
+  const wordCount = subtitleSentence.trim().split(/\s+/).filter(Boolean).length;
+  const lineBudget = Math.max(16, Math.min(128, wordCount + safeDifficulty + 8));
+  return Math.min(lineBudget, getStoredOpenRouterMaxTokens() || DEFAULT_OPENROUTER_MAX_TOKENS);
+};
+
 export const parseMaskRows = (content: string, targetWordCount = 3): string[] => {
   const fenced = content.match(/```(?:json)?\s*([\s\S]*?)```/i);
   const candidate = (fenced ? fenced[1] : content).trim();
@@ -114,7 +121,7 @@ export const generateDifficultyMask = async (project: YtProject, difficulty: num
       [{ role: 'user', content: prompt }],
       localStorage.getItem('yt_ai_model') || 'openrouter/auto:free',
       undefined,
-      getStoredOpenRouterMaxTokens() || DEFAULT_OPENROUTER_MAX_TOKENS,
+      getMaskRequestTokenLimit(sentence, safeDifficulty),
     );
     const parsed = parseMaskRows(response.content, safeDifficulty);
     const chosen = parsed[0];
