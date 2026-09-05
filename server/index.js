@@ -103,6 +103,22 @@ const swaggerSpec = {
     },
     "/api/health": { get: { tags: ["Health"], summary: "Server liveness check", responses: { 200: { description: "Server is up" } } } },
     "/api/config": { get: { tags: ["Health"], summary: "Check whether the server has an API key configured", responses: { 200: { description: "Key presence flag" } } } },
+    "/api/free-models": {
+      get: {
+        tags: ["AI"],
+        summary: "List free text-capable OpenRouter models",
+        responses: {
+          200: {
+            description: "Free model list",
+            content: { "application/json": { schema: {
+              type: "object",
+              properties: { models: { type: "array", items: { type: "object", properties: { id: { type: "string" }, label: { type: "string" } } } } },
+            } } },
+          },
+          502: { description: "OpenRouter model catalog error" },
+        },
+      },
+    },
     "/api/chat": { post: { tags: ["AI"], summary: "OpenRouter chat completions proxy", responses: { 200: { description: "OpenRouter response" }, 401: { description: "No API key" }, 500: { description: "OpenRouter error" } } } },
     "/api/logs": {
       get: {

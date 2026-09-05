@@ -241,6 +241,21 @@ const SWAGGER_SPEC = {
         responses: { 200: { description: "MP3 audio" }, 400: { description: "Missing params" }, 500: { description: "Error" } },
       },
     },
+    "/api/free-models": {
+      get: {
+        summary: "List free text-capable OpenRouter models", tags: ["AI"],
+        responses: {
+          200: {
+            description: "Free model list",
+            content: { "application/json": { schema: {
+              type: "object",
+              properties: { models: { type: "array", items: { type: "object", properties: { id: { type: "string" }, label: { type: "string" } } } } },
+            } } },
+          },
+          502: { description: "OpenRouter model catalog error" },
+        },
+      },
+    },
     "/api/chat": {
       post: {
         summary: "OpenRouter chat proxy", tags: ["AI"],
