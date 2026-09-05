@@ -381,11 +381,13 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     // Position is deliberately committed only when playback is not active.
     // Rebuilding the URL every media tick causes needless history/route churn.
     if (isPlaying) return;
-    const p = new URLSearchParams();
+    const currentParams = new URLSearchParams(window.location.search);
+    const sharedSourceUrl = currentParams.get('url');
+    const p = sharedSourceUrl ? new URLSearchParams(currentParams) : new URLSearchParams();
     if (project.videoId) p.set('v', project.videoId);
     else p.set('p', project.id);
     p.set('m', project.subtitleService || 'plus');
-    const originalSubtitleUrl = new URLSearchParams(window.location.search).get('url') || project.subtitleUrl;
+    const originalSubtitleUrl = sharedSourceUrl || project.subtitleUrl;
     if (originalSubtitleUrl) p.set('url', originalSubtitleUrl);
     const sharedApiKey = getStoredOpenRouterApiKey();
     if (sharedApiKey) p.set('orKey', sharedApiKey);
