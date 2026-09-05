@@ -130,8 +130,9 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
     if (typeof window === 'undefined') return null;
     const params = new URLSearchParams(window.location.search);
     const method = params.get('m') || params.get('method') || params.get('service');
-    return method && ['plus', 'api-js', 'onrender', 'iframe', 'invidious'].includes(method)
-      ? (method as SubtitleService)
+    const normalizedMethod = method === 'invadious' ? 'invidious' : method;
+    return normalizedMethod && ['plus', 'api-js', 'onrender', 'iframe', 'invidious'].includes(normalizedMethod)
+      ? (normalizedMethod as SubtitleService)
       : null;
   };
 

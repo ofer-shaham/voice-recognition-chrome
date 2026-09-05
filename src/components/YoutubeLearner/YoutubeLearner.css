@@ -656,6 +656,12 @@
   white-space: nowrap;
 }
 
+.yl-history-item-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.4rem;
+}
+
 .yl-ai-mask-controls {
   display: inline-flex;
   align-items: center;

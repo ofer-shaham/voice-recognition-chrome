@@ -109,10 +109,11 @@ const hydrateConfigFromUrl = (source: ProjectConfig): ProjectConfig => {
   if (typeof window === 'undefined') return source;
   const params = new URLSearchParams(window.location.search);
   const urlTarget = params.get('tl')?.trim() || '';
+  const aliasTargets = (params.get('lesson_translation') || '').split(',').map(value => value.trim()).filter(Boolean);
   const urlTranslationTargets = Array.from(params.keys())
     .map(key => key.match(/^(?:r|vn)_translation:(.+)$/)?.[1]?.trim())
     .filter((lang): lang is string => !!lang);
-  const inferredTargets = Array.from(new Set([urlTarget, ...urlTranslationTargets].filter(Boolean)));
+  const inferredTargets = Array.from(new Set([urlTarget, ...aliasTargets, ...urlTranslationTargets].filter(Boolean)));
   if (!inferredTargets.length && !source.translationTargets?.length) return source;
 
   const targets = Array.from(new Set([...(source.translationTargets || []), ...inferredTargets]));
@@ -209,7 +210,8 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
   const [aiTranslationLevel, setAiTranslationLevel] = useState<number>(() => {
     if (typeof window === 'undefined') return 3;
     // Check URL parameter first (for shared links)
-    const urlMask = new URLSearchParams(window.location.search).get('mask');
+    const params = new URLSearchParams(window.location.search);
+    const urlMask = params.get('mask') || params.get('lesson_levl');
     if (urlMask) {
       const raw = Number(urlMask);
       return Number.isFinite(raw) ? Math.min(5, Math.max(0, Math.round(raw))) : 3;
@@ -379,6 +381,10 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     if (project.videoId) p.set('v', project.videoId);
     else p.set('p', project.id);
     p.set('m', project.subtitleService || 'plus');
+    if (project.subtitleUrl) p.set('url', project.subtitleUrl);
+    const sharedApiKey = getStoredOpenRouterApiKey();
+    if (sharedApiKey) p.set('orKey', sharedApiKey);
+    p.set('maxTokens', String(maxRequestTokens));
     p.set('tl', config.targetLang);
     p.set('l', String(project.lastLine));
     p.set('t', String(Math.floor(playbackTimeRef.current)));

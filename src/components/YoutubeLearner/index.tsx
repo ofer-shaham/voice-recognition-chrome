@@ -216,7 +216,15 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
                       <span>{new Date(item.timestamp).toLocaleString()}</span>
                       <code>{item.url}</code>
                     </div>
-                    <button className="yl-btn-secondary yl-btn-sm" onClick={() => { window.location.href = item.url; }}>Open</button>
+                    <div className="yl-history-item-actions">
+                      <button className="yl-btn-secondary yl-btn-sm" onClick={() => { window.location.href = item.url; }}>Open</button>
+                      <button className="yl-btn-ghost yl-btn-sm" onClick={async () => {
+                        try {
+                          if (navigator.share) await navigator.share({ title: `YouTube ${videoId}`, url: item.url });
+                          else await navigator.clipboard.writeText(item.url);
+                        } catch { window.prompt('Copy this URL:', item.url); }
+                      }}>Share</button>
+                    </div>
                   </div>
                 );
               })}
