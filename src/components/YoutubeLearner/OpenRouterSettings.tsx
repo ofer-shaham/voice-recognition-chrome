@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { DEFAULT_MODEL, DEFAULT_OPENROUTER_MAX_TOKENS, getStoredOpenRouterApiKey, getStoredOpenRouterMaxTokens, OPENROUTER_API_KEY_STORAGE, OPENROUTER_MAX_TOKENS_STORAGE, OPENROUTER_MODELS, OPENROUTER_VALIDATED_KEY_STORAGE, validateOpenRouterKey } from '../../services/openRouterService';
+import { chatWithAI, DEFAULT_MODEL, getStoredOpenRouterApiKey, getStoredOpenRouterMaxTokens, OPENROUTER_API_KEY_STORAGE, OPENROUTER_MAX_TOKENS_STORAGE, OPENROUTER_MODELS, OPENROUTER_VALIDATED_KEY_STORAGE, validateOpenRouterKey } from '../../services/openRouterService';
 import aiConfig from '../../config/aiConfig.json';
 import { YtProject, YoutubeTheme } from './types';
-import { generateLesson, LessonRow } from './lesson';
 
 interface Props {
     routeBase: '/youtube' | '/youtube2';
@@ -17,15 +16,13 @@ export default function OpenRouterSettings({ routeBase, theme, onThemeChange, sh
     const navigate = useNavigate();
     const [model, setModel] = useState(() => localStorage.getItem('yt_ai_model') || DEFAULT_MODEL);
     const [level, setLevel] = useState(() => Math.min(aiConfig.maskSettings.maxDifficulty, Math.max(aiConfig.maskSettings.minDifficulty, Number(localStorage.getItem('yt_ai_level') || String(aiConfig.maskSettings.defaultDifficulty)))));
-    const [mode, setMode] = useState<'full' | 'rows'>(() => localStorage.getItem('yt_ai_mode') === 'full' ? 'full' : 'rows');
-    const [rows, setRows] = useState(() => Number(localStorage.getItem('yt_ai_rows') || '12'));
     const [maxTokens, setMaxTokens] = useState(() => getStoredOpenRouterMaxTokens());
     const [apiKey, setApiKey] = useState(() => getStoredOpenRouterApiKey());
     const [showKey, setShowKey] = useState(false);
     const [validation, setValidation] = useState<{ state: 'idle' | 'checking' | 'valid' | 'invalid'; error?: string }>({ state: 'idle' });
-    const [testRows, setTestRows] = useState<LessonRow[]>([]);
     const [testState, setTestState] = useState<'idle' | 'running' | 'success' | 'error'>('idle');
     const [testError, setTestError] = useState('');
+    const [testResponse, setTestResponse] = useState('');
     const [freeModels, setFreeModels] = useState(OPENROUTER_MODELS);
 
     useEffect(() => {
@@ -58,8 +55,6 @@ export default function OpenRouterSettings({ routeBase, theme, onThemeChange, sh
     };
 
     const saveLevel = (value: number) => { setLevel(value); localStorage.setItem('yt_ai_level', String(value)); };
-    const saveMode = (value: 'full' | 'rows') => { setMode(value); localStorage.setItem('yt_ai_mode', value); };
-    const saveRows = (value: number) => { setRows(value); localStorage.setItem('yt_ai_rows', String(value)); };
     const saveMaxTokens = (value: number) => {
         const next = value < 5 ? 5 : Math.min(aiConfig.tokenLimits.globalMaxTokensAbsoluteMax, Math.round(value));
         setMaxTokens(next);
@@ -81,12 +76,19 @@ export default function OpenRouterSettings({ routeBase, theme, onThemeChange, sh
         setValidation(result.ok ? { state: 'valid' } : { state: 'invalid', error: result.error });
     };
 
-    const handleTestLesson = async () => {
-        if (!project) return;
+    const handleTestConnection = async () => {
         setTestState('running');
         setTestError('');
+        setTestResponse('');
         try {
-            setTestRows(await generateLesson(project, 1, 3, false, level));
+            const result = await chatWithAI(
+                [{ role: 'user', content: 'Reply with exactly: OK' }],
+                model,
+                apiKey,
+                Math.max(5, Math.min(maxTokens, 5)),
+                0,
+            );
+            setTestResponse(result.content.trim());
             setTestState('success');
         } catch (error) {
             setTestError(error instanceof Error ? error.message : String(error));
@@ -180,23 +182,14 @@ export default function OpenRouterSettings({ routeBase, theme, onThemeChange, sh
                             <input type="number" className="yl-input-sm" min={5} max={aiConfig.tokenLimits.globalMaxTokensAbsoluteMax} step={1} value={maxTokens} onChange={e => saveMaxTokens(Number(e.target.value))} />
                             <span className="yl-setting-info">Lower values reduce credit usage</span>
                         </label>
-                        <label className="yl-setting-field">
-                            <span>Translation scope</span>
-                            <select className="yl-select-sm" value={mode} onChange={e => saveMode(e.target.value as 'full' | 'rows')}>
-                                <option value="rows">Next X rows</option>
-                                <option value="full">Entire SRT file</option>
-                            </select>
-                        </label>
-                        {mode === 'rows' && <label className="yl-setting-field"><span>Rows to translate</span><input type="number" className="yl-input-sm" min={1} max={200} value={rows} onChange={e => saveRows(Math.max(1, Math.min(200, Number(e.target.value) || 1)))} /></label>}
                         <div className="yl-setting-field">
-                            <span>Lesson generation test</span>
-                            <button className="yl-btn-secondary yl-btn-sm" type="button" onClick={handleTestLesson} disabled={!project || testState === 'running'}>
-                                {testState === 'running' ? 'Testing…' : 'Test first 3 rows'}
+                            <span>Connection test</span>
+                            <button className="yl-btn-secondary yl-btn-sm" type="button" onClick={handleTestConnection} disabled={testState === 'running'}>
+                                {testState === 'running' ? 'Testing…' : 'Test OpenRouter'}
                             </button>
-                            {!project && <span className="yl-setting-info">Load a YouTube project first</span>}
                         </div>
                         {testState === 'error' && <p className="yl-error">{testError}</p>}
-                        {testState === 'success' && <div className="yl-settings-cols">{testRows.slice(0, 3).map((row, index) => <div className="yl-col-card" key={`${index}-${row.source}`}><div className="yl-col-card-name">{row.source}</div><div className="yl-col-card-body">{row.lesson}</div></div>)}</div>}
+                        {testState === 'success' && <span className="yl-setting-info">Response: {testResponse}</span>}
                     </>}
                 </div>
             </div>
