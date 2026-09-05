@@ -462,10 +462,13 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
       try {
         const rows = await generateDifficultyMask(project, aiTranslationLevel, config.visibleLines, true, windowStart);
         // Accumulate masks instead of replacing - allows scrolling to generate more masks
-        setAiMaskRows(prev => ({
-          ...prev,
-          ...Object.fromEntries(rows.map((text, index) => [windowStart + index, text]).filter(([, text]) => !!text))
-        }));
+        setAiMaskRows(prev => {
+          const next = { ...prev };
+          rows.forEach((text, index) => {
+            if (text?.trim()) next[windowStart + index] = text.trim();
+          });
+          return next;
+        });
       } catch {
         // Silently fail - user can manually generate if needed
       } finally {
@@ -1117,7 +1120,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     [config.colOrder, config.colSettings]
   );
   const visibleRows = lines.slice(windowStart, windowStart + config.visibleLines);
-  const maskVisible = Object.keys(aiMaskRows).length > 0;
+  const maskVisible = Object.values(aiMaskRows).some(text => typeof text === 'string' && text.trim().length > 0);
   const displayCols = maskVisible
     ? [
       ...visibleCols.filter(id => !isTranslationCol(id)),  // Primary language columns
@@ -1208,7 +1211,13 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     try {
       // Generate masks for all visible rows, not just aiTranslationRows (12)
       const rows = await generateDifficultyMask(project, aiTranslationLevel, config.visibleLines, true, windowStart);
-      setAiMaskRows(Object.fromEntries(rows.map((text, index) => [windowStart + index, text]).filter(([, text]) => !!text)));
+      setAiMaskRows(prev => {
+        const next = { ...prev };
+        rows.forEach((text, index) => {
+          if (text?.trim()) next[windowStart + index] = text.trim();
+        });
+        return next;
+      });
     } catch (error) {
       setAiMaskError(error instanceof Error ? error.message : String(error));
     } finally {
