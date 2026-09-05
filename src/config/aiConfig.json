@@ -1,6 +1,6 @@
 {
   "tokenLimits": {
-    "maskMinTokens": 16,
+    "maskMinTokens": 32,
     "maskMaxTokens": 40,
     "translationMaxTokens": 40,
     "globalMaxTokensDefault": 5,

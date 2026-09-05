@@ -249,6 +249,7 @@ export default function DebugPanel() {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('client');
   const [copied, setCopied] = useState(false);
+  const [copiedRecord, setCopiedRecord] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'errors'>('all');
   const [maximized, setMaximized] = useState(false);
   const [expandedRecords, setExpandedRecords] = useState<Set<string>>(new Set());
@@ -319,6 +320,20 @@ export default function DebugPanel() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
+  };
+
+  const copyRecord = (recordId: string, text: string) => {
+    const fallback = () => {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    };
+    navigator.clipboard.writeText(text).catch(fallback);
+    setCopiedRecord(recordId);
+    setTimeout(() => setCopiedRecord(current => current === recordId ? null : current), 2000);
   };
 
   const clearAll = () => {
@@ -406,7 +421,7 @@ export default function DebugPanel() {
                       <span className="dbg-entry-label">{e.label}</span>
                       <span className="dbg-entry-ts">{e.ts.slice(11)}</span>
                     </div>
-                    {e.detail && expandedRecords.has(`client-${e.id}`) && <div className="dbg-entry-detail">{e.detail}</div>}
+                    {e.detail && expandedRecords.has(`client-${e.id}`) && <div className="dbg-entry-detail"><button className="dbg-action-btn" onClick={() => copyRecord(`client-${e.id}`, `[${e.ts}] ${e.label}\n${e.detail}`)}>{copiedRecord === `client-${e.id}` ? '✔ Copied' : '📋 Copy'}</button>{e.detail}</div>}
                   </div>
                 ))}
               </div>
@@ -425,7 +440,7 @@ export default function DebugPanel() {
                       <span className="dbg-entry-label">{e.msg}</span>
                       <span className="dbg-entry-ts">{e.ts.slice(11, 23)}</span>
                     </div>
-                    {Object.keys(e.meta).length > 0 && expandedRecords.has(`server-${e.id}`) && <div className="dbg-entry-detail">{JSON.stringify(e.meta, null, 2)}</div>}
+                    {Object.keys(e.meta).length > 0 && expandedRecords.has(`server-${e.id}`) && <div className="dbg-entry-detail"><button className="dbg-action-btn" onClick={() => copyRecord(`server-${e.id}`, `[${e.ts}] [${e.level}] ${e.msg}\n${JSON.stringify(e.meta, null, 2)}`)}>{copiedRecord === `server-${e.id}` ? '✔ Copied' : '📋 Copy'}</button>{JSON.stringify(e.meta, null, 2)}</div>}
                   </div>
                 ))}
               </div>
@@ -444,7 +459,7 @@ export default function DebugPanel() {
                       <span className="dbg-entry-label">{e.label}</span>
                       <span className="dbg-entry-ts">{e.ts.slice(11)}</span>
                     </div>
-                    {e.detail && expandedRecords.has(`openrouter-client-${e.id}`) && <div className="dbg-entry-detail">{e.detail}</div>}
+                    {e.detail && expandedRecords.has(`openrouter-client-${e.id}`) && <div className="dbg-entry-detail"><button className="dbg-action-btn" onClick={() => copyRecord(`openrouter-client-${e.id}`, `[${e.ts}] ${e.label}\n${e.detail}`)}>{copiedRecord === `openrouter-client-${e.id}` ? '✔ Copied' : '📋 Copy'}</button>{e.detail}</div>}
                   </div>
                 ))}
                 {visibleOpenRouterServerEntries.map(e => (
@@ -454,7 +469,7 @@ export default function DebugPanel() {
                       <span className="dbg-entry-label">{e.msg}{tokenSummary(e.meta)}</span>
                       <span className="dbg-entry-ts">{e.ts.slice(11, 23)}</span>
                     </div>
-                    {Object.keys(e.meta).length > 0 && expandedRecords.has(`openrouter-server-${e.id}`) && <div className="dbg-entry-detail">{JSON.stringify(e.meta, null, 2)}</div>}
+                    {Object.keys(e.meta).length > 0 && expandedRecords.has(`openrouter-server-${e.id}`) && <div className="dbg-entry-detail"><button className="dbg-action-btn" onClick={() => copyRecord(`openrouter-server-${e.id}`, `[${e.ts}] [${e.level}] ${e.msg}\n${JSON.stringify(e.meta, null, 2)}`)}>{copiedRecord === `openrouter-server-${e.id}` ? '✔ Copied' : '📋 Copy'}</button>{JSON.stringify(e.meta, null, 2)}</div>}
                   </div>
                 ))}
               </div>
