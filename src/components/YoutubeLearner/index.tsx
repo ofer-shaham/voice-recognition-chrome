@@ -99,6 +99,10 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
       : null;
     const fromSharedSource = sharedSourceUrl
       ? resolvedProjects.find(p => p.subtitleUrl === sharedSourceUrl)
+        || (params.get('m') === 'invidious' && sharedVideoId
+          ? resolvedProjects.find(p => p.videoId === sharedVideoId && p.subtitleService === 'invidious')
+          : null)
+        || null
       : null;
     const fromUrl = sharedSourceUrl
       ? fromSharedSource
@@ -114,7 +118,7 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
     }
 
     if (isLessonRoute) {
-      setActiveProject(fromUrl ?? lastProject);
+      setActiveProject((fromUrl ?? lastProject) ?? null);
       setShowSetup(!fromUrl && !lastProject);
       return;
     }

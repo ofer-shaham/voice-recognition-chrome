@@ -221,7 +221,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     return Number.isFinite(raw) ? Math.min(5, Math.max(0, Math.round(raw))) : 3;
   });
   const [autoGenerateMask, setAutoGenerateMask] = useState<boolean>(() =>
-    typeof window !== 'undefined' && window.localStorage.getItem('yt_auto_generate_mask') === 'true'
+    typeof window !== 'undefined' && window.localStorage.getItem('yt_auto_generate_mask') !== 'false'
   );
   const [autoStartVideo, setAutoStartVideo] = useState<boolean>(() =>
     typeof window !== 'undefined' && (() => {
