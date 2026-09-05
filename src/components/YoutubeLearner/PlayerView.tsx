@@ -559,7 +559,13 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
         for (const target of targets) {
           if (line.translatedTargets?.[target]) continue;
           try {
-            const result = await translate({ finalTranscriptProxy: srcText, fromLang, toLang: target });
+            const result = await translate({
+              finalTranscriptProxy: srcText,
+              fromLang,
+              toLang: target,
+              method: useMaskAsTranslationBase && !!aiMaskRows[i] ? 'openrouter' : undefined,
+              level: aiTranslationLevel,
+            });
             if (result === 'translation error') throw new Error('translation error');
             setLines(prev => prev.map((l, idx) => idx === i ? {
               ...l,
