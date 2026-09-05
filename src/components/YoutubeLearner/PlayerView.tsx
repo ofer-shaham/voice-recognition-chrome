@@ -1459,6 +1459,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
             <div className="yl-header-menu-panel">
               <button className="yl-btn-ghost" onClick={() => { stopMedia(); onBackHome(); }}>← Home</button>
               <button className="yl-btn-ghost" onClick={() => { stopMedia(); onNewVideo(); }}>＋ New</button>
+              <button className="yl-btn-ghost" onClick={() => { stopMedia(); navigate(`${routeBase}/history`); }}>History</button>
               <label className="yl-theme-control">
                 <span>Theme</span>
                 <select className="yl-theme-select" value={theme} onChange={e => onThemeChange(e.target.value as YoutubeTheme)}>

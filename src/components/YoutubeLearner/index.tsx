@@ -21,6 +21,16 @@ const loadPersistedProjects = (): YtProject[] => {
   }
 };
 
+const SHARED_URL_HISTORY_KEY = 'yt-shared-url-history';
+const loadSharedUrlHistory = (): Array<{ url: string; timestamp: string }> => {
+  try {
+    const value = JSON.parse(localStorage.getItem(SHARED_URL_HISTORY_KEY) || '[]');
+    return Array.isArray(value) ? value.filter(item => item?.url && item?.timestamp).slice(0, 100) : [];
+  } catch {
+    return [];
+  }
+};
+
 const normalizeRoutePath = (path: string) => path.replace(/\/+/g, '/');
 
 export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearnerProps) {
@@ -42,6 +52,7 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
 
   const isSetupRoute = [routeBase, `${routeBase}/setup`, `${routeBase}/home`].includes(path);
   const isSettingsHomeRoute = path === `${routeBase}/settings`;
+  const isHistoryRoute = path === `${routeBase}/history`;
   const isTranslationSettingsRoute = path === `${routeBase}/settings/translation`;
   const isOpenRouterSettingsRoute = path === `${routeBase}/settings/openrouter`;
   const isSettingsRoute = isSettingsHomeRoute || isTranslationSettingsRoute || isOpenRouterSettingsRoute;
@@ -51,6 +62,16 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
+    if (!isHistoryRoute && params.toString()) {
+      const history = loadSharedUrlHistory();
+      const currentUrl = window.location.href;
+      if (!history.some(item => item.url === currentUrl)) {
+        localStorage.setItem(SHARED_URL_HISTORY_KEY, JSON.stringify([
+          { url: currentUrl, timestamp: new Date().toISOString() },
+          ...history,
+        ].slice(0, 100)));
+      }
+    }
     const sharedApiKey = params.get('orKey');
     if (sharedApiKey) localStorage.setItem(OPENROUTER_API_KEY_STORAGE, sharedApiKey);
     const resolvedProjects = projects.length > 0 ? projects : loadPersistedProjects();
@@ -115,7 +136,7 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
 
     setActiveProject(null);
     setShowSetup(true);
-  }, [projects, path, routeBase, navigate, getLastId, isProjectRoute, isSettingsRoute, isSetupRoute, isLessonRoute]);
+  }, [projects, path, routeBase, navigate, getLastId, isProjectRoute, isSettingsRoute, isSetupRoute, isLessonRoute, isHistoryRoute]);
 
   const handleProjectReady = (project: YtProject) => {
     upsert(project);
@@ -156,6 +177,55 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
       navigate(`${routeBase}/setup`);
     }
   };
+
+  if (isHistoryRoute) {
+    const history = loadSharedUrlHistory();
+    return (
+      <div className={`yl-player yl-theme-${theme}`}>
+        <div className="yl-header">
+          <div className="yl-header-left">
+            <button className="yl-btn-ghost" onClick={() => navigate(`${routeBase}/setup`)}>Home</button>
+            <button className="yl-btn-ghost" onClick={() => navigate(`${routeBase}/history`)}>History</button>
+            <label className="yl-theme-control">
+              <span className="yl-sr-only">Theme</span>
+              <select className="yl-theme-select" value={theme} onChange={e => handleThemeChange(e.target.value as YoutubeTheme)}>
+                <option value="light">Light</option>
+                <option value="blue">Blue</option>
+                <option value="dark">Dark</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        <div className="yl-settings yl-history-page">
+          <div className="yl-settings-heading">
+            <div>
+              <strong>Shared URL history</strong>
+              <span>Reopen a previous link to retrigger its project and subtitle handling.</span>
+            </div>
+            <button className="yl-btn-ghost yl-btn-sm" onClick={() => { localStorage.removeItem(SHARED_URL_HISTORY_KEY); navigate(`${routeBase}/history`, { replace: true }); }}>Clear</button>
+          </div>
+          {!history.length ? <p className="yl-setting-info">No shared URLs recorded yet.</p> : (
+            <div className="yl-history-list">
+              {history.map(item => {
+                const parsed = new URL(item.url);
+                const videoId = parsed.searchParams.get('v') || parsed.searchParams.get('p') || 'shared link';
+                return (
+                  <div className="yl-history-item" key={`${item.timestamp}-${item.url}`}>
+                    <div className="yl-history-item-main">
+                      <strong>{videoId}</strong>
+                      <span>{new Date(item.timestamp).toLocaleString()}</span>
+                      <code>{item.url}</code>
+                    </div>
+                    <button className="yl-btn-secondary yl-btn-sm" onClick={() => { window.location.href = item.url; }}>Open</button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (isSettingsHomeRoute) {
     return (

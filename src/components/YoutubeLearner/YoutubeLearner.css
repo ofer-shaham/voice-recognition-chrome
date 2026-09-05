@@ -616,6 +616,46 @@
 .yl-header-right .yl-header-menu-panel { right: 0; left: auto; }
 .yl-ai-menu .yl-header-menu-panel { min-width: 260px; }
 
+.yl-history-page {
+  overflow: auto;
+}
+
+.yl-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.yl-history-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem;
+  background: #161b29;
+  border: 1px solid #2d3748;
+  border-radius: 5px;
+}
+
+.yl-history-item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.yl-history-item-main span,
+.yl-history-item-main code {
+  color: #94a3b8;
+  font-size: 0.75rem;
+}
+
+.yl-history-item-main code {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .yl-ai-mask-controls {
   display: inline-flex;
   align-items: center;
