@@ -62,7 +62,7 @@ export const getMaskRequestTokenLimit = (subtitleSentence: string, difficulty: n
   const wordCount = subtitleSentence.trim().split(/\s+/).filter(Boolean).length;
   const lineBudget = Math.max(maskMinTokens, Math.min(maskMaxTokens, wordCount + safeDifficulty + 8));
   const configuredLimit = getStoredOpenRouterMaxTokens();
-  return configuredLimit > 0 ? Math.min(lineBudget, configuredLimit) : lineBudget;
+  return configuredLimit > 0 ? Math.max(maskMinTokens, Math.min(lineBudget, configuredLimit)) : lineBudget;
 };
 
 export const parseMaskRows = (content: string, targetWordCount = aiConfig.maskSettings.targetWordCount): string[] => {
