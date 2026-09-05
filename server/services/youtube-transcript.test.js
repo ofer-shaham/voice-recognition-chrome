@@ -5,7 +5,7 @@ const {
     vttToSrt,
 } = require('./youtube-transcript');
 
-test('resolves captions[0].label into the Invidious subtitle URL', async () => {
+test('resolves the provider returned relative caption URL', async () => {
     const originalFetch = global.fetch;
     const sourceUrl = 'https://invidious.nerdvpn.de/companion/api/v1/captions/lXCAHAJR2-Q?check=check-id';
     let requestedUrl = '';
@@ -13,7 +13,7 @@ test('resolves captions[0].label into the Invidious subtitle URL', async () => {
         requestedUrl = String(url);
         return {
             ok: true,
-            json: async () => ({ captions: [{ label: 'English (US)' }] }),
+            json: async () => ({ captions: [{ label: 'English (US)', url: '/companion/api/v1/captions/lXCAHAJR2-Q?label=English%20(US)' }] }),
         };
     };
 
@@ -22,7 +22,28 @@ test('resolves captions[0].label into the Invidious subtitle URL', async () => {
         assert.equal(requestedUrl, sourceUrl);
         assert.equal(
             result,
-            `${sourceUrl}&label=English+%28US%29`,
+            'https://invidious.nerdvpn.de/companion/api/v1/captions/lXCAHAJR2-Q?label=English%20(US)',
+        );
+    } finally {
+        global.fetch = originalFetch;
+    }
+});
+
+test('resolves the selected caption label from the provider options', async () => {
+    const originalFetch = global.fetch;
+    const sourceUrl = 'https://invidious.nerdvpn.de/companion/api/v1/captions/lXCAHAJR2-Q?check=check-id&label=Hebrew%20(auto-generated)';
+    global.fetch = async () => ({
+        ok: true,
+        json: async () => ({ captions: [
+            { label: 'English (auto-generated)', url: '/companion/api/v1/captions/lXCAHAJR2-Q?label=English%20(auto-generated)' },
+            { label: 'Hebrew (auto-generated)', url: '/companion/api/v1/captions/lXCAHAJR2-Q?label=Hebrew%20(auto-generated)' },
+        ] }),
+    });
+
+    try {
+        assert.equal(
+            await resolveInvidiousCaptionUrl(sourceUrl),
+            'https://invidious.nerdvpn.de/companion/api/v1/captions/lXCAHAJR2-Q?label=Hebrew%20(auto-generated)',
         );
     } finally {
         global.fetch = originalFetch;

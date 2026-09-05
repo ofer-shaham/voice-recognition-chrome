@@ -272,6 +272,15 @@ function toSrtTimestamp(timestamp) {
 }
 
 async function fetchInvidiousCaptionLabels(sourceUrl) {
+  const captions = await fetchInvidiousCaptionOptions(sourceUrl);
+  const labels = captions
+    .map(caption => caption?.label)
+    .filter(label => typeof label === 'string' && label.trim());
+  if (!labels.length) throw new Error('Invidious response did not contain caption labels');
+  return labels;
+}
+
+async function fetchInvidiousCaptionOptions(sourceUrl) {
   let parsed;
   try {
     parsed = new URL(String(sourceUrl || '').trim());
@@ -279,15 +288,17 @@ async function fetchInvidiousCaptionLabels(sourceUrl) {
   } catch {
     throw new Error('url must be a valid Invidious captions URL');
   }
+  parsed.searchParams.delete('label');
   const response = await fetch(parsed.toString());
   if (!response.ok) throw new Error(`Invidious captions HTTP ${response.status}`);
   let data;
   try { data = await response.json(); } catch { throw new Error('Invidious captions response was not valid JSON'); }
-  const labels = (Array.isArray(data?.captions) ? data.captions : [])
-    .map(caption => caption?.label)
-    .filter(label => typeof label === 'string' && label.trim());
-  if (!labels.length) throw new Error('Invidious response did not contain caption labels');
-  return labels;
+  const captions = Array.isArray(data?.captions) ? data.captions.filter(caption => caption?.label && caption?.url) : [];
+  if (!captions.length) throw new Error('Invidious response did not contain caption options');
+  return captions.map(caption => ({
+    label: String(caption.label),
+    url: new URL(String(caption.url), parsed).toString(),
+  }));
 }
 
 async function resolveInvidiousCaptionUrl(sourceUrl) {
@@ -298,11 +309,13 @@ async function resolveInvidiousCaptionUrl(sourceUrl) {
   } catch {
     throw new Error('url must be a valid Invidious captions URL');
   }
-  if (parsed.searchParams.get('label')) return parsed.toString();
-  const labels = await fetchInvidiousCaptionLabels(parsed.toString());
-  const label = labels[0];
-  parsed.searchParams.set('label', label);
-  return parsed.toString();
+  const captions = await fetchInvidiousCaptionOptions(parsed.toString());
+  const selectedLabel = parsed.searchParams.get('label');
+  const selected = selectedLabel
+    ? captions.find(caption => caption.label === selectedLabel)
+    : captions[0];
+  if (!selected) throw new Error(`Invidious did not return a caption for label: ${selectedLabel}`);
+  return selected.url;
 }
 
 async function fetchSrtFromInvidious(videoId, langCode, originalError, configuredInstances) {
