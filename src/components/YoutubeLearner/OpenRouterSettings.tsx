@@ -24,17 +24,23 @@ export default function OpenRouterSettings({ routeBase, theme, onThemeChange, sh
     const [testError, setTestError] = useState('');
     const [testResponse, setTestResponse] = useState('');
     const [freeModels, setFreeModels] = useState(OPENROUTER_MODELS);
+    const [freeModelsLoading, setFreeModelsLoading] = useState(false);
 
-    useEffect(() => {
-        fetch('/api/free-models')
-            .then(response => response.ok ? response.json() : Promise.reject(new Error(`Free model list unavailable (${response.status})`)))
-            .then(data => {
-                if (Array.isArray(data.models) && data.models.length > 0) {
-                    setFreeModels(data.models);
-                }
-            })
-            .catch(() => { });
-    }, []);
+    const renewFreeModels = async () => {
+        setFreeModelsLoading(true);
+        try {
+            const response = await fetch('/api/free-models', { cache: 'no-store' });
+            if (!response.ok) throw new Error(`Free model list unavailable (${response.status})`);
+            const data = await response.json();
+            if (Array.isArray(data.models) && data.models.length > 0) setFreeModels(data.models);
+        } catch {
+            // Keep the built-in list available when OpenRouter is unreachable.
+        } finally {
+            setFreeModelsLoading(false);
+        }
+    };
+
+    useEffect(() => { void renewFreeModels(); }, []);
 
     useEffect(() => {
         if (!apiKey) return;
@@ -85,7 +91,7 @@ export default function OpenRouterSettings({ routeBase, theme, onThemeChange, sh
                 [{ role: 'user', content: 'Reply with exactly: OK' }],
                 model,
                 apiKey,
-                Math.max(5, Math.min(maxTokens, 5)),
+                Math.max(32, maxTokens),
                 0,
             );
             setTestResponse(result.content.trim());
@@ -158,16 +164,11 @@ export default function OpenRouterSettings({ routeBase, theme, onThemeChange, sh
                             <option value={DEFAULT_MODEL}>OpenRouter Auto (free)</option>
                             {freeModels.filter(option => option.id !== DEFAULT_MODEL).map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
                         </select>
+                        <button className="yl-btn-ghost yl-btn-sm" type="button" onClick={() => void renewFreeModels()} disabled={freeModelsLoading}>
+                            {freeModelsLoading ? 'Renewing…' : 'Renew free models'}
+                        </button>
                     </label>
                     {validation.state === 'valid' && <>
-                        <label className="yl-setting-field">
-                            <span>Free model</span>
-                            <select className="yl-select-sm" value={freeModels.some(option => option.id === model) ? model : ''}
-                                onChange={e => { if (e.target.value) saveModel(e.target.value); }}>
-                                <option value="">Choose a free model</option>
-                                {freeModels.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
-                            </select>
-                        </label>
                         <label className="yl-setting-field">
                             <span>Model ID</span>
                             <input className="yl-input-sm" type="text" value={model} onChange={e => saveModel(e.target.value)} placeholder="provider/model[:variant]" />
