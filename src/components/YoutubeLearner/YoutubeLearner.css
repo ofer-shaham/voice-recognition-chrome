@@ -651,9 +651,9 @@
 }
 
 .yl-history-item-main code {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+  white-space: normal;
 }
 
 .yl-history-item-actions {
