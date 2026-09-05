@@ -167,6 +167,7 @@ function useServerLogs(enabled: boolean) {
   const [entries, setEntries] = useState<ServerLogEntry[]>([]);
   const maxIdRef = useRef(0);
   const proxySeenRef = useRef(new Set<string>());
+  const proxyResultSeenRef = useRef(new Set<string>());
 
   useEffect(() => {
     if (!enabled) return;
@@ -187,8 +188,10 @@ function useServerLogs(enabled: boolean) {
           const proxyData = await proxyRes.json();
           const proxyEntries = (proxyData.attempts || []).map((attempt: any, index: number) => {
             const key = [attempt.timestamp, attempt.groupId, attempt.service, attempt.status, attempt.durationMs].join('|');
+            const resultKey = [attempt.service, attempt.status, attempt.error || ''].join('|');
             return {
               key,
+              resultKey,
               entry: {
                 id: -index - 1,
                 ts: attempt.timestamp,
@@ -202,9 +205,16 @@ function useServerLogs(enabled: boolean) {
                 },
               },
             };
-          }).filter((item: { key: string }) => !proxySeenRef.current.has(item.key));
+          }).filter((item: { key: string; resultKey: string }, itemIndex: number, all: Array<{ key: string; resultKey: string }>) =>
+            !proxySeenRef.current.has(item.key) &&
+            !proxyResultSeenRef.current.has(item.resultKey) &&
+            all.findIndex(candidate => candidate.resultKey === item.resultKey) === itemIndex
+          );
           if (proxyEntries.length) {
-            proxyEntries.forEach((item: { key: string }) => proxySeenRef.current.add(item.key));
+            proxyEntries.forEach((item: { key: string; resultKey: string }) => {
+              proxySeenRef.current.add(item.key);
+              proxyResultSeenRef.current.add(item.resultKey);
+            });
             setEntries(prev => [...proxyEntries.map((item: { entry: ServerLogEntry }) => item.entry), ...prev].slice(0, 200));
           }
         }
