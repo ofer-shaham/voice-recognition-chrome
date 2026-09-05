@@ -381,7 +381,8 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     if (project.videoId) p.set('v', project.videoId);
     else p.set('p', project.id);
     p.set('m', project.subtitleService || 'plus');
-    if (project.subtitleUrl) p.set('url', project.subtitleUrl);
+    const originalSubtitleUrl = new URLSearchParams(window.location.search).get('url') || project.subtitleUrl;
+    if (originalSubtitleUrl) p.set('url', originalSubtitleUrl);
     const sharedApiKey = getStoredOpenRouterApiKey();
     if (sharedApiKey) p.set('orKey', sharedApiKey);
     p.set('maxTokens', String(maxRequestTokens));
@@ -1571,7 +1572,8 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
                   if (project.videoId) p.set('v', project.videoId);
                   else p.set('p', project.id);
                   p.set('m', project.subtitleService || 'plus');
-                  if (project.subtitleUrl) p.set('url', project.subtitleUrl);
+                  const originalSubtitleUrl = new URLSearchParams(window.location.search).get('url') || project.subtitleUrl;
+                  if (originalSubtitleUrl) p.set('url', originalSubtitleUrl);
                   const openRouterKey = getStoredOpenRouterApiKey();
                   if (openRouterKey) p.set('orKey', openRouterKey);
                   p.set('maxTokens', String(maxRequestTokens));
