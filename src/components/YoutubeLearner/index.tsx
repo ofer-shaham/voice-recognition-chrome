@@ -40,6 +40,7 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
   const path = normalizeRoutePath(location.pathname);
   const [activeProject, setActiveProject] = useState<YtProject | null>(null);
   const [showSetup, setShowSetup] = useState(false);
+  const [routeResolved, setRouteResolved] = useState(false);
   const [theme, setTheme] = useState<YoutubeTheme>(() => {
     const saved = localStorage.getItem('youtube-learner-theme');
     return saved === 'dark' || saved === 'blue' ? saved : 'light';
@@ -61,6 +62,7 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
   const isProjectRoute = path.startsWith(`${routeBase}/view/`) || path.startsWith(`${routeBase}/project/`);
 
   useEffect(() => {
+    setRouteResolved(false);
     const params = new URLSearchParams(window.location.search);
     if (!isHistoryRoute && params.toString()) {
       const history = loadSharedUrlHistory();
@@ -114,18 +116,21 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
       const targetProject = fromUrl ?? lastProject;
       setActiveProject(targetProject ?? null);
       setShowSetup(!targetProject);
+      setRouteResolved(true);
       return;
     }
 
     if (isLessonRoute) {
       setActiveProject((fromUrl ?? lastProject) ?? null);
       setShowSetup(!fromUrl && !lastProject);
+      setRouteResolved(true);
       return;
     }
 
     if (isSetupRoute) {
       setActiveProject(null);
       setShowSetup(true);
+      setRouteResolved(true);
       return;
     }
 
@@ -133,19 +138,22 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
       setActiveProject(fromUrl ?? null);
       setShowSetup(false);
       if (!isProjectRoute) {
-        navigate(`${routeBase}/view/${encodeURIComponent(fromUrl.id)}`, { replace: true });
+        navigate(`${routeBase}/view/${encodeURIComponent(fromUrl.id)}${window.location.search}`, { replace: true });
       }
+      setRouteResolved(true);
       return;
     }
 
     if (isProjectRoute) {
       setActiveProject(null);
       setShowSetup(true);
+      setRouteResolved(true);
       return;
     }
 
     setActiveProject(null);
     setShowSetup(true);
+    setRouteResolved(true);
   }, [projects, path, routeBase, navigate, getLastId, isProjectRoute, isSettingsRoute, isSetupRoute, isLessonRoute, isHistoryRoute]);
 
   const handleProjectReady = (project: YtProject) => {
@@ -244,6 +252,8 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
       </div>
     );
   }
+
+  if (!routeResolved) return <div className={`yl-player yl-theme-${theme}`}>Loading project…</div>;
 
   if (isSettingsHomeRoute) {
     return (

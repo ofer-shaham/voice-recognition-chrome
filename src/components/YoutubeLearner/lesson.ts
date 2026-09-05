@@ -1,4 +1,4 @@
-import { chatWithAI, DEFAULT_OPENROUTER_MAX_TOKENS, getStoredOpenRouterApiKey, getStoredOpenRouterMaxTokens } from '../../services/openRouterService';
+import { chatWithAI, DEFAULT_OPENROUTER_MAX_TOKENS, getStoredOpenRouterMaxTokens, hasValidatedOpenRouterKey } from '../../services/openRouterService';
 import aiConfig from '../../config/aiConfig.json';
 const createLocalDifficultyMask = (subtitleRows: string, difficulty: number): string[] => {
   return subtitleRows.split(/\n\s*\n/).map(row => {
@@ -10,7 +10,7 @@ const createLocalDifficultyMask = (subtitleRows: string, difficulty: number): st
   }).filter(Boolean);
 };
 
-export const usesLocalDifficultyMask = (): boolean => !getStoredOpenRouterApiKey();
+export const usesLocalDifficultyMask = (): boolean => !hasValidatedOpenRouterKey();
 import { YtProject } from './types';
 
 export interface LessonRow {

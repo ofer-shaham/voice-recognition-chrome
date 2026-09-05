@@ -2,7 +2,7 @@
 .yl-player {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: calc(100vh - 59px);
   background: #0f1117;
   color: #e2e8f0;
   font-family: system-ui, -apple-system, sans-serif;
@@ -12,7 +12,7 @@
 /* ── Mobile Responsive ────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .yl-player {
-    height: 100dvh;
+    height: calc(100dvh - 59px);
     /* Dynamic viewport height for mobile browsers */
   }
 
