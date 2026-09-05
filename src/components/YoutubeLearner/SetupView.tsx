@@ -224,7 +224,7 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
     if (sharedUrl) {
       if (parseInvidiousCaptionsUrl(sharedUrl)) {
         setSubtitleService('invidious');
-        setInvidiousCaptionsUrl('');
+        setInvidiousCaptionsUrl(sharedUrl);
       }
       setUrl(sharedUrl);
       handleFindLanguages(sharedUrl, sharedMethod || undefined);
@@ -279,6 +279,7 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
                   selected.searchParams.set('label', e.target.value);
                   setInvidiousSelectedLabel(e.target.value);
                   setInvidiousCaptionsUrl(selected.toString());
+                  void handleFindLanguages(selected.toString(), 'invidious');
                 }}
               >
                 {invidiousLabels.map(label => <option key={label} value={label}>{label}</option>)}
@@ -856,10 +857,12 @@ export default function SetupView({ onProjectReady, onProjectFetched, recentProj
           className="yl-btn-secondary"
           onClick={() => {
             setUrl(INVIDIOUS_DEMO_URL);
+            setInvidiousCaptionsUrl(INVIDIOUS_DEMO_URL);
             setSubtitleService('invidious');
             setFindError('');
             setFetchedProject(null);
             urlInputRef.current?.focus();
+            void handleFindLanguages(INVIDIOUS_DEMO_URL, 'invidious');
           }}
         >
           Fill Invidious demo URL
