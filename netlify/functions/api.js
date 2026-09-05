@@ -583,7 +583,7 @@ exports.handler = async (event) => {
     const t0 = Date.now();
     try {
       const orRes = await fetch(
-        "https://openrouter.ai/api/frontend/models/find?active=true&fmt=cards&max_price=0&order=top-weekly",
+        "https://openrouter.ai/api/v1/models",
         { headers: { Accept: "application/json" } }
       );
       if (!orRes.ok) {
@@ -591,8 +591,18 @@ exports.handler = async (event) => {
         return json(orRes.status, { error: "OpenRouter returned " + orRes.status });
       }
       const data = await orRes.json();
-      const rawList = data?.data?.models ?? data?.data ?? data?.models ?? data ?? [];
-      const models = rawList.map((m) => ({ id: m.slug || m.id || "", label: m.name || m.short_name || m.slug || "" })).filter((m) => m.id);
+      const rawList = Array.isArray(data?.data) ? data.data : [];
+      const models = rawList
+        .filter((m) => {
+          const pricing = m?.pricing || {};
+          const prompt = Number(pricing.prompt);
+          const completion = Number(pricing.completion);
+          const modalities = m?.architecture?.input_modalities || m?.input_modalities || [];
+          return (m?.id?.endsWith(":free") || (prompt === 0 && completion === 0)) && modalities.includes("text");
+        })
+        .map((m) => ({ id: m.id || "", label: m.name || m.id || "" }))
+        .filter((m) => m.id)
+        .sort((a, b) => a.label.localeCompare(b.label));
       log("info", "free-models OK", { count: models.length, elapsed: Date.now() - t0 });
       return json(200, { models });
     } catch (err) {

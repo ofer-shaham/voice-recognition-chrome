@@ -531,14 +531,20 @@ app.get("/api/tts", async (req, res) => {
 app.get("/api/free-models", async (_req, res) => {
   try {
     const orRes = await fetch(
-      "https://openrouter.ai/api/frontend/v1/models/find?active=true&fmt=cards&max_price=0&variant=free",
+      "https://openrouter.ai/api/v1/models",
       { headers: { Accept: "application/json" } },
     );
     if (!orRes.ok) return res.status(orRes.status).json({ error: "OpenRouter returned " + orRes.status });
     const data = await orRes.json();
-    const rawList = data?.data?.models ?? data?.data ?? data?.models ?? data ?? [];
+    const rawList = Array.isArray(data?.data) ? data.data : [];
     const models = rawList
-      .filter((m) => m?.has_text_output && Array.isArray(m?.input_modalities) && m.input_modalities.includes("text"))
+      .filter((m) => {
+        const pricing = m?.pricing || {};
+        const prompt = Number(pricing.prompt);
+        const completion = Number(pricing.completion);
+        const modalities = m?.architecture?.input_modalities || m?.input_modalities || [];
+        return (m?.id?.endsWith(":free") || (prompt === 0 && completion === 0)) && modalities.includes("text");
+      })
       .map((m) => ({ id: m.slug || m.id || "", label: m.name || m.short_name || m.slug || m.id || "" }))
       .filter((m) => m.id)
       .sort((a, b) => a.label.localeCompare(b.label));
