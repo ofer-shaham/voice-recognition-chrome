@@ -11,16 +11,6 @@ type TranslationMethod = 'openapi' | 'google' | 'openrouter';
 
 type AiTranslationCacheEntry = Record<string, string>;
 
-type GenerateAlternativeTranslationInput = {
-    videoId?: string;
-    fromLang: string;
-    toLang: string;
-    level?: number;
-    rows?: number;
-    srtContent: string;
-    model?: string;
-};
-
 const normalizeLanguage = (value: string): string => {
     const normalized = (value || '').trim().toLowerCase();
     if (!normalized || normalized === 'auto' || normalized === 'und' || normalized === 'unknown' || normalized.endsWith('_auto') || normalized.endsWith('-auto')) {
@@ -264,56 +254,7 @@ const translateWithOpenRouterText = async ({ text, fromLang, toLang, level, mode
     return result;
 };
 
-export const generateAlternativeTranslationSrt = async ({ videoId, fromLang, toLang, level, rows, srtContent, model }: GenerateAlternativeTranslationInput): Promise<string> => {
-    const normalizedFromLang = normalizeLanguage(fromLang);
-    const normalizedToLang = normalizeLanguage(toLang);
-    const normalizedLevel = normalizeAiLevel(level);
-    const cleanedSrt = (srtContent || '').replace(/\r\n/g, '\n').trim();
-    if (!cleanedSrt) throw new Error('No SRT content was provided for AI translation.');
 
-    const fullKey = aiCacheKeyFor({ videoId, fromLang: normalizedFromLang, toLang: normalizedToLang, level: normalizedLevel, rows: 0 });
-    const fullCached = readAiCache()[fullKey];
-    if (fullCached) return fullCached;
-
-    const partialKey = rows && rows > 0 ? aiCacheKeyFor({ videoId, fromLang: normalizedFromLang, toLang: normalizedToLang, level: normalizedLevel, rows }) : null;
-    if (partialKey && readAiCache()[partialKey]) return readAiCache()[partialKey];
-
-    const buildPrompt = (payload: string, mode: 'full' | 'partial') => `Translate the following SRT subtitle content from ${normalizedFromLang} to ${normalizedToLang}. Use level ${normalizedLevel}/5 to make the language easier to understand, less wordy, and better for education. Preserve valid SRT timing and structure exactly for the subtitles. Return only valid .srt content.\n\n${payload}\n\nMode: ${mode === 'full' ? 'entire file' : `first ${rows ?? 1} subtitle entries`}`;
-
-    const attemptTranslation = async (payload: string, mode: 'full' | 'partial') => {
-        const reply = await chatWithAI([
-            { role: 'user', content: buildPrompt(payload, mode) },
-        ], model || getConfiguredOpenRouterModel(), undefined, getStoredOpenRouterMaxTokens());
-        const parsed = extractSrtFromMarkdown(reply.content);
-        if (!parsed) throw new Error('OpenRouter returned no valid SRT translation.');
-        return parsed;
-    };
-
-    try {
-        const fullResult = await attemptTranslation(cleanedSrt, 'full');
-        if (fullResult && looksLikeSrtContent(fullResult)) {
-            rememberAiTranslation({ videoId, fromLang: normalizedFromLang, toLang: normalizedToLang, level: normalizedLevel, rows: 0, value: fullResult });
-            return fullResult;
-        }
-    } catch {
-        // fall through to partial translation when a full-file AI SRT is unavailable
-    }
-
-    if (rows && rows > 0) {
-        const partialSource = truncateToRowCount(cleanedSrt, rows);
-        try {
-            const partialResult = await attemptTranslation(partialSource, 'partial');
-            if (partialResult && looksLikeSrtContent(partialResult)) {
-                rememberAiTranslation({ videoId, fromLang: normalizedFromLang, toLang: normalizedToLang, level: normalizedLevel, rows, value: partialResult });
-                return partialResult;
-            }
-        } catch {
-            // last attempt failed; surface the error to the caller
-        }
-    }
-
-    throw new Error('OpenRouter AI SRT translation failed.');
-};
 
 const translateWithGoogle = ({ text, fromLang, toLang }: { text: string; fromLang: string; toLang: string }): Promise<string> => {
     const normalizedFromLang = normalizeLanguage(fromLang);
@@ -342,18 +283,6 @@ export const translate = ({ finalTranscriptProxy, fromLang, toLang, videoId, met
     }
 
     const selectedMethod = method || getConfiguredTranslationMethod();
-    if (selectedMethod === 'openrouter' && !!videoId && looksLikeSrtContent(text)) {
-        return generateAlternativeTranslationSrt({ videoId, fromLang: normalizedFromLang, toLang: normalizedToLang, level, rows, srtContent: text, model: model || getConfiguredOpenRouterModel() })
-            .then(result => {
-                setCachedTranslation(normalizedFromLang, normalizedToLang, text, result);
-                return result;
-            })
-            .catch(err => {
-                console.error(err.message);
-                return 'translation error';
-            });
-    }
-
     if (selectedMethod === 'openrouter') {
         return translateWithOpenRouterText({ text, fromLang: normalizedFromLang, toLang: normalizedToLang, level: normalizeAiLevel(level), model: model || getConfiguredOpenRouterModel() })
             .then(result => {

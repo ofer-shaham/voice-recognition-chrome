@@ -20,30 +20,6 @@ describe('translate', () => {
         expect(DEFAULT_OPENROUTER_MODEL).toBe('openrouter/auto:free');
     });
 
-    it('prefers a cached full-file AI subtitle translation over a stale partial result', async () => {
-        const { generateAlternativeTranslationSrt, getCachedAiTranslation } = await import('./translate');
-        const videoId = 'abc123';
-        const partialCacheKey = `${videoId}|en|es|3|next:3`;
-        const fullCacheKey = `${videoId}|en|es|3|full`;
-
-        localStorage.setItem('yt_ai_translation_cache_v1', JSON.stringify({
-            [partialCacheKey]: '1\n00:00:00,000 --> 00:00:01,000\nEspañol parcial\n',
-            [fullCacheKey]: '1\n00:00:00,000 --> 00:00:01,000\nHola mundo\n',
-        }));
-
-        const result = await generateAlternativeTranslationSrt({
-            videoId,
-            fromLang: 'en',
-            toLang: 'es',
-            level: 3,
-            rows: 3,
-            srtContent: '1\n00:00:00,000 --> 00:00:01,000\nHello world.\n',
-        });
-
-        expect(result).toBe('1\n00:00:00,000 --> 00:00:01,000\nHola mundo\n');
-        expect(getCachedAiTranslation({ videoId, fromLang: 'en', toLang: 'es', level: 3, rows: 3 })).toBe('1\n00:00:00,000 --> 00:00:01,000\nHola mundo\n');
-    });
-
     it('uses the transcript API for SRT content', async () => {
         globalThis.fetch = vi.fn().mockResolvedValue({
             ok: true,
