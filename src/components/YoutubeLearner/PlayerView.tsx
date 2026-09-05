@@ -1658,27 +1658,27 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
                 {!autoTranslateRows && <button className="yl-btn-secondary yl-btn-sm" type="button" onClick={async () => { if (useMaskAsTranslationBase && !maskVisible) await generateMask(); setAutoTranslateRows(true); retranslate(); }}>
                   Translate visible rows
                 </button>}
-              <label className="yl-sr-only" htmlFor="yl-ai-mask-level">Mask difficulty</label>
-              <select id="yl-ai-mask-level" className="yl-select-sm" value={aiTranslationLevel}
-                onChange={e => { const value = Number(e.target.value); setAiTranslationLevel(value); localStorage.setItem('yt_ai_level', String(value)); }}>
-                <option value={0}>None</option>
-                {[1, 2, 3, 4, 5].map(level => <option key={level} value={level}>Mask {level}</option>)}
-              </select>
-              <button className="yl-btn-secondary yl-btn-sm" type="button" onClick={generateMask} disabled={aiMaskLoading || aiTranslationLevel === 0} title="Generate a simpler AI mask column">
-                {aiMaskLoading ? 'Masking…' : maskVisible ? 'Refresh mask' : usesLocalDifficultyMask() ? 'Random mask' : 'AI mask'}
-              </button>
-              {maskVisible && (
-                <>
-                  <label className="yl-checkbox-label" title="Translate the AI mask instead of the subtitle text">
-                    <input type="checkbox" checked={useMaskAsTranslationBase} onChange={e => setUseMaskAsTranslationBase(e.target.checked)} />
-                    Translate mask
-                  </label>
-                  <button className="yl-btn-ghost yl-btn-sm" type="button" onClick={() => { setAiMaskRows({}); setUseMaskAsTranslationBase(false); setAiMaskError(''); }} title="Clear the AI mask column">
-                    ✕
-                  </button>
-                </>
-              )}
-              {usesLocalDifficultyMask() && <span className="yl-setting-info yl-ai-mask-disclaimer">No OpenRouter key: this mask uses a random consecutive word selection, not AI.</span>}
+                <label className="yl-sr-only" htmlFor="yl-ai-mask-level">Mask difficulty</label>
+                <select id="yl-ai-mask-level" className="yl-select-sm" value={aiTranslationLevel}
+                  onChange={e => { const value = Number(e.target.value); setAiTranslationLevel(value); localStorage.setItem('yt_ai_level', String(value)); }}>
+                  <option value={0}>None</option>
+                  {[1, 2, 3, 4, 5].map(level => <option key={level} value={level}>Mask {level}</option>)}
+                </select>
+                <button className="yl-btn-secondary yl-btn-sm" type="button" onClick={generateMask} disabled={aiMaskLoading || aiTranslationLevel === 0} title="Generate a simpler AI mask column">
+                  {aiMaskLoading ? 'Masking…' : maskVisible ? 'Refresh mask' : usesLocalDifficultyMask() ? 'Random mask' : 'AI mask'}
+                </button>
+                {maskVisible && (
+                  <>
+                    <label className="yl-checkbox-label" title="Translate the AI mask instead of the subtitle text">
+                      <input type="checkbox" checked={useMaskAsTranslationBase} onChange={e => setUseMaskAsTranslationBase(e.target.checked)} />
+                      Translate mask
+                    </label>
+                    <button className="yl-btn-ghost yl-btn-sm" type="button" onClick={() => { setAiMaskRows({}); setUseMaskAsTranslationBase(false); setAiMaskError(''); }} title="Clear the AI mask column">
+                      ✕
+                    </button>
+                  </>
+                )}
+                {usesLocalDifficultyMask() && <span className="yl-setting-info yl-ai-mask-disclaimer">No OpenRouter key: this mask uses a random consecutive word selection, not AI.</span>}
               </div>
             </details>
           )}
