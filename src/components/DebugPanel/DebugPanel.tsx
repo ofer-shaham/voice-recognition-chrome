@@ -281,8 +281,13 @@ export default function DebugPanel() {
     : openRouterServerEntries;
 
   const buildText = useCallback(() => {
-    const clientLines = entries.map(e => `[${e.ts}] ${ICONS[e.kind]} ${e.label}\n    ${e.detail}`);
-    const serverLines = serverEntries.map(e => `[${e.ts}] [${e.level}] ${e.msg} ${Object.keys(e.meta).length ? JSON.stringify(e.meta) : ''}`);
+    const chronological = <T extends { ts: string }>(items: T[]) => [...items].sort((a, b) => a.ts.localeCompare(b.ts));
+    const reduxLines = chronological(entries.filter(e => e.kind === 'redux'))
+      .map(e => `[${e.ts}] ${e.label}\n    ${e.detail}`);
+    const clientLines = chronological(entries.filter(e => e.kind !== 'redux'))
+      .map(e => `[${e.ts}] ${ICONS[e.kind]} ${e.label}\n    ${e.detail}`);
+    const serverLines = chronological(serverEntries)
+      .map(e => `[${e.ts}] [${e.level}] ${e.msg} ${Object.keys(e.meta).length ? JSON.stringify(e.meta) : ''}`);
     return [
       `=== Debug Log — ${now()} ===`,
       `URL: ${window.location.href}`,
@@ -290,6 +295,9 @@ export default function DebugPanel() {
       '',
       '--- CLIENT LOGS ---',
       ...clientLines,
+      '',
+      '--- REDUX ACTIONS ---',
+      ...reduxLines,
       '',
       '--- SERVER LOGS ---',
       ...serverLines,
