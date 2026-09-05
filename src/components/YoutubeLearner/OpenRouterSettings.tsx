@@ -95,10 +95,21 @@ export default function OpenRouterSettings({ routeBase, theme, onThemeChange, sh
         }
     };
 
+    const handleClose = () => {
+        if (project) {
+            navigate(`${routeBase}/view/${encodeURIComponent(project.id)}`);
+        } else {
+            navigate(`${routeBase}/settings`);
+        }
+    };
+
+    const apiKeyIndicator = apiKey ? `...${apiKey.slice(-4)}` : 'No API key';
+
     return (
         <div className={`yl-player yl-theme-${theme}`}>
             {showNavigation && <div className="yl-header">
                 <div className="yl-header-left">
+                    <button className="yl-btn-ghost" onClick={handleClose} title="Close and return">← Back</button>
                     <button className="yl-btn-ghost" onClick={() => navigate(`${routeBase}/settings`)}>Settings</button>
                     <button className="yl-btn-ghost" onClick={() => navigate(`${routeBase}/settings/translation`)}>Translation settings</button>
                     <button className="yl-btn-ghost" onClick={() => navigate(`${routeBase}/setup`)}>Home</button>
@@ -111,12 +122,16 @@ export default function OpenRouterSettings({ routeBase, theme, onThemeChange, sh
                         </select>
                     </label>
                 </div>
+                <div className="yl-header-right">
+                    <button className="yl-btn-ghost" onClick={handleClose} title="Close settings">✕</button>
+                </div>
             </div>}
             <div className="yl-settings">
                 <div className="yl-settings-heading">
                     <div>
                         <strong>OpenRouter settings</strong>
                         <span>These settings are reserved for lesson creation and AI experiments.</span>
+                        <span className="yl-setting-info">API key: {apiKeyIndicator}</span>
                     </div>
                     {showNavigation && <button className="yl-btn-ghost yl-btn-sm" onClick={() => navigate(`${routeBase}/settings/translation`)}>Close</button>}
                 </div>

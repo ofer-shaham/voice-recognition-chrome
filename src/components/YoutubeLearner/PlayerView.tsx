@@ -1730,7 +1730,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
           </div>
           {settingsOnly && <div className="yl-settings-tabs" role="tablist" aria-label="YouTube settings">
             <button className="yl-settings-tab yl-settings-tab-active" role="tab" aria-selected="true">Translation</button>
-            <button className="yl-settings-tab" role="tab" onClick={() => navigate(`${routeBase}/settings/openrouter`)}>OpenRouter</button>
+            <button className="yl-settings-tab" role="tab" onClick={() => navigate(`${routeBase}/settings/openrouter`)}>OpenRouter {getStoredOpenRouterApiKey() ? `(${getStoredOpenRouterApiKey().slice(-4)})` : ''}</button>
           </div>}
           <div className="yl-settings-global">
             <label className="yl-setting-field yl-translation-setting">
