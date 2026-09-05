@@ -85,6 +85,8 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
       return '';
     })();
     const sharedVideoId = params.get('v');
+    const sharedSourceUrl = params.get('url');
+    const incompleteIframeShare = params.get('m') === 'iframe' && !!sharedVideoId && !sharedSourceUrl;
     const fromSharedVideo = sharedVideoId
       ? resolvedProjects.find(p => p.videoId === sharedVideoId)
       : null;
@@ -95,8 +97,12 @@ export default function YoutubeLearner({ routeBase = '/youtube' }: YoutubeLearne
     const fromProjectParam = projectId
       ? resolvedProjects.find(p => p.id === projectId)
       : null;
-    const sharedSourceUrl = params.get('url');
-    const fromUrl = sharedSourceUrl ? null : fromSharedVideo ?? fromRoute ?? fromProjectParam;
+    const fromSharedSource = sharedSourceUrl
+      ? resolvedProjects.find(p => p.subtitleUrl === sharedSourceUrl)
+      : null;
+    const fromUrl = sharedSourceUrl
+      ? fromSharedSource
+      : incompleteIframeShare ? null : fromSharedVideo ?? fromRoute ?? fromProjectParam;
     const lastId = getLastId();
     const lastProject = lastId ? resolvedProjects.find(p => p.id === lastId) : resolvedProjects[0] ?? null;
 

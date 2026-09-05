@@ -224,7 +224,11 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     typeof window !== 'undefined' && window.localStorage.getItem('yt_auto_generate_mask') === 'true'
   );
   const [autoStartVideo, setAutoStartVideo] = useState<boolean>(() =>
-    typeof window !== 'undefined' && window.localStorage.getItem('yt_auto_start_video') === 'true'
+    typeof window !== 'undefined' && (() => {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('v') || params.has('url')) return params.get('autoStart') === 'true';
+      return window.localStorage.getItem('yt_auto_start_video') === 'true';
+    })()
   );
   const [autoTranslateRows, setAutoTranslateRows] = useState<boolean>(() =>
     typeof window !== 'undefined' && window.localStorage.getItem('yt_auto_translate_rows') === 'true'
@@ -401,6 +405,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     // Include AI mask settings in URL
     if (aiTranslationLevel > 0) p.set('mask', String(aiTranslationLevel));
     if (useMaskAsTranslationBase) p.set('useMask', 'true');
+    if (autoStartVideo) p.set('autoStart', 'true');
     window.history.replaceState(null, '', `${window.location.pathname}?${p.toString()}`);
   }, [project.id, project.videoId, project.lastLine, config, isPlaying, seamlessMode, aiTranslationLevel, useMaskAsTranslationBase]);
 
@@ -1591,6 +1596,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
                   // Include AI mask settings
                   if (aiTranslationLevel > 0) p.set('mask', String(aiTranslationLevel));
                   if (useMaskAsTranslationBase) p.set('useMask', 'true');
+                  if (autoStartVideo) p.set('autoStart', 'true');
                   const sharePath = `${routeBase}/project/${encodeURIComponent(project.id)}`;
                   const shareUrl = `${window.location.origin}${sharePath}?${p.toString()}`;
                   try {
