@@ -513,13 +513,6 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
       setTranslationStatusMessage('Translation is paused until enabled');
       return;
     }
-    // EARLY GUARD: If using mask as translation base but masks aren't ready yet, skip entire translation
-    if (useMaskAsTranslationBase && Object.keys(aiMaskRows).length === 0) {
-      setTranslationStatus('idle');
-      setTranslationStatusMessage('Generating AI mask for translation...');
-      return;
-    }
-
     let cancelled = false;
     const run = async () => {
       if (lines.length === 0) return; // Wait for lines to be populated
