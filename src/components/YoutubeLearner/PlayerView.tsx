@@ -464,7 +464,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
         // Accumulate masks instead of replacing - allows scrolling to generate more masks
         setAiMaskRows(prev => ({
           ...prev,
-          ...Object.fromEntries(rows.map((text, index) => [windowStart + index, text]))
+          ...Object.fromEntries(rows.map((text, index) => [windowStart + index, text]).filter(([, text]) => !!text))
         }));
       } catch {
         // Silently fail - user can manually generate if needed
@@ -1208,7 +1208,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     try {
       // Generate masks for all visible rows, not just aiTranslationRows (12)
       const rows = await generateDifficultyMask(project, aiTranslationLevel, config.visibleLines, true, windowStart);
-      setAiMaskRows(Object.fromEntries(rows.map((text, index) => [windowStart + index, text])));
+      setAiMaskRows(Object.fromEntries(rows.map((text, index) => [windowStart + index, text]).filter(([, text]) => !!text)));
     } catch (error) {
       setAiMaskError(error instanceof Error ? error.message : String(error));
     } finally {

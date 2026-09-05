@@ -120,19 +120,22 @@ export const generateDifficultyMask = async (project: YtProject, difficulty: num
 
   const rows: string[] = [];
   for (const sentence of subtitleEntries) {
-    const prompt = buildMinimalMaskPrompt(sentence, safeDifficulty);
-    const response = await chatWithAI(
-      [{ role: 'user', content: prompt }],
-      localStorage.getItem('yt_ai_model') || 'openrouter/auto:free',
-      undefined,
-      getMaskRequestTokenLimit(sentence, safeDifficulty),
-    );
-    const parsed = parseMaskRows(response.content, safeDifficulty);
-    const chosen = parsed[0];
-    if (chosen) rows.push(chosen);
+    try {
+      const prompt = buildMinimalMaskPrompt(sentence, safeDifficulty);
+      const response = await chatWithAI(
+        [{ role: 'user', content: prompt }],
+        localStorage.getItem('yt_ai_model') || 'openrouter/auto:free',
+        undefined,
+        getMaskRequestTokenLimit(sentence, safeDifficulty),
+      );
+      const parsed = parseMaskRows(response.content, safeDifficulty);
+      rows.push(parsed[0] || '');
+    } catch {
+      rows.push('');
+    }
   }
 
-  if (!rows.length) throw new Error('OpenRouter returned no difficulty-mask rows.');
+  if (!rows.some(Boolean)) throw new Error('OpenRouter returned no difficulty-mask rows.');
   if (useCache) {
     const cache = readMaskCache();
     cache[key] = rows.slice(0, safeRows);
