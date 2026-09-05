@@ -231,12 +231,12 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     })()
   );
   const [autoTranslateRows, setAutoTranslateRows] = useState<boolean>(() =>
-    typeof window !== 'undefined' && window.localStorage.getItem('yt_auto_translate_rows') === 'true'
+    typeof window !== 'undefined' && window.localStorage.getItem('yt_auto_translate_rows') !== 'false'
   );
   const [maxRequestTokens, setMaxRequestTokens] = useState(() => {
-    if (typeof window !== 'undefined') {
+      if (typeof window !== 'undefined') {
       const shared = Number(new URLSearchParams(window.location.search).get('maxTokens'));
-      if (Number.isFinite(shared) && shared >= 256) {
+      if (Number.isFinite(shared) && shared >= 5) {
         const value = Math.min(16384, Math.round(shared));
         window.localStorage.setItem(OPENROUTER_MAX_TOKENS_STORAGE, String(value));
         return value;
@@ -492,6 +492,18 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     setTranslationVer(version => version + 1);
   }, [aiMaskRows, useMaskAsTranslationBase]);
 
+  useEffect(() => {
+    pendingSet.current = new Set(linesRef.current.map((_, index) => index));
+    setLines(prev => prev.map(line => ({
+      ...line,
+      translation: '',
+      translated: false,
+      translations: {},
+      translatedTargets: {},
+    })));
+    setTranslationVer(version => version + 1);
+  }, [config.translationSource, (config.translationTargets || []).join('|')]);
+
   // ── On-demand translation ─────────────────────────────────────────────────────
   // Translate only what the learner can see, plus a small lookahead. This keeps
   // navigation responsive without sending the whole transcript to the API.
@@ -549,6 +561,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
         }
         translatingSet.current.add(i);
         setTranslatingIndices(new Set(translatingSet.current));
+        const translatedTargets = { ...(line.translatedTargets || {}) };
         const fromLang = cfg.translationSource.replace('track:', '').split('-')[0];
         for (const target of targets) {
           if (line.translatedTargets?.[target]) continue;
@@ -562,6 +575,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
               translations: { ...(l.translations || {}), [target]: result },
               translatedTargets: { ...(l.translatedTargets || {}), [target]: true },
             } : l));
+            translatedTargets[target] = true;
             setCachedCount(getTranslationCacheCount());
           } catch {
             wasRateLimited = true;
@@ -570,7 +584,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
             break;
           }
         }
-        if (targets.every(target => line.translatedTargets?.[target])) pendingSet.current.delete(i);
+        if (targets.every(target => translatedTargets[target])) pendingSet.current.delete(i);
         translatingSet.current.delete(i);
         setTranslatingIndices(new Set(translatingSet.current));
         if (wasRateLimited) break;
@@ -1647,10 +1661,10 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
                 </label>
                 <label className="yl-checkbox-label" title="Maximum output tokens sent with each OpenRouter request">
                   Request tokens
-                  <input className="yl-input-sm" type="number" min={256} max={16384} step={256} value={maxRequestTokens}
+                  <input className="yl-input-sm" type="number" min={5} max={16384} step={1} value={maxRequestTokens}
                     onChange={e => {
                       const raw = Number(e.target.value);
-                      const value = raw <= 0 ? 0 : Math.min(16384, Math.round(raw));
+                      const value = raw < 5 ? 5 : Math.min(16384, Math.round(raw));
                       setMaxRequestTokens(value);
                       localStorage.setItem(OPENROUTER_MAX_TOKENS_STORAGE, String(value));
                     }} />

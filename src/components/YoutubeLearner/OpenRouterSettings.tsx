@@ -34,7 +34,6 @@ export default function OpenRouterSettings({ routeBase, theme, onThemeChange, sh
             .then(data => {
                 if (Array.isArray(data.models) && data.models.length > 0) {
                     setFreeModels(data.models);
-                    if (!data.models.some((option: { id: string }) => option.id === model)) saveModel(data.models[0].id);
                 }
             })
             .catch(() => { });
@@ -62,7 +61,7 @@ export default function OpenRouterSettings({ routeBase, theme, onThemeChange, sh
     const saveMode = (value: 'full' | 'rows') => { setMode(value); localStorage.setItem('yt_ai_mode', value); };
     const saveRows = (value: number) => { setRows(value); localStorage.setItem('yt_ai_rows', String(value)); };
     const saveMaxTokens = (value: number) => {
-        const next = value <= 0 ? 0 : Math.min(aiConfig.tokenLimits.globalMaxTokensAbsoluteMax, Math.round(value));
+        const next = value < 5 ? 5 : Math.min(aiConfig.tokenLimits.globalMaxTokensAbsoluteMax, Math.round(value));
         setMaxTokens(next);
         localStorage.setItem(OPENROUTER_MAX_TOKENS_STORAGE, String(next));
     };
@@ -150,6 +149,14 @@ export default function OpenRouterSettings({ routeBase, theme, onThemeChange, sh
                         <span>Key status</span>
                         <span className="yl-setting-info">{validation.state === 'valid' ? 'Validated' : validation.state === 'checking' ? 'Checking…' : validation.state === 'invalid' ? validation.error : 'Not validated'}</span>
                     </div>
+                    <label className="yl-setting-field">
+                        <span>Model (quick setup)</span>
+                        <select className="yl-select-sm" value={freeModels.some(option => option.id === model) ? model : DEFAULT_MODEL}
+                            onChange={e => saveModel(e.target.value)}>
+                            <option value={DEFAULT_MODEL}>OpenRouter Auto (free)</option>
+                            {freeModels.filter(option => option.id !== DEFAULT_MODEL).map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
+                        </select>
+                    </label>
                     {validation.state === 'valid' && <>
                         <label className="yl-setting-field">
                             <span>Free model</span>
@@ -170,7 +177,7 @@ export default function OpenRouterSettings({ routeBase, theme, onThemeChange, sh
                         </label>
                         <label className="yl-setting-field">
                             <span>Maximum output tokens</span>
-                            <input type="number" className="yl-input-sm" min={0} max={aiConfig.tokenLimits.globalMaxTokensAbsoluteMax} step={256} value={maxTokens} onChange={e => saveMaxTokens(Number(e.target.value))} />
+                            <input type="number" className="yl-input-sm" min={5} max={aiConfig.tokenLimits.globalMaxTokensAbsoluteMax} step={1} value={maxTokens} onChange={e => saveMaxTokens(Number(e.target.value))} />
                             <span className="yl-setting-info">Lower values reduce credit usage</span>
                         </label>
                         <label className="yl-setting-field">

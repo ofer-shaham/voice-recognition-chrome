@@ -3,7 +3,7 @@
     "maskMinTokens": 16,
     "maskMaxTokens": 40,
     "translationMaxTokens": 40,
-    "globalMaxTokensDefault": 0,
+    "globalMaxTokensDefault": 5,
     "globalMaxTokensAbsoluteMax": 16384
   },
   "maskSettings": {
