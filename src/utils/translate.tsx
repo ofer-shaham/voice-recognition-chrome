@@ -4,7 +4,8 @@ import { chatWithAI, getStoredOpenRouterMaxTokens } from '../services/openRouter
 const CACHE_KEY = 'yl_translation_cache_v1';
 const AI_CACHE_KEY = 'yt_ai_translation_cache_v1';
 export const DEFAULT_OPENROUTER_MODEL = 'openrouter/auto:free';
-const DEFAULT_AI_LEVEL = 3;
+import aiConfig from '../config/aiConfig.json';
+const DEFAULT_AI_LEVEL = aiConfig.translationSettings.defaultLevel;
 
 type TranslationCache = Record<string, string>;
 type TranslationMethod = 'openapi' | 'google' | 'openrouter';
@@ -99,9 +100,10 @@ const getConfiguredOpenRouterModel = (): string => {
 };
 
 const normalizeAiLevel = (level?: number): number => {
-    const parsed = Number(level ?? DEFAULT_AI_LEVEL);
-    if (!Number.isFinite(parsed)) return DEFAULT_AI_LEVEL;
-    return Math.min(5, Math.max(1, Math.round(parsed)));
+    const { minLevel, maxLevel, defaultLevel } = aiConfig.translationSettings;
+    const parsed = Number(level ?? defaultLevel);
+    if (!Number.isFinite(parsed)) return defaultLevel;
+    return Math.min(maxLevel, Math.max(minLevel, Math.round(parsed)));
 };
 
 const cacheKeyFor = (fromLang: string, toLang: string, text: string) =>

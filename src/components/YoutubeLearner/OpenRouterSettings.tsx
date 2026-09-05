@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DEFAULT_MODEL, DEFAULT_OPENROUTER_MAX_TOKENS, getStoredOpenRouterApiKey, getStoredOpenRouterMaxTokens, OPENROUTER_API_KEY_STORAGE, OPENROUTER_MAX_TOKENS_STORAGE, OPENROUTER_MODELS, OPENROUTER_VALIDATED_KEY_STORAGE, validateOpenRouterKey } from '../../services/openRouterService';
+import aiConfig from '../../config/aiConfig.json';
 import { YtProject, YoutubeTheme } from './types';
 import { generateLesson, LessonRow } from './lesson';
 
@@ -15,7 +16,7 @@ interface Props {
 export default function OpenRouterSettings({ routeBase, theme, onThemeChange, showNavigation = true, project }: Props) {
     const navigate = useNavigate();
     const [model, setModel] = useState(() => localStorage.getItem('yt_ai_model') || DEFAULT_MODEL);
-    const [level, setLevel] = useState(() => Math.min(5, Math.max(1, Number(localStorage.getItem('yt_ai_level') || '3'))));
+    const [level, setLevel] = useState(() => Math.min(aiConfig.maskSettings.maxDifficulty, Math.max(aiConfig.maskSettings.minDifficulty, Number(localStorage.getItem('yt_ai_level') || String(aiConfig.maskSettings.defaultDifficulty)))));
     const [mode, setMode] = useState<'full' | 'rows'>(() => localStorage.getItem('yt_ai_mode') === 'full' ? 'full' : 'rows');
     const [rows, setRows] = useState(() => Number(localStorage.getItem('yt_ai_rows') || '12'));
     const [maxTokens, setMaxTokens] = useState(() => getStoredOpenRouterMaxTokens());
@@ -61,7 +62,7 @@ export default function OpenRouterSettings({ routeBase, theme, onThemeChange, sh
     const saveMode = (value: 'full' | 'rows') => { setMode(value); localStorage.setItem('yt_ai_mode', value); };
     const saveRows = (value: number) => { setRows(value); localStorage.setItem('yt_ai_rows', String(value)); };
     const saveMaxTokens = (value: number) => {
-        const next = value <= 0 ? 0 : Math.min(16384, Math.round(value));
+        const next = value <= 0 ? 0 : Math.min(aiConfig.tokenLimits.globalMaxTokensAbsoluteMax, Math.round(value));
         setMaxTokens(next);
         localStorage.setItem(OPENROUTER_MAX_TOKENS_STORAGE, String(next));
     };
@@ -149,12 +150,12 @@ export default function OpenRouterSettings({ routeBase, theme, onThemeChange, sh
                         </label>
                         <label className="yl-setting-field">
                             <span>Clarity level</span>
-                            <input type="range" min={1} max={5} step={1} value={level} onChange={e => saveLevel(Number(e.target.value))} />
-                            <span className="yl-setting-info">Level {level}/5</span>
+                            <input type="range" min={aiConfig.maskSettings.minDifficulty} max={aiConfig.maskSettings.maxDifficulty} step={1} value={level} onChange={e => saveLevel(Number(e.target.value))} />
+                            <span className="yl-setting-info">Level {level}/{aiConfig.maskSettings.maxDifficulty}</span>
                         </label>
                         <label className="yl-setting-field">
                             <span>Maximum output tokens</span>
-                            <input type="number" className="yl-input-sm" min={256} max={16384} step={256} value={maxTokens} onChange={e => saveMaxTokens(Number(e.target.value))} />
+                            <input type="number" className="yl-input-sm" min={0} max={aiConfig.tokenLimits.globalMaxTokensAbsoluteMax} step={256} value={maxTokens} onChange={e => saveMaxTokens(Number(e.target.value))} />
                             <span className="yl-setting-info">Lower values reduce credit usage</span>
                         </label>
                         <label className="yl-setting-field">

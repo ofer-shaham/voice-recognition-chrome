@@ -1,4 +1,5 @@
 import { chatWithAI, DEFAULT_OPENROUTER_MAX_TOKENS, getStoredOpenRouterApiKey, getStoredOpenRouterMaxTokens } from '../../services/openRouterService';
+import aiConfig from '../../config/aiConfig.json';
 const createLocalDifficultyMask = (subtitleRows: string, difficulty: number): string[] => {
   return subtitleRows.split(/\n\s*\n/).map(row => {
     const content = row.split(/\r?\n/).filter(line => !/^\d+$/.test(line.trim()) && !line.includes('-->')).join(' ').trim();
@@ -55,14 +56,16 @@ export const buildMinimalMaskPrompt = (subtitleSentence: string, difficulty: num
 };
 
 export const getMaskRequestTokenLimit = (subtitleSentence: string, difficulty: number): number => {
-  const safeDifficulty = Math.max(1, Math.min(5, Math.round(difficulty)));
+  const { minDifficulty, maxDifficulty } = aiConfig.maskSettings;
+  const { maskMinTokens, maskMaxTokens } = aiConfig.tokenLimits;
+  const safeDifficulty = Math.max(minDifficulty, Math.min(maxDifficulty, Math.round(difficulty)));
   const wordCount = subtitleSentence.trim().split(/\s+/).filter(Boolean).length;
-  const lineBudget = Math.max(16, Math.min(128, wordCount + safeDifficulty + 8));
+  const lineBudget = Math.max(maskMinTokens, Math.min(maskMaxTokens, wordCount + safeDifficulty + 8));
   const configuredLimit = getStoredOpenRouterMaxTokens();
   return configuredLimit > 0 ? Math.min(lineBudget, configuredLimit) : lineBudget;
 };
 
-export const parseMaskRows = (content: string, targetWordCount = 3): string[] => {
+export const parseMaskRows = (content: string, targetWordCount = aiConfig.maskSettings.targetWordCount): string[] => {
   const fenced = content.match(/```(?:json)?\s*([\s\S]*?)```/i);
   const candidate = (fenced ? fenced[1] : content).trim();
 

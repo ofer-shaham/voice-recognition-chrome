@@ -1,0 +1,25 @@
+{
+  "tokenLimits": {
+    "maskMinTokens": 16,
+    "maskMaxTokens": 40,
+    "translationMaxTokens": 40,
+    "globalMaxTokensDefault": 0,
+    "globalMaxTokensAbsoluteMax": 16384
+  },
+  "maskSettings": {
+    "minDifficulty": 1,
+    "maxDifficulty": 5,
+    "defaultDifficulty": 1,
+    "targetWordCount": 3
+  },
+  "translationSettings": {
+    "minLevel": 1,
+    "maxLevel": 5,
+    "defaultLevel": 3,
+    "method": "google",
+    "availableMethods": ["google", "openapi", "openrouter"]
+  },
+  "openRouterSettings": {
+    "defaultModel": "openrouter/auto:free"
+  }
+}
