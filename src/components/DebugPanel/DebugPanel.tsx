@@ -42,7 +42,7 @@ function formatLogPayload(value: unknown): string {
       if (item && typeof item === 'object') {
         return Object.fromEntries(Object.entries(item).map(([key, child]) => [
           key,
-          /^(api.?key|authorization|orKey)$/i.test(key) ? '[REDACTED]' : redact(child),
+          /^(authorization|orKey)$/i.test(key) ? '[REDACTED]' : redact(child),
         ]));
       }
       return item;
