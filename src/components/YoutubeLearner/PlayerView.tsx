@@ -251,7 +251,7 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
     if (urlUseMask === 'true') return true;
     // Fall back to localStorage
     const raw = window.localStorage.getItem('yt_use_mask_base');
-    return raw === null ? true : raw === 'true';
+    return raw === 'true';
   });
   const [aiTranslationMode, setAiTranslationMode] = useState<'full' | 'rows'>(() => {
     if (typeof window === 'undefined') return 'rows';
@@ -1649,7 +1649,8 @@ export default function PlayerView({ routeBase = '/youtube', project, onSave, on
                   Request tokens
                   <input className="yl-input-sm" type="number" min={256} max={16384} step={256} value={maxRequestTokens}
                     onChange={e => {
-                      const value = Math.max(256, Math.min(16384, Math.round(Number(e.target.value) || DEFAULT_OPENROUTER_MAX_TOKENS)));
+                      const raw = Number(e.target.value);
+                      const value = raw <= 0 ? 0 : Math.min(16384, Math.round(raw));
                       setMaxRequestTokens(value);
                       localStorage.setItem(OPENROUTER_MAX_TOKENS_STORAGE, String(value));
                     }} />

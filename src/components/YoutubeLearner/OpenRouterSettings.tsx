@@ -61,7 +61,7 @@ export default function OpenRouterSettings({ routeBase, theme, onThemeChange, sh
     const saveMode = (value: 'full' | 'rows') => { setMode(value); localStorage.setItem('yt_ai_mode', value); };
     const saveRows = (value: number) => { setRows(value); localStorage.setItem('yt_ai_rows', String(value)); };
     const saveMaxTokens = (value: number) => {
-        const next = Math.max(0, Math.min(16384, Math.round(value) || DEFAULT_OPENROUTER_MAX_TOKENS));
+        const next = value <= 0 ? 0 : Math.min(16384, Math.round(value));
         setMaxTokens(next);
         localStorage.setItem(OPENROUTER_MAX_TOKENS_STORAGE, String(next));
     };

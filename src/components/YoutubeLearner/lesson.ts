@@ -58,7 +58,8 @@ export const getMaskRequestTokenLimit = (subtitleSentence: string, difficulty: n
   const safeDifficulty = Math.max(1, Math.min(5, Math.round(difficulty)));
   const wordCount = subtitleSentence.trim().split(/\s+/).filter(Boolean).length;
   const lineBudget = Math.max(16, Math.min(128, wordCount + safeDifficulty + 8));
-  return Math.min(lineBudget, getStoredOpenRouterMaxTokens() || DEFAULT_OPENROUTER_MAX_TOKENS);
+  const configuredLimit = getStoredOpenRouterMaxTokens();
+  return configuredLimit > 0 ? Math.min(lineBudget, configuredLimit) : lineBudget;
 };
 
 export const parseMaskRows = (content: string, targetWordCount = 3): string[] => {

@@ -39,9 +39,9 @@ export const OPENROUTER_MAX_TOKENS_STORAGE = 'yt_ai_max_tokens';
 export const DEFAULT_OPENROUTER_MAX_TOKENS = 4096;
 
 export const getStoredOpenRouterMaxTokens = (): number => {
-  if (typeof window === 'undefined') return DEFAULT_OPENROUTER_MAX_TOKENS;
+  if (typeof window === 'undefined') return 0;
   const value = Number(window.localStorage.getItem(OPENROUTER_MAX_TOKENS_STORAGE));
-  return Number.isFinite(value) && value >= 256 ? Math.min(16384, Math.round(value)) : DEFAULT_OPENROUTER_MAX_TOKENS;
+  return Number.isFinite(value) && value > 0 ? Math.min(16384, Math.round(value)) : 0;
 };
 
 export const getStoredOpenRouterApiKey = (): string => {
